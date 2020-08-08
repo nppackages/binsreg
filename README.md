@@ -53,6 +53,6 @@ install.packages('binsreg')
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2019): [On Binscatter](references/Cattaneo-Crump-Farrell-Feng_2019_wp.pdf), working paper. [Supplemental Appendix](references/Cattaneo-Crump-Farrell-Feng_2019_wp--Supplemental.pdf).
+- Cattaneo, Crump, Farrell and Feng (2019): [On Binscatter](references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf), working paper. [Supplemental Appendix](references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter--Supplemental.pdf).
 
 <br><br>
