@@ -42,10 +42,8 @@ install.packages('binsreg')
 
 - Help: [R Manual](https://cran.r-project.org/web/packages/binsreg/binsreg.pdf), [CRAN repository](https://cran.r-project.org/package=binsreg).
 
-- Replication: [R-script](R/binsreg_illustration.r), [data](R/binsreg_data.csv).
+- Replication: [R-script](R/binsreg_illustration.r), [data](R/binsreg_sim.csv).
 
-Manual -- Replication files: R-script, data
-CRAN repository
 
 ## References
 

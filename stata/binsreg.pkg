@@ -1,0 +1,29 @@
+v 0.2
+d STATA Package: BINSREG PACKAGE
+d 
+d Authors: Matias D. Cattaneo, University of Michigan, cattaneo@umich.edu
+d          Richard K. Crump, Federal Reserve Band of New York, richard.crump@ny.frb.org
+d          Max H. Farrell, University of Chicago, max.farrell@chicagobooth.edu
+d          Yingjie Feng, University of Michigan, yjfeng@umich.edu
+d
+d Date: 13-MAR-2019
+d 
+f binsreg.ado
+f binsreg.sthlp
+f binsregselect.ado
+f binsregselect.sthlp
+f binsregtest.ado
+f binsregtest.sthlp
+f binsreg_irecode.ado
+f binsreg_pctile.ado
+f binsreg_checkdrop.mo
+f binsreg_functions.do
+f binsreg_grids.mo
+f binsreg_illustration.do
+f binsreg_pred.mo
+f binsreg_pval.mo
+f binsreg_simdata.dta
+f binsreg_spdes.mo
+f binsreg_st_spdes.mo
+f binsreg_uniq.mo
+f stata.toc

@@ -1,0 +1,75 @@
+*! version 0.2 13-MAR-2019 
+
+* Generalized pctile function
+
+program define binsreg_pctile, rclass
+   version 13
+   
+   syntax varlist(max=1 numeric) [if] [in] [fw aw pw] [, nq(integer 2)]
+   
+   /* nq must be >=2, # of bins */
+   /* used internally, no error checks */
+   
+   marksample touse
+   
+   if ("`weight'"!="") local wt [`weight'`exp']
+   
+   local nk = `nq'-1   /* # of quantiles */
+   tempname A
+   mat `A'=J(`nk',1,.)
+   
+   if `nq' <= 1001 {
+	  _pctile `varlist' if `touse' `wt', n(`nq')
+	  forvalues j = 1/`nk' {
+		 mat `A'[`j',1] = r(r`j')
+	  }
+   }
+   else {
+	  local plist    = ""
+	  local plistlen = 0
+	  local entryint = 1
+	  local plistsize = 0
+	  local plistnextsize = 0
+	  
+	  forvalues j = 1/`nk' {
+		 local plistnext = 100*`j'/`nq'
+		 local plistsize = `plistsize' + `plistnextsize'
+		 local plistnextsize : strlen local plistnext
+		 if (`plistsize'+`plistnextsize' < `c(macrolen)') & (`plistlen' <= 999) {
+			if "`plist'"=="" {
+			   local plist "`plistnext'"
+			}
+			else local plist "`plist',`plistnext'"
+			
+			local ++plistlen
+			
+			if `j' == `nk' {
+				_pctile `varlist' if `touse' `wt', p(`plist')
+				forvalues k = 1/`plistlen' {
+					mat `A'[`entryint'+`k'-1,1] = r(r`k')
+				}
+			}
+		 }
+		 else {
+			_pctile `varlist' if `touse' `wt', p(`plist')
+			forvalues k = 1/`plistlen' {
+				mat `A'[`entryint'+`k'-1,1] = r(r`k')
+			}
+			if (`j'<`nk') {
+			   local plist "`plistnext'"
+			   local entryint = `entryint' + `plistlen'
+			   local plistlen = 1
+			   local plistsize = 0
+			}
+			else {
+			   _pctile `varlist' if `touse' `wt', p(`plistnext')
+			   mat `A'[`nk',1]=r(r1)
+			}
+		}
+	 }
+  }
+  
+  return clear
+  return matrix Q=`A'
+   
+end
