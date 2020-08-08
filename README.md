@@ -1,10 +1,12 @@
 # BINSREG
 
-The `binsreg` package provides Stata and R implementations of binscatter methods, including partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures. This work was supported by the National Science Foundation through grants [SES-1947805](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805) and [SES-2019432](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2019432).
+The `binsreg` package provides Stata and R implementations of binscatter methods, including partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures.
+
+This work was supported in part by the National Science Foundation through grants [SES-1947805](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805) and [SES-2019432](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2019432).
 
 ## Queries and Requests
 
-Email: binsreg.package@gmail.com
+Please email: binsreg.package@gmail.com
 
 ## Major Upgrades coming in Fall 2020:
 
@@ -27,9 +29,9 @@ To install/update in Stata type:
 net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/master/stata) replace
 ```
 
-- Help: binsreg, binsregtest, binsregselect
+- Help: [binsreg](references/binsreg.pdf), [binsregtest](references/binsregtest.pdf), [binsregselect](references/binsregselect.pdf).
 
-- Replication files: do-file, data, speed test
+- Replication files: [do-file](references/binsreg_illustration.pdf), [data](references/binsreg_data.pdf), [speed test](references/).
 
 ## R Implementation
 
@@ -47,9 +49,12 @@ CRAN repository
 
 ## References
 
+### Software and Implementation
 
-For technical, methodological and implementation details see the following papers (and references therein):
-Cattaneo, Crump, Farrell and Feng (2019): On Binscatter. [Supplemental Appendix]
-Cattaneo, Crump, Farrell and Feng (2019): Binscatter Regressions.
+- Cattaneo, Crump, Farrell and Feng (2019): [Binscatter Regressions](references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf), working paper.
+
+### Technical and Methodological
+
+- Cattaneo, Crump, Farrell and Feng (2019): [On Binscatter](references/Cattaneo-Crump-Farrell-Feng_2019_wp.pdf), working paper. [Supplemental Appendix](references/Cattaneo-Crump-Farrell-Feng_2019_wp--Supplemental.pdf).
 
 <br><br>
