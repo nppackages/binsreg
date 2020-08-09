@@ -49,10 +49,10 @@ install.packages('binsreg')
 
 ### Software and Implementation
 
-- Cattaneo, Crump, Farrell and Feng (2019): [Binscatter Regressions](references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf), working paper.
+- Cattaneo, Crump, Farrell and Feng (2019): [Binscatter Regressions](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf), working paper.
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2019): [On Binscatter](references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf), working paper. [Supplemental Appendix](references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter--Supplemental.pdf).
+- Cattaneo, Crump, Farrell and Feng (2019): [On Binscatter](references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf), working paper. [Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter--Supplemental.pdf).
 
 <br><br>
