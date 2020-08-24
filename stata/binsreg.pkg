@@ -1,4 +1,4 @@
-v 0.2
+v 3
 d STATA Package: BINSREG PACKAGE
 d 
 d Authors: Matias D. Cattaneo, University of Michigan, cattaneo@umich.edu
@@ -6,7 +6,7 @@ d          Richard K. Crump, Federal Reserve Band of New York, richard.crump@ny.
 d          Max H. Farrell, University of Chicago, max.farrell@chicagobooth.edu
 d          Yingjie Feng, University of Michigan, yjfeng@umich.edu
 d
-d Date: 13-MAR-2019
+d Distribution-Date: 20190313
 d 
 f binsreg.ado
 f binsreg.sthlp
