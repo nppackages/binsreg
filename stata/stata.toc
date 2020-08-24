@@ -1,5 +1,5 @@
 v 3
-d BINSREG: Manipulation testing using local polynomial density methods.
+d BINSREG: Partition selection, point estimation, pointwise and uniform inference, and graphical procedures using binscatter methods.
 d          https://nppackages.github.io/binsreg
 d
 
