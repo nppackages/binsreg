@@ -18,13 +18,11 @@ Please email: binsreg.package@gmail.com
 
 - New command/function binsreglincom for testing of linear combinations across subgroups (e.g., H0: mu1(x)=mu2(x) for all x). For now, see option by() for joint plotting of marginal confidence bands.
 
+- Recentering of binscatter estimate of \mu(x) to account for additional covariates. For now, the package sets additional covariates at zero.
+
 - New command/function binsxtreg for panel data estimation, inference and binned scatter plots. For now, in Stata use the command i. or ib(). for incorporating fixed effects (as with the regress command).
 
 - Handling of formulas in R package.
-
-- Recentering of binscatter estimate of \mu(x) to account for additional covariates. For now, the package sets additional covariates at zero.
-
-- Backwards compatibility with Stata 13. For now, Stata 14 or better is needed.
 
 ## Stata Implementation
 
