@@ -10,7 +10,7 @@ https://nppackages.github.io/binsreg
 
 ## Queries and Requests
 
-Please email: binsreg.package@gmail.com
+Please email: [binsreg.package@gmail.com](mailto:binsreg.package@gmail.com)
 
 ## Major Upgrades coming in Fall 2020:
 
