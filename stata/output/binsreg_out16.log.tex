@@ -1,0 +1,80 @@
+. binstest y x w, nbins(20) testshaper(-2 0) testshapel(4) testmodelpoly(1) ///
+>                    nsims(1000) simsgrid(30)
+{\smallskip}
+Linear regression                               Number of obs     =      1,000
+                                                F(24, 976)        =      74.99
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.6468
+                                                Root MSE          =     1.0865
+{\smallskip}
+\HLI{13}{\TOPT}\HLI{64}
+             {\VBAR}               Robust
+           y {\VBAR}      Coef.   Std. Err.      t    P>|t|     [95\% Conf. Interval]
+\HLI{13}{\PLUS}\HLI{64}
+    __00000E {\VBAR}  -1.008858   .3854207    -2.62   0.009    -1.765207   -.2525096
+    __00000F {\VBAR}  -2.105157   .5074419    -4.15   0.000     -3.10096   -1.109355
+    __00000G {\VBAR}  -.9509692    .474771    -2.00   0.045    -1.882659   -.0192798
+    __00000H {\VBAR}  -1.405101   .3530921    -3.98   0.000    -2.098008   -.7121938
+    __00000I {\VBAR}  -.9338806   .3654964    -2.56   0.011     -1.65113   -.2166313
+    __00000J {\VBAR}  -1.031513   .3802705    -2.71   0.007    -1.777755    -.285271
+    __00000K {\VBAR}  -.4238988    .320235    -1.32   0.186    -1.052327    .2045295
+    __00000L {\VBAR}  -.2981258   .3602854    -0.83   0.408    -1.005149    .4088974
+    __00000M {\VBAR}  -.9668244   .3392473    -2.85   0.004    -1.632563   -.3010863
+    __00000N {\VBAR}   .6633921   .3638191     1.82   0.069    -.0505657     1.37735
+    __00000O {\VBAR}  -.0074828   .3535067    -0.02   0.983    -.7012035    .6862378
+    __00000P {\VBAR}    1.68339   .3350802     5.02   0.000     1.025829    2.340951
+    __00000Q {\VBAR}   1.276997   .3536219     3.61   0.000     .5830506    1.970944
+    __00000R {\VBAR}   .6426886   .3229999     1.99   0.047     .0088344    1.276543
+    __00000S {\VBAR}   1.499711   .3232968     4.64   0.000      .865274    2.134148
+    __00000T {\VBAR}   1.389517   .3362175     4.13   0.000     .7297252     2.04931
+    __00000U {\VBAR}   1.215756   .2974353     4.09   0.000     .6320693    1.799442
+    __00000V {\VBAR}    1.81848   .3334952     5.45   0.000      1.16403     2.47293
+    __00000W {\VBAR}   1.856632   .3675281     5.05   0.000     1.135396    2.577868
+    __00000X {\VBAR}   1.874899   .3820814     4.91   0.000     1.125103    2.624694
+    __00000Y {\VBAR}   2.714782   .4963503     5.47   0.000     1.740745    3.688818
+    __00000Z {\VBAR}    1.74463   .5984834     2.92   0.004     .5701675    2.919092
+    __000010 {\VBAR}   3.280448   .5932234     5.53   0.000     2.116308    4.444589
+           w {\VBAR}   .9896657   .0581921    17.01   0.000     .8754697    1.103862
+\HLI{13}{\BOTT}\HLI{64}
+{\smallskip}
+Hypothesis tests based on binscatter estimates
+Estimation method: reg
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+{\smallskip}
+\HLI{30}{\TOPT}\HLI{15}
+\# of observations             {\VBAR}    1000
+\# of distinct values          {\VBAR}    1000
+\# of clusters                 {\VBAR}       .
+\HLI{30}{\PLUS}\HLI{15}
+Bin selection:                {\VBAR} 
+         Degree of polynomial {\VBAR}       0
+  \# of smoothness constraints {\VBAR}       0
+                    \# of bins {\VBAR}      20
+\HLI{30}{\BOTT}\HLI{15}
+{\smallskip}
+Shape Restriction Tests:
+Degree: 3     \# of smoothness constraints: 3
+{\smallskip}
+\HLI{19}{\TOPT}\HLI{30}
+H0: sup mu <=      {\VBAR} sup T             p value
+\HLI{19}{\PLUS}\HLI{30}
+         4         {\VBAR}  -1.683             1.000
+\HLI{19}{\BOTT}\HLI{30}
+{\smallskip}
+\HLI{19}{\TOPT}\HLI{30}
+H0: inf mu >=      {\VBAR} inf T             p value
+\HLI{19}{\PLUS}\HLI{30}
+         -2        {\VBAR}   1.461             1.000
+         0         {\VBAR}  -9.694             0.000
+\HLI{19}{\BOTT}\HLI{30}
+{\smallskip}
+Model specification Tests:
+Degree: 3     \# of smoothness constraints: 3
+{\smallskip}
+\HLI{19}{\TOPT}\HLI{30}
+H0: mu =           {\VBAR} sup |T|           p value
+\HLI{19}{\PLUS}\HLI{30}
+poly. degree  1    {\VBAR}   6.108             0.000
+\HLI{19}{\BOTT}\HLI{30}

@@ -1,26 +1,26 @@
 {smcl}
-{* *! version 0.2 13-MAR-2019}{...}
-{viewerjumpto "Syntax" "binsregtest##syntax"}{...}
-{viewerjumpto "Description" "binsregtest##description"}{...}
-{viewerjumpto "Options" "binsregtest##options"}{...}
-{viewerjumpto "Examples" "binsregtest##examples"}{...}
-{viewerjumpto "Stored results" "binsregtest##stored_results"}{...}
-{viewerjumpto "References" "binsregtest##references"}{...}
-{viewerjumpto "Authors" "binsregtest##authors"}{...}
-{cmd:help binsregtest}
+{* *! version 0.3 10-JUN-2021}{...}
+{viewerjumpto "Syntax" "binstest##syntax"}{...}
+{viewerjumpto "Description" "binstest##description"}{...}
+{viewerjumpto "Options" "binstest##options"}{...}
+{viewerjumpto "Examples" "binstest##examples"}{...}
+{viewerjumpto "Stored results" "binstest##stored_results"}{...}
+{viewerjumpto "References" "binstest##references"}{...}
+{viewerjumpto "Authors" "binstest##authors"}{...}
+{cmd:help binstest}
 {hline}
 
 {title:Title}
 
-{p 4 8}{hi:binsregtest} {hline 2} Data-driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.{p_end}
+{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.{p_end}
 
 
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 16} {cmdab:binsregtest} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt deriv(v)}{p_end}
+{p 4 16} {cmdab:binstest} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt estmethod(cmdname)} {opt deriv(v)}{p_end}
 {p 16 16} {opt testmodel(p s)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
-{p 16 16} {opt testshape(p s)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)}{p_end}
+{p 16 16} {opt testshape(p s)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)} {opt lp(metric)}{p_end}
 {p 16 16} {opt bins(p s)} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)}{p_end}
 {p 16 16} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 16 16} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
@@ -35,28 +35,31 @@
 {marker description}{...}
 {title:Description}
 
-{p 4 8} {cmd:binsregtest} implements binscatter-based hypothesis testing procedures for parametric functional forms and nonparametric shape restrictions on of the regression function  estimators, following the results in
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2019a)}.
+{p 4 8} {cmd:binstest} implements binscatter-based hypothesis testing procedures for parametric functional forms and nonparametric shape restrictions on of the regression function  estimators, following the results in
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter in a data-driven (optimal) way and inference procedures are based on robust bias correction.
-Binned scatter plots can be constructed using the companion command {help binsreg:binsreg}.
+Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg}, {help binsqreg: binsqreg}, {help binslogit:binslogit} and {help binsprobit:binsprobit}.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2019b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
 A companion R package with the same capabilities is available (see website below).
 {p_end}
 
-{p 4 8} Companion commands: {help binsreg:binsreg} for binscatter estimation with robust inference procedures and plots, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
+{p 4 8} Companion commands: {help binsreg:binsreg} for binscatter regression with robust inference procedures and plots, {help binsqreg:binsqreg} for binscatter quantile regression with robust inference procedures and plots, {help binslogit:binslogit} for binscatter logit estimation with robust inference procedures and plots, {help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
 
 {p 4 8} Related Stata and R packages are available in the following website:{p_end}
 
-{p 8 8} {browse "https://sites.google.com/site/nppackages/":https://sites.google.com/site/nppackages/}{p_end}
+{p 8 8} {browse "https://nppackages.github.io/":https://nppackages.github.io/}{p_end}
 
 
 {marker options}{...}
 {title:Options}
 
 {dlgtab:Estimand}
+
+{p 4 8} {opt estmethod(cmdname)} specifies the binscatter model. The default is {cmd:estmethod(reg)}, which corresponds to the binscatter least squares regression. Other options are: {cmd:estmethod(qreg #)} for binscatter quantile regression where # is the quantile to be estimated, {cmd:estmethod(logit)} for binscatter logistic regression and {cmd:estmethod(probit)} for binscatter probit regression.
+{p_end}  
 
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
@@ -92,6 +95,11 @@ Each number {it:a} in the {it:numlist} corresponds to one boundary of a one-side
 
 {p 4 8} {opt testshape2(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
 Each number {it:a} in the {it:numlist} corresponds to one boundary of a two-sided hypothesis test of the form H0: {it:sup_x |mu(x)-a|=0}.
+{p_end}
+
+{dlgtab:Metric for Hypothesis Testing}
+
+{p 4 8} {opt lp(metric)} specifies a Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is {cmd:lp(inf)}, which corresponds to the sup-norm. Other options are Lp(q) for a positive integer q.
 {p_end}
  
 {dlgtab:Partitioning/Binning Selection}
@@ -148,7 +156,7 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Other Options}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the command {help regress##options:regress}.
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress}, {help logit##options:logit} or {help qreg##qreg_options:qreg}.
 The default is {cmd:vce(robust)}.
 {p_end}
 
@@ -157,7 +165,7 @@ The default is {cmd:vce(robust)}.
 {title:Examples}
 
 {p 4 8} Test linear model{p_end}
-{p 8 8} . {stata binsregtest y x w, testmodelpoly(1)}{p_end}
+{p 8 8} . {stata binstest y x w, testmodelpoly(1)}{p_end}
 
 
 {marker stored_results}{...}
@@ -197,13 +205,13 @@ The default is {cmd:vce(robust)}.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2019a.
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2019b.
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 
@@ -211,8 +219,8 @@ The default is {cmd:vce(robust)}.
 {marker authors}{...}
 {title:Authors}
 
-{p 4 8} Matias D. Cattaneo, University of Michigan, Ann Arbor, MI.
-{browse "mailto:cattaneo@umich.edu":cattaneo@umich.edu}.
+{p 4 8} Matias D. Cattaneo, Princeton University, Princeton, NJ.
+{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.
 {p_end}
 
 {p 4 8} Richard K. Crump, Federal Reserve Band of New York, New York, NY.
@@ -223,7 +231,7 @@ The default is {cmd:vce(robust)}.
 {browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.
 {p_end}
 
-{p 4 8} Yingjie Feng, University of Michigan, Ann Arbor, MI.
-{browse "mailto:yjfeng@umich.edu":yjfeng@umich.edu}.
+{p 4 8} Yingjie Feng, Princeton University, Princeton, NJ.
+{browse "mailto:yingjief@princeton.edu":yingjief@princeton.edu}.
 {p_end}
 

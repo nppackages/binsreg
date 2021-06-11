@@ -1,0 +1,42 @@
+. qui binsregselect y x w, simsgrid(30) savegrid(output/parfitval) replace
+{\smallskip}
+. qui reg y x w
+{\smallskip}
+. use output/parfitval, clear
+{\smallskip}
+. predict binsreg_fit_lm
+(option {\bftt{xb}} assumed; fitted values)
+{\smallskip}
+. save output/parfitval, replace
+file output/parfitval.dta saved
+{\smallskip}
+. use binsreg_simdata, clear
+{\smallskip}
+. binstest y x w, testmodelparfit(output/parfitval) lp(2)
+{\smallskip}
+Hypothesis tests based on binscatter estimates
+Estimation method: reg
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+{\smallskip}
+\HLI{30}{\TOPT}\HLI{15}
+\# of observations             {\VBAR}    1000
+\# of distinct values          {\VBAR}    1000
+\# of clusters                 {\VBAR}       .
+\HLI{30}{\PLUS}\HLI{15}
+Bin selection:                {\VBAR} 
+         Degree of polynomial {\VBAR}       0
+  \# of smoothness constraints {\VBAR}       0
+                    \# of bins {\VBAR}      21
+\HLI{30}{\BOTT}\HLI{15}
+{\smallskip}
+Model specification Tests:
+Degree: 3     \# of smoothness constraints: 3
+{\smallskip}
+Input file: output/parfitval.dta
+\HLI{19}{\TOPT}\HLI{30}
+H0: mu =           {\VBAR} L2 of T           p value
+\HLI{19}{\PLUS}\HLI{30}
+   binsreg_fit_lm  {\VBAR}   1.758             0.000
+\HLI{19}{\BOTT}\HLI{30}

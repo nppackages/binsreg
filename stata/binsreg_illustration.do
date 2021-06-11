@@ -1,10 +1,14 @@
 /*******************************************************************************
-BINSCATTER
-Date: 13-MAR-2019 
+BINSCATTER  
+Date: 10-JUN-2021 
 Authors: Matias Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
 *******************************************************************************/
 ** hlp2winpdf, cdn(binsreg) replace
-** hlp2winpdf, cdn(binsregtest) replace
+** hlp2winpdf, cdn(binsqreg) replace
+** hlp2winpdf, cdn(binslogit) replace
+** hlp2winpdf, cdn(binsprobit) replace
+** hlp2winpdf, cdn(binstest) replace
+** hlp2winpdf, cdn(binspwc) replace
 ** hlp2winpdf, cdn(binsregselect) replace
 *******************************************************************************/
 ** net install binsreg, from(https://sites.google.com/site/nppackages/binsreg/stata) replace
@@ -36,9 +40,11 @@ gen eps=rnormal()
 gen id=ceil(_n/2)
 * Y-var
 gen y=mu+w+t+eps
+* A binary outcome
+gen d=(runiform()<=x/(.5+x))
 
-keep y x w t id
-save binsreg_simdata, replace version(13)
+keep y x w t d id 
+saveold binsreg_simdata, replace version(13)
 
 */
 
@@ -51,7 +57,7 @@ sum
 sjlog close, replace
 
 ********************************************************************************
-** BINSREG
+** BINSREG: least squares regression
 ********************************************************************************
 * Default syntax
 sjlog using output/binsreg_out1, replace
@@ -60,13 +66,31 @@ sjlog close, replace
 
 graph export output/binsreg_fig1.pdf, replace
 
-* Setting quantile-spaced bins to J=20, add a linear fit
+* Evaluate the estimated function at median of w rather than the mean
 sjlog using output/binsreg_out2, replace
+binsreg y x w, at(median)
+sjlog close, replace
+
+* Add a factor variable, evaluate the estimated function at w=0.2 and t=1 saved in another file
+sjlog using output/binsreg_out3, replace
+tempfile evalcovar
+preserve
+clear
+set obs 1
+gen w=0.2
+gen t=1
+save `evalcovar', replace
+restore
+binsreg y x w i.t, at(`evalcovar')
+sjlog close, replace
+
+* Setting quantile-spaced bins to J=20, add a linear fit
+sjlog using output/binsreg_out4, replace
 binsreg y x w, nbins(20) polyreg(1)
 sjlog close, replace
 
 * Adding lines, ci, cb, polyreg
-sjlog using output/binsreg_out3, replace
+sjlog using output/binsreg_out5, replace
 qui binsreg y x w, nbins(20) dots(0,0) line(3,3)
 qui binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3)
 qui binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3) cb(3,3)
@@ -83,48 +107,127 @@ binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4)
 graph export output/binsreg_fig2d.pdf, replace
 
 * VCE option, factor vars, twoway options, graph data saving  
-sjlog using output/binsreg_out4, replace
+sjlog using output/binsreg_out6, replace
 binsreg y x w i.t, dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4) ///
                    vce(cluster id) savedata(output/graphdat) replace ///
 				   title("Binned Scatter Plot") 
 sjlog close, replace
 
 * Comparision by groups
-sjlog using output/binsreg_out5, replace
+sjlog using output/binsreg_out7, replace
 binsreg y x w, by(t) dots(0,0) line(3,3) cb(3,3) ///
                bycolors(blue red) bysymbols(O T) 
 sjlog close, replace
 graph export output/binsreg_fig3.pdf, replace
 
-********************************************************************************
-** BINSREGTEST
-********************************************************************************
-* Basic syntax: linear?
-sjlog using output/binsreg_out6, replace
-binsregtest y x w, testmodelpoly(1)
+* Shut down checks to speed computation
+sjlog using output/binsreg_out8, replace
+qui binsreg y x w, masspoints(off)
 sjlog close, replace
 
-* Alternative: save parametric fit in another file
+
+********************************************************************************
+** BINSQREG: quantile regression
+********************************************************************************
+
+* 0.25 quantile
+sjlog using output/binsreg_out9, replace
+binsqreg y x w, quantile(0.25)
+sjlog close, replace
+
+* estimate 0.25 and 0.75 quantiles and combine them with the results from binsreg 
+sjlog using output/binsreg_out10, replace
+tempfile file_q25 file_q75 file_reg
+preserve
+binsqreg y x, quantile(0.25) line(3 3) savedata(`file_q25')
+binsqreg y x, quantile(0.75) line(3 3) savedata(`file_q75')
+binsreg y x, line(3 3) cb(3 3) savedata(`file_reg')
+use `file_reg', clear
+append using `file_q25' `file_q75', generate(source)
+twoway (scatter dots_fit dots_x if source==0, mcolor(navy)) ///
+       (line line_fit line_x if source==0, sort lcolor(navy)) ///
+	   (rarea CB_l CB_r CB_x if source==0, sort fcolor(navy%50) lcolor(none%0) fintensity(50)) ///
+	   (line line_fit line_x if source==1, sort) ///
+	   (line line_fit line_x if source==2, sort), ///
+	   ytitle(Y) xtitle(X) title(Binscatter Plot) ///
+	   legend(order(1 "E[Y|X]" 2 "E[Y|X]" 3 "Conf. Band for E[Y|X]" 4 "0.25 quantile" 5 "0.75 quantile"))
+restore
+sjlog close, replace
+graph export output/binsreg_fig4.pdf, replace
+
+********************************************************************************
+** BINSLOGIT: logistic regression
+********************************************************************************
+
+* Basic syntax
+sjlog using output/binsreg_out11, replace
+binslogit d x w
+sjlog close, replace
+
+* Plot the function in the inverse link (logistic) function rather than the 
+* conditional probability
+sjlog using output/binsreg_out12, replace
+binslogit d x w, nolink
+sjlog close, replace
+
+
+********************************************************************************
+** BINSTEST
+********************************************************************************
+
+** Least Squares Regression (Default)
+* Basic syntax: linear?
+sjlog using output/binsreg_out13, replace
+binstest y x w, testmodelpoly(1)
+sjlog close, replace
+
+* Alternative: save parametric fit in another file, and/or use lp metric rather than sup
 * If not available, first create empty file with grid points using binsregselect
-sjlog using output/binsreg_out7, replace
+sjlog using output/binsreg_out14, replace
 qui binsregselect y x w, simsgrid(30) savegrid(output/parfitval) replace
 qui reg y x w
 use output/parfitval, clear
 predict binsreg_fit_lm
 save output/parfitval, replace
 use binsreg_simdata, clear
-binsregtest y x w, testmodelparfit(output/parfitval)
+binstest y x w, testmodelparfit(output/parfitval) lp(2)
 sjlog close, replace
 
 * Shape restriction test: increasing?
-sjlog using output/binsreg_out8, replace
-binsregtest y x w, deriv(1) nbins(20) testshaper(0)
+sjlog using output/binsreg_out15, replace
+binstest y x w, deriv(1) nbins(20) testshaper(0)
 sjlog close, replace
 
 * Test many things simultaneously
-sjlog using output/binsreg_out9, replace
-binsregtest y x w, nbins(20) testshaper(-2 0) testshapel(4) testmodelpoly(1) ///
+sjlog using output/binsreg_out16, replace
+binstest y x w, nbins(20) testshaper(-2 0) testshapel(4) testmodelpoly(1) ///
                    nsims(1000) simsgrid(30)
+sjlog close, replace
+
+** Quantile Regression
+* Median regression: linear?
+sjlog using output/binsreg_out17, replace
+binstest y x w, estmethod(qreg 0.5) testmodelpoly(1)
+sjlog close, replace
+
+** Logitistic Regression
+* Shape restriction test: increasing?
+sjlog using output/binsreg_out18, replace
+binstest d x w, estmethod(logit) deriv(1) nbins(20) testshaper(0)
+sjlog close, replace
+
+
+********************************************************************************
+** BINSPWC: pairwise group comparison
+********************************************************************************
+* Basic syntax
+sjlog using output/binsreg_out19, replace
+binspwc y x w, by(t)
+sjlog close, replace
+
+* Compare quantile regression functions
+sjlog using output/binsreg_out20, replace
+binspwc y x w, by(t) estmethod(qreg 0.4)
 sjlog close, replace
 
 
@@ -132,36 +235,23 @@ sjlog close, replace
 ** BINSREGSELECT
 ********************************************************************************
 * Basic syntax
-sjlog using output/binsreg_out10, replace
+sjlog using output/binsreg_out21, replace
 binsregselect y x w
 sjlog close, replace
 
 * J ROT specified manually and require evenly-spaced binning
-sjlog using output/binsreg_out11, replace
+sjlog using output/binsreg_out22, replace
 binsregselect y x w, nbinsrot(20) binspos(es)
 sjlog close, replace
 
 * Save grid for prediction purpose
-sjlog using output/binsreg_out12, replace
+sjlog using output/binsreg_out23, replace
 binsregselect y x w, simsgrid(30) savegrid(output/parfitval) replace
 sjlog close, replace
 
 * Extrapolating the optimal number of bins to the full sample
-sjlog using output/binsreg_out13, replace
+sjlog using output/binsreg_out24, replace
 binsregselect y x w if t==0, useeffn(1000)
 sjlog close, replace
 
-*******************************************************************************
-** BINSREG, integrated with BINSREGTEST and BINSREGSELECT
-*******************************************************************************
-* Shut down checks to speed computation
-sjlog using output/binsreg_out14, replace
-qui binsreg y x w, masspoints(off)
-sjlog close, replace
-
-* Automatic bin selection, binscatter plotting, and testing
-sjlog using output/binsreg_out15, replace
-binsreg y x w, dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4) ///
-               testmodelpoly(1) testshapel(4)
-sjlog close, replace
 

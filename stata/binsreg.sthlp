@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2 13-MAR-2019}{...}
+{* *! version 0.3 10-JUN-2021}{...}
 {viewerjumpto "Syntax" "binsreg##syntax"}{...}
 {viewerjumpto "Description" "binsreg##description"}{...}
 {viewerjumpto "Options" "binsreg##options"}{...}
@@ -12,25 +12,24 @@
 
 {title:Title}
 
-{p 4 8}{hi:binsreg} {hline 2} Data-driven Binscatter Estimation with Robust Inference Procedures and Plots.{p_end}
+{p 4 8}{hi:binsreg} {hline 2} Data-Driven Binscatter Least Squares Estimation with Robust Inference Procedures and Plots.{p_end}
 
 
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 12} {cmdab:binsreg} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt deriv(v)}{p_end}
+{p 4 12} {cmdab:binsreg} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt deriv(v)} {opt at(position)}{p_end}
 {p 12 12} {opt dots(p s)} {opt dotsgrid(dotsgridoption)} {opt dotsplotopt(dotsoption)}{p_end}
 {p 12 12} {opt line(p s)} {opt linegrid(#)} {opt lineplotopt(lineoption)}{p_end}
 {p 12 12} {opt ci(p s)} {opt cigrid(cigridoption)} {opt ciplotopt(rcapoption)}{p_end}
 {p 12 12} {opt cb(p s)} {opt cbgrid(#)} {opt cbplotopt(rareaoption)}{p_end}
 {p 12 12} {opt polyreg(p)} {opt polyreggrid(#)} {opt polyregcigrid(#)} {opt polyregplotopt(lineoption)}{p_end}
 {p 12 12} {opth by(varname)} {cmd:bycolors(}{it:{help colorstyle}list}{cmd:)} {cmd:bysymbols(}{it:{help symbolstyle}list}{cmd:)} {cmd:bylpatterns(}{it:{help linepatternstyle}list}{cmd:)}{p_end}
-{p 12 12} {opt testmodel(p s)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
-{p 12 12} {opt testshape(p s)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)}{p_end}
 {p 12 12} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby}{p_end}
 {p 12 12} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 12 12} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt level(level)} {opt noplot} {opt savedata(filename)} {opt replace} {it:{help twoway_options}} ]{p_end}
+{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt level(level)}{p_end}
+{p 12 12} {opt noplot} {opt savedata(filename)} {opt replace} {opt plotxrange(min max)} {opt plotyrange(min max)} {it:{help twoway_options}} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
 
@@ -41,24 +40,24 @@
 {marker description}{...}
 {title:Description}
 
-{p 4 8} {cmd:binsreg} implements binscatter estimation with robust inference proposed and plots, following the results in
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2019a)}.
+{p 4 8} {cmd:binsreg} implements binscatter least squares estimation with robust inference procedure and plots, following the results in
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
 Binscatter provides a flexible way of describing the mean relationship between two variables, after possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
 The main purpose of this command is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and uniform confidence band.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter in a data-driven (optimal) way.
-Hypothesis testing about the regression function can also be conducted via the companion command {help binsregtest:binsregtest}.
+Hypothesis testing about the regression function can be conducted via the companion command {help binstest:binstest}. Hypothesis testing about pairwise group comparison can be conducted via the companion command {help binspwc: binspwc}.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2019b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
 A companion R package with the same capabilities is available (see website below).
 {p_end}
 
-{p 4 8} Companion commands: {help binsregtest:binsregtest} for hypothesis testing, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
+{p 4 8} Companion commands: {help binstest:binstest} for hypothesis testing, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
 
 {p 4 8} Related Stata and R packages are available in the following website:{p_end}
 
-{p 8 8} {browse "https://sites.google.com/site/nppackages/":https://sites.google.com/site/nppackages/}{p_end}
+{p 8 8} {browse "https://nppackages.github.io/":https://nppackages.github.io/}{p_end}
 
 
 {marker options}{...}
@@ -68,6 +67,10 @@ A companion R package with the same capabilities is available (see website below
 
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
+{p_end}
+
+{p 4 8} {opt at(position)} specifies the values of {it:covars} at which the estimated function is evaluated for plotting.
+The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the median of {it:covars}, {cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
 {p_end}
 
 {dlgtab:Dots}
@@ -168,38 +171,6 @@ By default, the binning structure is selected for each subgroup separately, but 
 {p 4 8} {cmd:bylpatterns(}{it:{help linepatternstyle}list}{cmd:)} specifies an ordered list of line patterns for plotting each subgroup series defined by the option {opt by()}.
 {p_end}
 
-{dlgtab:Parametric Model Specification Testing}
-
-{p 4 8} {opt testmodel(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for parametric model specification testing, implemented via the companion command {help binsregtest:binsregtest}.
-The default is {cmd:testmodel(3 3)}, which corresponds to a cubic B-spline estimate of the regression function of interest for testing against the fitting from a parametric model specification.
-{p_end}
-
-{p 4 8} {opt testmodelparfit(filename)} specifies a dataset which contains the evaluation grid and fitted values of the model(s) to be tested against.
-The file must have a variable with the same name as {it:indvar}, which contains a series of evaluation points at which the binscatter model and the parametric model of interest are compared with each other.
-Each parametric model is represented by a variable named as {it:binsreg_fit*}, which must contain the fitted values at the corresponding evaluation points.
-{p_end}
-
-{p 4 8} {opt testmodelpoly(p)} specifies the degree of a global polynomial model to be tested against.
-{p_end}
-
-{dlgtab:Nonparametric Shape Restriction Testing}
-
-{p 4 8} {opt testshape(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for nonparametric shape restriction testing, implemented via the companion command {help binsregtest:binsregtest}.
-The default is {cmd:testmodel(3 3)}, which corresponds to a cubic B-spline estimate of the regression function of interest for one-sided or two-sided testing.
-{p_end}
-
-{p 4 8} {opt testshapel(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
-Each number {it:a} in the {it:numlist} corresponds to one boundary of a one-sided hypothesis test to the left of the form H0: {it:sup_x mu(x)<=a}.
-{p_end}
-
-{p 4 8} {opt testshaper(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
-Each number {it:a} in the {it:numlist} corresponds to one boundary of a one-sided hypothesis test to the right of the form H0: {it:inf_x mu(x)>=a}.
-{p_end}
-
-{p 4 8} {opt testshape2(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
-Each number {it:a} in the {it:numlist} corresponds to one boundary of a two-sided hypothesis test of the form H0: {it:sup_x |mu(x)-a|=0}.
-{p_end}
-
 {dlgtab:Partitioning/Binning Selection}
 
 {p 4 8} {opt nbins(#)} sets the number of bins for partitioning/binning of {it:indvar}.
@@ -271,6 +242,12 @@ The default is {cmd:vce(robust)}.
 {p 4 8} {opt replace} overwrites the existing file when saving the graph data.
 {p_end}
 
+{p 4 8} {opt plotxrange(min max)} specifies the range of the x-axis for plotting. Observations outside the range are dropped in the plot.
+{p_end}
+
+{p 4 8} {opt plotyrange(min max)} specifies the range of the y-axis for plotting. Observations outside the range are dropped in the plot.
+{p_end}
+
 {p 4 8} {it:{help twoway_options}} any unrecognized options are appended to the end of the twoway command generating the binned scatter plot.
 {p_end}
 
@@ -297,44 +274,23 @@ The default is {cmd:vce(robust)}.
 {synopt:{cmd:e(ci_s)}}smoothness of polynomial for confidence interval{p_end}
 {synopt:{cmd:e(cb_p)}}degree of polynomial for confidence band{p_end}
 {synopt:{cmd:e(cb_s)}}smoothness of polynomial for confidence band{p_end}
-{synopt:{cmd:e(testshape_p)}}degree of polynomial for testing shape{p_end}
-{synopt:{cmd:e(testshape_s)}}smoothness of polynomial for testing shape{p_end}
-{synopt:{cmd:e(testmodel_p)}}degree of polynomial for testing models{p_end}
-{synopt:{cmd:e(testmodel_s)}}smoothness of polynomial for testing models{p_end}
-{synopt:{cmd:e(testpolyp)}}degree of polynomial regression model{p_end}
-{synopt:{cmd:e(stat_poly)}}statistic for testing global polynomial model{p_end}
-{synopt:{cmd:e(pval_poly)}}p value for testing global polynomial model{p_end}
-{p2col 5 17 21 2: Locals}{p_end}
-{synopt:{cmd:e(testvalueL)}}values in {cmd:testshapel()}{p_end}
-{synopt:{cmd:e(testvalueR)}}values in {cmd:testshaper()}{p_end}
-{synopt:{cmd:e(testvalue2)}}values in {cmd:testshape2()}{p_end}
-{synopt:{cmd:e(testvarlist)}}varlist found in {cmd:testmodel()}{p_end}
 {p2col 5 17 21 2: Matrices}{p_end}
 {synopt:{cmd:e(N_by)}}number of observations for each group{p_end}
 {synopt:{cmd:e(Ndist_by)}}number of distinct values for each group{p_end}
 {synopt:{cmd:e(Nclust_by)}}number of clusters for each group{p_end}
 {synopt:{cmd:e(nbins_by)}}number of bins for each group{p_end}
 {synopt:{cmd:e(cval_by)}}critical value for each group, used for confidence bands{p_end}
-{synopt:{cmd:e(stat_shapeL)}}statistics for {cmd:testshapel()}{p_end}
-{synopt:{cmd:e(pval_shapeL)}}p values for {cmd:testshapel()}  {p_end}
-{synopt:{cmd:e(stat_shapeR)}}statistics for {cmd:testshaper()}  {p_end}
-{synopt:{cmd:e(pval_shapeR)}}p values for {cmd:testshaper()}  {p_end}
-{synopt:{cmd:e(stat_shape2)}}statistics for {cmd:testshape2()}  {p_end}
-{synopt:{cmd:e(pval_shape2)}}p values for {cmd:testshape2()}  {p_end}
-{synopt:{cmd:e(stat_model)}}statistics for {cmd:testmodel()}  {p_end}
-{synopt:{cmd:e(pval_model)}}p values for {cmd:testmodel()}  {p_end}
-
 
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2019a.
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2019b.
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 
@@ -342,8 +298,8 @@ The default is {cmd:vce(robust)}.
 {marker authors}{...}
 {title:Authors}
 
-{p 4 8} Matias D. Cattaneo, University of Michigan, Ann Arbor, MI.
-{browse "mailto:cattaneo@umich.edu":cattaneo@umich.edu}.
+{p 4 8} Matias D. Cattaneo, Princeton University, Princeton, NJ.
+{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.
 {p_end}
 
 {p 4 8} Richard K. Crump, Federal Reserve Band of New York, New York, NY.
@@ -354,7 +310,7 @@ The default is {cmd:vce(robust)}.
 {browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.
 {p_end}
 
-{p 4 8} Yingjie Feng, University of Michigan, Ann Arbor, MI.
-{browse "mailto:yjfeng@umich.edu":yjfeng@umich.edu}.
+{p 4 8} Yingjie Feng, Princeton University, Princeton, NJ.
+{browse "mailto:yingjief@princeton.edu":yingjief@princeton.edu}.
 {p_end}
 

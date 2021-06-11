@@ -1,4 +1,4 @@
-* version 0.2, 13-MAR-2019 
+* version 0.3, 10-JUN-2021 
 *****************************************************************
 ****** This file contains necessary mata functions used in ******
 ******************** BINSREG Package ****************************
@@ -164,10 +164,10 @@ version 13
   
   mata mosave binsreg_grids(), replace
 
-  
+ 
   // General prediction function
   real matrix binsreg_pred(real matrix X, real matrix beta, real matrix cov, ///
-                    string scalar type)
+                           string scalar type)
   {
     real matrix est, se
 	
@@ -177,7 +177,7 @@ version 13
 	    est=X*beta
 	}
 	if (type=="all"|type=="se") {
-	    se=sqrt(rowsum((X:*(cov*X')')))
+	    se=sqrt(rowsum((X*cov):*X))
 	}
 	return((est, se))
   }
@@ -189,12 +189,15 @@ version 13
                     string scalar covname, string scalar mtest, ///
 		            real scalar rep, real scalar k, ///
 		            string scalar side, real scalar alpha, ///
-		            string scalar pmat, string scalar cval)
+		            string scalar pmat, string scalar cval, string scalar metric)
   {
      real matrix cov, mt, pval, tvec, num, U, V, sv, t, p
-	 real scalar i,j,w,j1
+	 real scalar i,j,w,j1, lp
 	 
 	 cov=st_matrix(covname)[|1,1\k,k|]
+	 if (metric!="inf") {
+	    lp=strtoreal(metric)
+	 }
 	 if (mtest!=".") {
 	     mt=st_matrix(mtest)
 	     pval=J(rows(mt),1,0)
@@ -222,13 +225,23 @@ version 13
    			        pval[j]=pval[j]+(min(t)<=mt[j,1])
 			    }
 			    else {
-			        pval[j]=pval[j]+(max(abs(t))>=mt[j,1])
+				    if (metric=="inf") {
+			           pval[j]=pval[j]+(max(abs(t))>=mt[j,1])
+					}
+					else {
+					   pval[j]=pval[j]+(mean(abs(t):^lp)^(1/lp)>=mt[j,1])
+					}
 			    }
 		    }
 		 }
 		 // for critical value
 		 if (side=="two") {
-		     tvec[i]=max(abs(t))
+		     if (metric=="inf") {
+		        tvec[i]=max(abs(t))
+			 }
+			 else {
+			    tvec[i]=mean(abs(t):^lp)^(1/lp)
+			 }
 	     }
 		 else if (side=="left") {
 			 tvec[i]=max(t)
@@ -254,7 +267,7 @@ version 13
 
 
    // Check dropping vars
-   void binsreg_checkdrop(string scalar betaname, string scalar covname, real scalar k)
+   void binsreg_checkdrop(string scalar betaname, string scalar covname, real scalar k, | string scalar useqreg)
    {
      real matrix beta, se
 	 real scalar isdrop
@@ -267,9 +280,17 @@ version 13
 	    beta=beta[|1\k|]'
         se=diagonal(st_matrix(covname))[|1\k|]
         isdrop=sum(((beta:==0)+(se:==0)):==2)
-	    if (isdrop>0) {
-	      display("{gr:warning: some {it:X variables} are dropped.}")
-        }
+	    if (args()==3) {
+		   pragma unused useqreg
+		   if (isdrop>0) {
+	          display("{gr:warning: some {it:X variables} are dropped.}")
+           }
+		}
+		else {
+		  if (isdrop>1) {
+	          display("{gr:warning: some {it:X variables} are dropped.}")
+           }
+		}
 	 }
    }
    mata mosave binsreg_checkdrop(), replace
@@ -314,7 +335,84 @@ version 13
    }
    
    mata mosave binsreg_uniq(), replace
+   
+   
+   // Stats by bin, with sorted data
+   real matrix binsreg_stat(real matrix x, real vector xcat, real scalar nbins, ///
+                            real vector edge, string scalar stat, real scalar quantile, ///
+	 				        | real vector by, real scalar byval)
+   {
+      real matrix subgroup, xsub, binid, binedges, out 
+	  real scalar j, ncol
+	 
+	  xsub=x
+	  if (args()>6) {
+	     subgroup = by:==byval
+		 xsub=select(xsub, subgroup)
+	  }
+	  ncol = cols(xsub)
+	
+	  if (edge[1]==.) {
+	     if (nbins==1) {
+	 	    binedges = 0 \ rows(xsub)
+	     } 
+	     else {
+	        binid = xcat
+		    if (args()>6) {
+		      binid = select(binid, subgroup)
+		    }
+		    binedges = 0\selectindex(binid[|1 \ rows(binid)-1|]-binid[|2 \ rows(binid)|])\rows(xsub)
+	     }
+	  }
+	  else {
+	     binedges = edge
+	  }
+	 
+	  out=J(nbins,ncol,.)
+	 
+	  if (stat=="mean") {
+	     for (j=2;j<=nbins+1;j++) {
+	 	    out[j-1,.] = mean(xsub[|binedges[j-1]+1, 1 \ binedges[j], ncol|])
+	     }
+	  }
+	  else {
+	     for (j=2;j<=nbins+1;j++) {
+	 	    out[j-1,.] = binsreg_cquantile(xsub[|binedges[j-1]+1, 1 \ binedges[j], ncol|], quantile)
+	     }
+	  }
+	 
+	  out=(range(1,nbins,1), out)
+	 
+	  return(out)
+   }
+   
+   mata mosave binsreg_stat(), replace
  
+   // column quantile based on sorted data
+   real matrix binsreg_cquantile(real matrix X, real scalar quantile)
+   {
+      real matrix p, out
+	  real scalar i, w, j, j1, nrow, ncol
+       
+	  nrow=rows(X)
+	  ncol=cols(X)
+	  w = quantile*nrow
+      j = floor(w)
+      w = 0.5 + 0.5*((w - j)>0)
+	  j1=j+1
+	  if (j<1) j=1
+	  if (j1>nrow) j1=nrow
+	  
+	  out=J(1, ncol, .)
+	  for (i=1;i<=ncol;i++) {
+	     p=order(X[,i],1)
+	     out[1,i]=(1-w)*X[p[j],i] + w*X[p[j1],i]
+      }
+	  
+	  return(out)  
+   }
+   
+   mata mosave binsreg_cquantile(), replace
   
 end
 

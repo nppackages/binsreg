@@ -1,0 +1,44 @@
+. tempfile evalcovar
+
+. preserve
+
+. clear
+
+. set obs 1
+number of observations (_N) was 0, now 1
+
+. gen w=0.2
+
+. gen t=1
+
+. save `evalcovar', replace
+(note: file /var/folders/85/ghqhbjfx4ysg9_s5gs0byqlw0000gn/T//S_03284.000001 not found)
+file /var/folders/85/ghqhbjfx4ysg9_s5gs0byqlw0000gn/T//S_03284.000001 saved
+
+. restore
+
+. binsreg y x w i.t, at(`evalcovar')
+Sorting dataset on x...
+Note: This step is omitted if dataset already sorted by x.
+
+Binscatter plot
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+
+----------------------------------------------
+# of observations             |    1000
+# of distinct values          |    1000
+# of clusters                 |       .
+------------------------------+---------------
+Bin selection:                | 
+         Degree of polynomial |       0
+  # of smoothness constraints |       0
+                    # of bins |      22
+----------------------------------------------
+
+----------------------------------------
+         |      p       s       df
+---------+------------------------------
+ dots    |      0       0       22
+----------------------------------------

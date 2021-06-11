@@ -1,4 +1,4 @@
-*! version 0.2 13-MAR-2019
+*! version 0.3 10-JUN-2021  
 
 capture program drop binsregselect
 program define binsregselect, eclass
@@ -155,7 +155,7 @@ program define binsregselect, eclass
 	 if ("`vce'"!="") {
 	    local vcetemp: subinstr local vce "vce(" "", all
 		local vcetemp: subinstr local vcetemp ")" "", all
-		tokenize `vcetemp'
+		tokenize "`vcetemp'"
 		if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| /// 
 		    "`1'"=="cluste"|"`1'"=="cluster") {
 		    if ("`numclust'"!=""&"`numclust'"!=".") {

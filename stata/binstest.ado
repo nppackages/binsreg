@@ -1,14 +1,15 @@
-*! version 0.2 13-MAR-2019
+*! version 0.3 10-JUN-2021 
 
-capture program drop binsregtest
-program define binsregtest, eclass
+capture program drop binstest
+program define binstest, eclass
     version 13
 	 
-	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, deriv(integer 0) ///
+	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, estmethod(string) deriv(integer 0) ///
 		   testmodel(numlist integer max=2 >=0)  ///
 		   testmodelparfit(string asis) testmodelpoly(string) ///
 		   testshape(numlist integer max=2 >=0) ///
 		   testshapel(numlist) testshaper(numlist) testshape2(numlist) ///
+		   lp(string) ///
 		   bins(numlist integer max=2 >=0) ///
 		   nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) ///
 		   nsims(integer 500) simsgrid(integer 20) simsseed(integer 666) ///
@@ -28,8 +29,63 @@ program define binsregtest, eclass
 	 }
 	 
 	 * Extract options
+	 * which model?
+	 if ("`estmethod'"=="") local estmethod "reg"
+	 tokenize `estmethod'
+	 local estmethod `1'
+	 if ("`estmethod'"=="reg") {
+	    local estcmd "reg"
+	 } 
+	 else if ("`estmethod'"=="qreg") {
+	    local estcmd "qreg"
+		local quantile `2'
+		if ("`quantile'"=="") local quantile=0.5
+	 }
+	 else if ("`estmethod'"=="logit") {
+	    local estcmd "logit"
+	 }
+	 else if ("`estmethod'"=="probit") {
+	    local estcmd "probit"
+	 }
+	 
+	 
 	 * default vce
 	 if ("`vce'"=="") local vce "vce(robust)"
+	 * vce for bin selection
+	 if ("`estmethod'"=="qreg") {
+	    if ("`vce'"=="vce(iid)") local vce_select "vce(ols)"
+		else                     local vce_select "vce(robust)"
+	 }
+	 else if ("`estmethod'"=="logit"|"`estmethod'"=="probit") {
+	    if ("`vce'"=="oim"|"`vce'"=="opg") local vce_select "vce(ols)"
+		else                               local vce_select "`vce'"
+	 }
+	 else if ("`estmethod'"=="reg") {
+	    local vce_select "`vce'"
+	 }
+	 
+	 * use bootstrap cmd?
+	 local vcetemp: subinstr local vce "vce(" "", all
+     local vcetemp: subinstr local vcetemp ")" "", all
+	 tokenize "`vcetemp'", parse(", ")
+	 if ("`1'"=="boot" | "`1'"=="bootstrap") {
+		local boot "on"
+		local repstemp `3'
+		if ("`repstemp'"=="") local repstemp reps(20)
+		local repstemp: subinstr local repstemp "reps(" "", all
+        local reps: subinstr local repstemp ")" "", all
+		if ("`estmethod'"=="qreg") {
+		   local estcmd "bsqreg"
+		   if ("`weight'"!="") {
+		      di as error "weights not allowed for bootstrapping."
+		      exit
+		   }
+		}
+	 }
+	 else {
+		local boot "off"
+	 }  
+
 	 
 	 * binning
 	 tokenize `bins'
@@ -97,6 +153,10 @@ program define binsregtest, eclass
 	 tokenize `dfcheck'
 	 local dfcheck_n1 "`1'"
 	 local dfcheck_n2 "`2'"
+	 
+	 * default for lp metric
+	 if ("`lp'"=="") local lp "inf"
+	 
 	 
 	 * Error check
 	 if (`"`testmodelparfit'"'==`""'&`ntestshape'==0&"`testmodelpoly'"=="") {
@@ -172,7 +232,7 @@ program define binsregtest, eclass
 	 if ("`vce'"!="") {
 	    local vcetemp: subinstr local vce "vce(" "", all
 		local vcetemp: subinstr local vcetemp ")" "", all
-		tokenize `vcetemp'
+		tokenize "`vcetemp'", parse(", ")
 		if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| /// 
 		    "`1'"=="cluste"|"`1'"=="cluster") {
 		    if ("`numclust'"!=""&"`numclust'"!=".") {
@@ -180,6 +240,10 @@ program define binsregtest, eclass
 			}
 			else {
 			   mata: st_local("Nclust", strofreal(rows(uniqrows(st_data(.,"`2'")))))
+			}
+			if ("`estmethod'"=="qreg") {
+			   local vce "vce(robust)"
+			   di as text in gr "warning: vce(cluster) not allowed. vce(robust) used instead."
 			}
 		}
 		local eN=min(`eN', `Nclust')
@@ -222,7 +286,7 @@ program define binsregtest, eclass
 		 else {
 			qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`binsp' `binss') ///
 		                      binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
-							  `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+							  `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
 							  numdist(`Ndist') numclust(`Nclust')
 			if (e(nbinsrot_regul)==.) {
 			   di as error "bin selection fails."
@@ -258,7 +322,7 @@ program define binsregtest, eclass
 	 tempvar xcat
 	 qui gen `xcat'=. in 1
 		
-     if ("`pos'"=="ES") {
+     if ("`binspos'"=="ES") {
 	    local stepsize=(`xmax'-`xmin')/`nbins'
 	    forvalues i=1/`=`nbins'+1' {
 		   mat `kmat'=(nullmat(`kmat') \ `=`xmin'+`stepsize'*(`i'-1)')
@@ -308,7 +372,7 @@ program define binsregtest, eclass
 	 set seed `simsseed'
 	 local uni_last=`simsgrid'*`nbins'+`nbins'-1
 	 
-	 tempname Xm uni_grid uni_basis tstat            /* objects in MATA */
+	 tempname Xm uni_grid uni_basis tstat coeff vcov           /* objects in MATA */
 	 mata: `uni_grid'=binsreg_grids("`kmat'", `simsgrid')
 	 
 	 *******************************
@@ -327,12 +391,19 @@ program define binsregtest, eclass
 		
 		tempname tsha_b tsha_V
 		mata: binsreg_st_spdes(`xvec', "`tsha_series'", "`kmat'", st_data(.,"`xcat'"), `tsha_p', 0, `tsha_s')
-	    capture reg `y_var' `tsha_series' `w_var' `wt', nocon `vce' 
+	    if ("`estmethod'"!="qreg") {
+		    `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' 
+		}
+		else {
+		   if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
+		   else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce'
+		}
 	    * store results
 	    if (_rc==0) {
 		    matrix `tsha_b'=e(b)
 		    matrix `tsha_V'=e(V)
-			mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
+			if ("`estmethod'"!="qreg") mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
+			else                       mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries', "T")
 	    }
 	    else {
 	        error  _rc
@@ -341,9 +412,21 @@ program define binsregtest, eclass
 		   
 		* Predict		
 	    * fitted values
-  	    mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tsha_p', `deriv', `tsha_s'); ///
-	          `Xm'=binsreg_pred(`uni_basis', st_matrix("`tsha_b'")[|1 \ `nseries'|]', ///
-		                        st_matrix("`tsha_V'")[|1,1 \ `nseries',`nseries'|], "all")
+		if ("`estmethod'"!="qreg") {
+  	       mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tsha_p', `deriv', `tsha_s'); ///
+	             `Xm'=binsreg_pred(`uni_basis', st_matrix("`tsha_b'")[|1 \ `nseries'|]', ///
+		                           st_matrix("`tsha_V'")[|1,1 \ `nseries',`nseries'|], "all")
+		}
+		else {
+		   mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tsha_p', `deriv', `tsha_s')
+		   if (`deriv'==0) mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'), 1, 1))
+		   else            mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'), 1, 0))
+		   mata: `coeff'=st_matrix("`tsha_b'"); `coeff'=(`coeff'[|1 \ `nseries'|], `coeff'[cols(`coeff')]); ///
+				 `vcov'=st_matrix("`tsha_V'"); ///
+				 `vcov'= (`vcov'[|1,1 \ `nseries', `nseries'|], `vcov'[|1,cols(`vcov') \ `nseries', cols(`vcov')|] \ ///
+				          `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///	  
+	             `Xm'=binsreg_pred(`uni_basis', `coeff'', `vcov', "all")
+		}
 		
 		mata: `tstat'=J(`ntestshape',2,.)
 		  
@@ -358,16 +441,30 @@ program define binsregtest, eclass
 		   }
 		   else {
 			  local val: word `=`i'-`nL'-`nR'' of `val_T'
-			  mata: `tstat'[`i',.]=(max(abs((`Xm'[,1]:-`val'):/`Xm'[,2])), 3)
+			  if ("`lp'"=="inf") {
+			     mata: `tstat'[`i',.]=(max(abs((`Xm'[,1]:-`val'):/`Xm'[,2])), 3)
+			  }
+			  else {
+			     mata: `tstat'[`i',.]=(mean(abs((`Xm'[,1]:-`val'):/`Xm'[,2]):^`lp')^(1/`lp'), 3)
+			  }
 		   }
 		}
 		mata: st_matrix("`stat_shape'", `tstat')
 		
 		* p value
-		mata: binsreg_pval(`uni_basis', `Xm'[,2], "`tsha_V'", "`stat_shape'", `nsims', `nseries', ///
-		                   ".", 0, "`pval_shape'", ".")
+		if ("`estmethod'"!="qreg") {
+		   mata: binsreg_pval(`uni_basis', `Xm'[,2], "`tsha_V'", "`stat_shape'", `nsims', `nseries', ///
+		                      ".", 0, "`pval_shape'", ".", "`lp'")
+		}
+		else {
+		   mata: st_matrix("`vcov'", `vcov'); ///
+		         binsreg_pval(`uni_basis', `Xm'[,2], "`vcov'", "`stat_shape'", `nsims', `=`nseries'+1', ///
+		                      ".", 0, "`pval_shape'", ".", "`lp'")
+		}
+		
 		drop `tsha_series'
 		mata: mata drop `Xm' `uni_basis' `tstat'
+	    if ("`estmethod'"=="qreg") mata: mata drop `coeff' `vcov'
 		
 		if ("`testshapel'"!="") {
 	 	   tempname stat_shapeL pval_shapeL
@@ -414,13 +511,20 @@ program define binsregtest, eclass
 		} 
 		else {
 		   mata: binsreg_st_spdes(`xvec', "`tmod_series'", "`kmat'", st_data(.,"`xcat'"), `tmod_p', 0, `tmod_s')
-	       capture reg `y_var' `tmod_series' `w_var' `wt', nocon `vce'
+		   if ("`estmethod'"!="qreg") {
+	          capture `estcmd' `y_var' `tmod_series' `w_var' `wt', nocon `vce'
+		   }
+		   else {
+		      if ("`boot'"=="on") capture bsqreg `y_var' `tmod_series' `w_var', quantile(`quantile') reps(`reps')
+			  else                capture qreg `y_var' `tmod_series' `w_var' `wt', quantile(`quantile') `vce'
+		   }
 	 
 	       * store results
 	       if (_rc==0) {
 		       matrix `tmod_b'=e(b)
 		       matrix `tmod_V'=e(V)
-			   mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries')
+			   if ("`estmethod'"!="qreg") mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries')
+			   else                       mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries', "T")
 	       }
 	       else {
 	           error  _rc
@@ -433,23 +537,42 @@ program define binsregtest, eclass
 		* If a test for poly reg is requested
 		if ("`testmodelpoly'"!="") {
 		   	* fitted values
-  	       mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tmod_p', `deriv', `tmod_s'); ///
-	             `Xm'=binsreg_pred(`uni_basis', st_matrix("`tmod_b'")[|1 \ `nseries'|]', ///
-			                    st_matrix("`tmod_V'")[|1,1 \ `nseries',`nseries'|], "all")
+  	       mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tmod_p', `deriv', `tmod_s')
+		   if ("`estmethod'"!="qreg") {
+	          mata: `Xm'=binsreg_pred(`uni_basis', st_matrix("`tmod_b'")[|1 \ `nseries'|]', ///
+			                          st_matrix("`tmod_V'")[|1,1 \ `nseries',`nseries'|], "all")
+		   }
+		   else {
+		      if (`deriv'==0) mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'), 1, 1))
+			  else            mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'), 1, 0))
+			  mata: `coeff'=st_matrix("`tmod_b'"); `coeff'=(`coeff'[|1 \ `nseries'|], `coeff'[cols(`coeff')]); ///
+				    `vcov'=st_matrix("`tmod_V'"); ///
+				    `vcov'= (`vcov'[|1,1 \ `nseries', `nseries'|], `vcov'[|1,cols(`vcov') \ `nseries', cols(`vcov')|] \ ///
+				             `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///
+				    `Xm'=binsreg_pred(`uni_basis', `coeff'', `vcov', "all")
+		   }
 		   
 		   tempvar poly_fit
 	       local poly_series ""
-	       forval i=0/`testpolyp' {
+		   if ("`estmethod'"!="qreg") local ini=0
+		   else                       local ini=1
+	       forval i=`ini'/`testpolyp' {
 		      tempvar x_var_`i'
 			  qui gen `x_var_`i''=`x_var'^`i'
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 		 
-		   capture reg `y_var' `poly_series' `w_var' `wt', nocon
+		   if ("`estmethod'"!="qreg") {
+		      capture `estcmd' `y_var' `poly_series' `w_var' `wt', nocon
+		   }
+		   else {
+		      capture `estcmd' `y_var' `poly_series' `w_var' `wt', quantile(`quantile')
+		   }
 		   * store results
 		   tempname poly_b
 	       if (_rc==0) {
 	 	       matrix `poly_b'=e(b)
+			   if ("`estmethod'"=="qreg") matrix `poly_b'=(`poly_b'[1,colsof(`poly_b')], `poly_b'[1, 1..`testpolyp'])
 			   matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`testpolyp'+1']
 	       }
 	       else {
@@ -461,15 +584,29 @@ program define binsregtest, eclass
 		   tempname polym
 		   mata: `polym'=J(`uni_last',0,.)
 		   forval i=`deriv'/`testpolyp' {
-			   mata: `polym'=(`polym', `uni_grid'[,1]:^(`i'-`deriv')*factorial(`i')/factorial(`i'-`deriv'))
+		      mata: `polym'=(`polym', `uni_grid'[,1]:^(`i'-`deriv')*factorial(`i')/factorial(`i'-`deriv'))
 	       }
 		   
-		   mata: `polym'=`polym'*st_matrix("`poly_b'")'; ///
-	   	         st_matrix("`stat_poly'", (max(abs((`Xm'[,1]-`polym'):/`Xm'[,2])),3)); ///
-			     binsreg_pval(`uni_basis', `Xm'[,2], "`tmod_V'", "`stat_poly'", ///
-				              `nsims', `nseries', ".", 0, "`pval_poly'", ".")
+		   mata: `polym'=`polym'*st_matrix("`poly_b'")'
+	   	   if ("`lp'"=="inf") {
+		      mata: st_matrix("`stat_poly'", (max(abs((`Xm'[,1]-`polym'):/`Xm'[,2])),3))
+		   }
+		   else {
+		      mata: st_matrix("`stat_poly'", (mean(abs((`Xm'[,1]-`polym'):/`Xm'[,2]):^`lp')^(1/`lp'),3))
+		   }
+		   
+		   if ("`estmethod'"!="qreg") {
+		      mata: binsreg_pval(`uni_basis', `Xm'[,2], "`tmod_V'", "`stat_poly'", ///
+			  	                 `nsims', `nseries', ".", 0, "`pval_poly'", ".", "`lp'")
+		   }
+		   else {
+		      mata: st_matrix("`vcov'", `vcov'); ///
+		            binsreg_pval(`uni_basis', `Xm'[,2], "`vcov'", "`stat_poly'", ///
+			  	                 `nsims', `=`nseries'+1', ".", 0, "`pval_poly'", ".", "`lp'")
+		   }
 							  
 		   mata: mata drop `Xm' `polym' `uni_basis'
+		   if ("`estmethod'"=="qreg") mata: mata drop `coeff' `vcov'
 		}
 		
 		******************************************************************
@@ -487,31 +624,59 @@ program define binsregtest, eclass
 		   binsreg_irecode `x_var', knotmat(`kmat') bin(`uni_xcat')
 		
 		   mata: `uni_basis'=binsreg_spdes(st_data(.,"`x_var'"), "`kmat'", st_data(.,"`uni_xcat'"), ///
-		                                  `tmod_p', `deriv', `tmod_s'); ///
-	             `Xm'=binsreg_pred(`uni_basis', st_matrix("`tmod_b'")[|1 \ `nseries'|]', ///
-				               st_matrix("`tmod_V'")[|1,1 \ `nseries',`nseries'|], "all"); ///
-				 `tstat'=J(`nfitval',2,.)
-
-		   matrix `stat_model'=J(`nfitval',2,.)
+		                                  `tmod_p', `deriv', `tmod_s')
+		   if ("`estmethod'"!="qreg") {
+	          mata: `Xm'=binsreg_pred(`uni_basis', st_matrix("`tmod_b'")[|1 \ `nseries'|]', ///
+				                      st_matrix("`tmod_V'")[|1,1 \ `nseries',`nseries'|], "all")
+		   }
+		   else {
+		      if (`deriv'==0) mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'), 1, 1))
+			  else            mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'), 1, 0))
+			  mata: `coeff'=st_matrix("`tmod_b'"); `coeff'=(`coeff'[|1 \ `nseries'|], `coeff'[cols(`coeff')]); ///
+				    `vcov'=st_matrix("`tmod_V'"); ///
+				    `vcov'= (`vcov'[|1,1 \ `nseries', `nseries'|], `vcov'[|1,cols(`vcov') \ `nseries', cols(`vcov')|] \ ///
+				             `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///		
+			        `Xm'=binsreg_pred(`uni_basis', `coeff'', `vcov', "all")
+		   }
+		   mata: `tstat'=J(`nfitval',2,.)
+		   *matrix `stat_model'=J(`nfitval',2,.)
 		   
 		   local counter=1
-	       foreach var of local varls {
-		      mata: `tstat'[`counter',]=(max(abs((`Xm'[,1]-st_data(.,"`var'")):/`Xm'[,2])), 3)
-		      local ++counter
+		   if ("`lp'"=="inf") {
+	          foreach var of local varls {
+		         mata: `tstat'[`counter',]=(max(abs((`Xm'[,1]-st_data(.,"`var'")):/`Xm'[,2])), 3)
+		         local ++counter
+		      }
+		   }
+		   else {
+		      foreach var of local varls {
+		         mata: `tstat'[`counter',]=(mean(abs((`Xm'[,1]-st_data(.,"`var'")):/`Xm'[,2]):^`lp')^(1/`lp'), 3)
+		         local ++counter
+		      }
 		   }
 		   mata: st_matrix("`stat_model'", `tstat')
 		   
 		   * p values
-		   mata: binsreg_pval(`uni_basis', `Xm'[,2], "`tmod_V'", "`stat_model'", `nsims', ///
-		                      `nseries', ".", 0, "`pval_model'", ".")
+		   if ("`estmethod'"!="qreg") {
+		      mata: binsreg_pval(`uni_basis', `Xm'[,2], "`tmod_V'", "`stat_model'", `nsims', ///
+		                         `nseries', ".", 0, "`pval_model'", ".", "`lp'")
+		   }
+		   else {
+		      mata: st_matrix("`vcov'", `vcov'); ///
+		            binsreg_pval(`uni_basis', `Xm'[,2], "`vcov'", "`stat_model'", `nsims', ///
+		                         `=`nseries'+1', ".", 0, "`pval_model'", ".", "`lp'")
+		   }
+		   
 		   mata: mata drop `Xm' `tstat' `uni_basis'
+		   if ("`estmethod'"=="qreg") mata: mata drop `coeff' `vcov'
 		}
 	 }
 	 else {
 	    local tmod_p=.
 		local tmod_s=.
 	 }
-	 mata: mata drop `uni_grid' `xvec'
+	 mata: mata drop `uni_grid' `xvec' 
+	 
 	 ****** End of testing *****************************************
 	 
 	 ******************************
@@ -524,12 +689,13 @@ program define binsregtest, eclass
 	 else {
 	    if ("`binsmethod'"=="DPI") local binselectmethod "IMSE-optimal plug-in choice"
 		if ("`binsmethod'"=="ROT") local binselectmethod "IMSE-optimal rule-of-thumb choice"
-		if ("`pos'"=="ES") local placement "Evenly-spaced"
-		if ("`pos'"=="QS") local placement "Quantile-spaced"
+		if ("`binspos'"=="ES") local placement "Evenly-spaced"
+		if ("`binspos'"=="QS") local placement "Quantile-spaced"
 	 }
 	 
 	 di ""
 	 di in smcl in gr "Hypothesis tests based on binscatter estimates"
+	 di in smcl in gr "Estimation method: `estmethod'"
 	 di in smcl in gr "Bin selection method: `binselectmethod'"
 	 di in smcl in gr "Placement: `placement'"
 	 di in smcl in gr "Derivative: `deriv'"
@@ -594,8 +760,14 @@ program define binsregtest, eclass
 	    if ("`testshape2'"!="") {
 		   di ""
 	       di in smcl in gr "{hline 19}{c TT}{hline 30}"
-	       di in smcl in gr "H0: mu ="  _col(20) in gr ///
-		                    "{c |}" _col(22) "sup |T|"  _col(40) "p value"
+		   if ("`lp'"=="inf") { 
+	          di in smcl in gr "H0: mu ="  _col(20) in gr ///
+		                       "{c |}" _col(22) "sup |T|"  _col(40) "p value"
+		   }
+		   else {
+		      di in smcl in gr "H0: mu ="  _col(20) in gr ///
+		                       "{c |}" _col(22) "L`lp' of T"  _col(40) "p value"
+		   }
 		   di in smcl in gr "{hline 19}{c +}{hline 30}"
 		   forval i=1/`nT' {
 	          local val: word `i' of `testshape2'   
@@ -620,8 +792,14 @@ program define binsregtest, eclass
 	       local stat=`stat_poly'[1,1]
 		   local pval=`pval_poly'[1,1]
 		   di in smcl in gr "{hline 19}{c TT}{hline 30}"
-		   di in smcl in gr "H0: mu =" _col(20) in gr ///
-		                 "{c |}" _col(22) "sup |T|"  _col(40) "p value"
+		   if ("`lp'"=="inf") {
+		      di in smcl in gr "H0: mu =" _col(20) in gr ///
+		                       "{c |}" _col(22) "sup |T|"  _col(40) "p value"
+		   }
+		   else {
+		      di in smcl in gr "H0: mu =" _col(20) in gr ///
+		                       "{c |}" _col(22) "L`lp' of T"  _col(40) "p value"
+		   }
 		   di in smcl in gr "{hline 19}{c +}{hline 30}"
 	       di in smcl in gr "poly. degree  " as result `testpolyp' _col(20) in gr "{c |}" ///
 		                    _col(22) as result %7.3f `stat' ///
@@ -632,8 +810,14 @@ program define binsregtest, eclass
 	       di ""
 		   di in smcl in gr `"Input file: `testmodelparfit'.dta"'
 	       di in smcl in gr "{hline 19}{c TT}{hline 30}"
-	       di in smcl in gr "H0: mu ="  _col(20) in gr ///
-		                    "{c |}" _col(22) "sup |T|"  _col(40) "p value"
+		   if ("`lp'"=="inf") {
+	          di in smcl in gr "H0: mu ="  _col(20) in gr ///
+		                       "{c |}" _col(22) "sup |T|"  _col(40) "p value"
+		   }
+		   else {
+		      di in smcl in gr "H0: mu ="  _col(20) in gr ///
+		                       "{c |}" _col(22) "L`lp' of T"  _col(40) "p value"
+		   }
 		   di in smcl in gr "{hline 19}{c +}{hline 30}"
 		   forval i=1/`nfitval' {
 	          local val: word `i' of `varls'

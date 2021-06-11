@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2 13-MAR-2019}{...}
+{* *! version 0.3 10-JUN-2021}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}
@@ -138,13 +138,13 @@ The default is {cmd:vce(robust)}.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2019a.
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2019b.
-{browse "https://sites.google.com/site/nppackages/binsreg/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 
@@ -152,8 +152,8 @@ The default is {cmd:vce(robust)}.
 {marker authors}{...}
 {title:Authors}
 
-{p 4 8} Matias D. Cattaneo, University of Michigan, Ann Arbor, MI.
-{browse "mailto:cattaneo@umich.edu":cattaneo@umich.edu}.
+{p 4 8} Matias D. Cattaneo, Princeton University, Princeton, NJ.
+{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.
 {p_end}
 
 {p 4 8} Richard K. Crump, Federal Reserve Band of New York, New York, NY.
@@ -164,7 +164,7 @@ The default is {cmd:vce(robust)}.
 {browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.
 {p_end}
 
-{p 4 8} Yingjie Feng, University of Michigan, Ann Arbor, MI.
-{browse "mailto:yjfeng@umich.edu":yjfeng@umich.edu}.
+{p 4 8} Yingjie Feng, Princeton University, Princeton, NJ.
+{browse "mailto:yingjief@princeton.edu":yingjief@princeton.edu}.
 {p_end}
 

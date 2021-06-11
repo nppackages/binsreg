@@ -1,24 +1,22 @@
-*! version 0.2 13-MAR-2019 
+*! version 0.3 10-JUN-2021  
 
 capture program drop binsreg
 program define binsreg, eclass
      version 13
 	 
-	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, deriv(integer 0) ///
+	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, deriv(integer 0) at(string asis) ///
 	        dots(numlist integer max=2 >=0) dotsgrid(string) dotsplotopt(string asis) ///
 			line(numlist integer max=2 >=0) linegrid(integer 20) lineplotopt(string asis) ///
 			ci(numlist integer max=2 >=0) cigrid(string) ciplotopt(string asis) /// 
 			cb(numlist integer max=2 >=0) cbgrid(integer 20) cbplotopt(string asis) ///
 			polyreg(string) polyreggrid(integer 20) polyregcigrid(integer 0) polyregplotopt(string asis) ///
 			by(varname) bycolors(string asis) bysymbols(string asis) bylpatterns(string asis) ///
-			testmodel(numlist integer max=2 >=0) testmodelparfit(string asis) testmodelpoly(string) /// 
-			testshape(numlist integer max=2 >=0) testshapel(numlist) ///
-			testshaper(numlist) testshape2(numlist) ///
 			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) samebinsby ///
 			nsims(integer 500) simsgrid(integer 20) simsseed(integer 666) ///
 			dfcheck(numlist integer max=2 >=0) masspoints(string) ///
 			vce(passthru) level(real 95)   ///
-			noplot savedata(string asis) replace *]
+			noplot savedata(string asis) replace ///
+			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
 	 
 	 *********************************************
 	 * Regularization constant (for checking only)
@@ -38,7 +36,7 @@ program define binsreg, eclass
 	 if ("`vce'"=="") local vce "vce(robust)"
 	 local vcetemp: subinstr local vce "vce(" "", all
      local vcetemp: subinstr local vcetemp ")" "", all
-	 tokenize `vcetemp'
+	 tokenize "`vcetemp'"
 	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| /// 
 		 "`1'"=="cluste"|"`1'"=="cluster") {
 		local clusterON "T"           /* Mark cluster is specified */
@@ -121,27 +119,18 @@ program define binsreg, eclass
 	    local polyregngrid=0
 	 }
 	 
+	 * range of x axis and y axis?
+	 tokenize `plotxrange'
+     local min_xr "`1'"
+	 local max_xr "`2'"
+	 tokenize `plotyrange'
+     local min_yr "`1'"
+	 local max_yr "`2'"
+
+	 
 	 * Simuls
 	 local simsngrid=`simsgrid'
-	 
-	 * Options for testing shape
-	 tokenize `testshape'
-	 local tsha_p "`1'"
-	 local tsha_s "`2'"
-	 if ("`tsha_p'"=="") local tsha_p 3
-	 if ("`tsha_s'"=="") local tsha_s `tsha_p'
-	 local nL: word count `testshapel'
-	 local nR: word count `testshaper'
-	 local nT: word count `testshape2'
-	 local ntestshape=`nL'+`nR'+`nT'     /* number of tests (for shape) */
-	 
-	 * Options for testing model
-	 tokenize `testmodel'
-	 local tmod_p "`1'"
-	 local tmod_s "`2'"
-	 if ("`tmod_p'"=="") local tmod_p 3
-	 if ("`tmod_s'"=="") local tmod_s `tmod_p'
-	 
+	 	 
 	 * Record if nbins specified by users, set default
 	 local nbins_all=`nbins'              /* local save common nbins */
 	 if (`nbins'!=0) local binselectmethod "User-specified"
@@ -178,7 +167,10 @@ program define binsreg, eclass
 	 tokenize `dfcheck'
 	 local dfcheck_n1 "`1'"
 	 local dfcheck_n2 "`2'"
-     
+	 
+	 * evaluate at w from another dataset?
+	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
+	 
 	 
 	 *************************
 	 **** error checks *******
@@ -243,26 +235,6 @@ program define binsreg, eclass
 		   exit
 		}
 	 }
-     
-	 if (`ntestshape'!=0) {
-	     if (`tsha_p'<=`dots_p') {
-		    di as text in gr "warning: p for testing > p for dots suggested."
-	     }
-	     if (`tsha_p'<`tsha_s') {
-		    di as error "p cannot be smaller than s."
-		    exit
-	     }
-	 }
-	 if (`"`testmodelparfit'"'!=`""'|"`testmodelpoly'"!="") {
-	     if (`"`testmodelparfit'"'!=`""') confirm file `"`testmodelparfit'.dta"'
-	     if (`tmod_p'<=`dots_p') {
-		    di as text in gr "warning: p for testing > p for dots suggested."
-		 }
-		 if (`tmod_p'<`tmod_s') {
-		    di as error "p cannot be smaller than s."
-			exit
-		 }
-	 }
 	 if (`"`savedata'"'!=`""') {
 	    if ("`replace'"=="") {
 		   confirm new file `"`savedata'.dta"'
@@ -298,9 +270,37 @@ program define binsreg, eclass
 	 
 	 macro shift 2
 	 local w_var "`*'"
+	 * read eval point for w from another file
+	 if ("`atwout'"=="user") {
+	    append using `at'
+	 }
+	 
 	 fvrevar `w_var', tsonly
 	 local w_var "`r(varlist)'"
+	 local nwvar: word count `w_var'
 	 
+	 * Save the last obs in a vector and then drop it
+	 tempname wuser                  /* a vector used to keep eval for w */
+	 if ("`atwout'"=="user") {
+	    mata: st_matrix("`wuser'", st_data(`=_N', "`w_var'")) 
+	    qui drop in `=_N'
+	 }
+	 
+	 * Get positions of factor vars
+     local indexlist ""
+     local i = 1
+     foreach v in `w_var' {
+        if strpos("`v'", ".") == 0 {
+           local indexlist  `indexlist' `i'
+        }
+        local ++i
+     }
+	 
+	 * add a default for at
+	 if (`"`at'"'==""&`nwvar'>0) {
+	    local at "mean"
+	 }
+
 	 marksample touse
 	 markout `touse' `by', strok	 
 	 qui keep if `touse'
@@ -504,20 +504,13 @@ program define binsreg, eclass
 	 * alpha quantile (for two-sided CI)
 	 local alpha=(100-(100-`level')/2)/100
 	 
-	 * Shut down test if there are many groups
-	 if (`ntestshape'!=0|`"`testmodelparfit'"'!=`""'|"`testmodelpoly'"!="") { 
-	    if (`bynum'!=1) {
-	       local test_fewobs "T"
-		   di as text in gr "warning: tests cannot be implemented with by()." 
-	    }
-	 }
 	 
 	 ***************************************************************************
 	 *************** Preparation before loop************************************
 	 ***************************************************************************
 	 
 	 ********** Prepare vars for plotting ********************
-	 * names for mata objection storing graph data
+	 * names for mata objects storing graph data
 	 * plotmat: final output (defined outside); 
 	 * plotmatby: output for each group
 	 tempname plotmat plotmatby xsub ysub byindex xcatsub
@@ -620,6 +613,7 @@ program define binsreg, eclass
 		   mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
 		   mata: mata drop `binedges'
 		   local eN=min(`eN', `Ndist')
+		   mat `Ndistlist'[`counter_by',1]=`Ndist'
 	    }
 		
 	    * # of clusters
@@ -629,9 +623,10 @@ program define binsreg, eclass
 		   	  mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
 		   }
 		   else {
-		      mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byvec'==`byval')))))
+		      mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
 		   }
 		   local eN=min(`eN', `Nclust')   /* effective SUBsample size */
+		   mat `Nclustlist'[`counter_by',1]=`Nclust'
 	    }
 	    
 		*********************************************************
@@ -702,20 +697,6 @@ program define binsreg, eclass
 	          if ((`nbins'-1)*(`cb_p'-`cb_s'+1)+`cb_p'+1+`dfcheck_n2'>=`eN') {
 	             local cb_fewobs "T"
 		         di as text in gr "warning: too small effective sample size for CB."
-	          }
-		   }
-		   if (`ntestshape'!=0&`bynum'==1) {
-	          if ((`nbins'-1)*(`tsha_p'-`tsha_s'+1)+`tsha_p'+1+`dfcheck_n2'>=`eN') {
-	             local tsha_fewobs "T"
-		         di as text in gr "warning: too small effective sample size for testing shape."
-		         local test_fewobs "T"
-	          }
-		   }
-		   if ((`"`testmodelparfit'"'!=`""'|"`testmodelpoly'"!="")&`bynum'==1) {
-	          if ((`nbins'-1)*(`tmod_p'-`tmod_s'+1)+`tmod_p'+1+`dfcheck_n2'>=`eN') {
-	             local tmod_fewobs "T"
-		         di as text in gr "warning: too small effective sample size for testing models."
-	             local test_fewobs "T"
 	          }
 		   }
 	    }
@@ -811,22 +792,6 @@ program define binsreg, eclass
 		         di as text in gr "warning: some bins have too few distinct x-values for CB."
 		      }
 	       }
-	       if (`ntestshape'!=0&"`by'"=="") {
-	          if ("`tsha_p'"!=".") {
-		         if (`uniqmin'<`tsha_p'+1) {
-		            local test_fewobs "T"
-		            di as text in gr "warning: some bins have too few distinct x-values for testing."
-	             }
-		      }
-	       }
-	       if ((`"`testmodelparfit'"'!=`""'|"`testmodelpoly'"!="")&"`by'"=="") {
-	          if ("`tmod_p'"!=".") {
-		         if (`uniqmin'<`tmod_p'+1) {
-		            local test_fewobs "T"
-		            di as text in gr "warning: some bins have too few distinct x-values for testing."
-	             }
-		      }
-	       }
 		}
 		
 		* Now, save nbins in a list !!!
@@ -874,6 +839,31 @@ program define binsreg, eclass
 		************************************************
 	    **** START: prepare data for plotting***********
 	    ************************************************
+		local plotcmdby ""
+		
+		********************************
+		* adjust w vars
+		tempname wval
+		if (`nwvar'>0) {
+		   if (`"`at'"'==`"mean"'|`"`at'"'==`"median"') {
+		     matrix `wval'=J(1, `nwvar', 0)
+			 tempname wvaltemp
+			 foreach wpos in `indexlist' {
+			    local wname: word `wpos' of `w_var'
+		        if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
+			    else               qui tabstat `wname' `conds', stat(`at') save
+				mat `wvaltemp'=r(StatTotal)
+				mat `wval'[1,`wpos']=`wvaltemp'[1,1]
+		     }
+		   }
+		   else if (`"`at'"'==`"0"') {
+   		     matrix `wval'=J(1,`nwvar',0)
+		   }
+		   else if ("`atwout'"=="user") {
+		     matrix `wval'=`wuser'
+		   }
+		}
+
 		
 		*************************************************
 	    ********** dots and ci for few obs. case ********
@@ -901,7 +891,7 @@ program define binsreg, eclass
 		   else {
 		      tempname grid
 		      mat `grid'=(`kmat'[1..`nbins',1]+`kmat'[2..`nbins'+1,1])/2
-		      mata: `plotmatby'[|1,`dots_start' \ `nbins',`dots_start'|]=st_matrix("`grid'");///
+		      mata: `plotmatby'[|1,`dots_start' \ `nbins',`dots_start'|]=st_matrix("`grid'"); ///
 			        `plotmatby'[|1,`dots_start'+1 \ `nbins',`dots_start'+1|]=J(`nbins',1,0)
 		   }
 		   
@@ -912,39 +902,64 @@ program define binsreg, eclass
 		      mat `fewobs_b'=e(b)
 		      mat `fewobs_V'=e(V)
 		      mata: binsreg_checkdrop("`fewobs_b'", "`fewobs_V'", `nseries')
-		      mat `fewobs_b'=`fewobs_b'[1,1..`nseries']
-		      mat `fewobs_V'=vecdiag(`fewobs_V')
-		      mat `fewobs_V'=`fewobs_V'[1,1..`nseries']
+		      if (`nwvar'>0) {
+			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+(`fewobs_b'[1,`=`nseries'+1'..`=`nseries'+`nwvar'']*`wval'')*J(1,`nseries',1)
+		      }
+			  else {
+			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']
+		      }
 		   }
 		   else {
 		      error _rc
 		      exit _rc
 		   }
-		
+		   
+		   
 		   mata: `plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]=st_matrix("`fewobs_b'")'
 
 		   local plotnum=`plotnum'+1
 		   local legendnum `legendnum' `plotnum' 
 		   local col: word `counter_by' of `bycolors'
 		   local sym: word `counter_by' of `bysymbols'
-		   local plotcmd `plotcmd' (scatter dots_fit dots_x ///
-		                 in `dots_first'/`dots_last', ///
-						 mcolor(`col') msymbol(`sym') `dotsplotopt')
+		   local plotcond ""
+		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		      local plotcond `plotcond' if 
+			  if ("`plotxrange'"!="") {
+		         local plotcond `plotcond' dots_x>=`min_xr'
+			     if ("`max_xr'"!="") local plotcond `plotcond' &dots_x<=`max_xr' 
+		      }
+		      if ("`plotyrange'"!="") {
+		         if ("`plotxrange'"=="") local plotcond `plotcond' dots_fit>=`min_yr'
+				 else                    local plotcond `plotcond' &dots_fit>=`min_yr'
+			     if ("`max_yr'"!="") local plotcond `plotcond' &dots_fit<=`max_yr' 
+		      }
+		   }
+
+		   
+		   local plotcmdby `plotcmdby' (scatter dots_fit dots_x ///
+		                   `plotcond' in `dots_first'/`dots_last', ///
+						   mcolor(`col') msymbol(`sym') `dotsplotopt')
 		   
 		   if (`cintot'!=0) {
 		      di as text in gr "warning: ci(0 0) is used."
 		   
+		      if (`nwvar'>0) {
+			     mata: `mata_se'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"))
+			  }
+			  else {
+			     mata: `mata_se'=I(`nseries')
+			  }
 		      mata: `plotmatby'[|1,`ci_start'+1 \ `nbins',`ci_start'+2|]=`plotmatby'[|1,`dots_start'+1 \ `nbins',`dots_start'+2|]; ///
-			        `mata_se'=sqrt(st_matrix("`fewobs_V'")'); ///
+					`mata_se'=sqrt(rowsum((`mata_se'*st_matrix("`fewobs_V'")):*`mata_se')); ///
 			        `plotmatby'[|1,`ci_start'+3 \ `nbins',`ci_start'+3|]=`plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]-`mata_se'*invnormal(`alpha'); ///
 			        `plotmatby'[|1,`ci_start'+4 \ `nbins',`ci_start'+4|]=`plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]+`mata_se'*invnormal(`alpha')
 			  mata: mata drop `mata_se'
 			  
 			  local plotnum=`plotnum'+1
 			  local lty: word `counter_by' of `bylpatterns'
-		      local plotcmd `plotcmd' (rcap CI_l CI_r dots_x ///
-			                in `dots_first'/`dots_last', ///
-							sort lcolor(`col') lpattern(`lty') `ciplotopt')
+		      local plotcmdby `plotcmdby' (rcap CI_l CI_r dots_x ///
+			                  `plotcond' in `dots_first'/`dots_last', ///
+							  sort lcolor(`col') lpattern(`lty') `ciplotopt')
 		   }
 	    } 
 	 
@@ -968,6 +983,8 @@ program define binsreg, eclass
 	       local cbON "T"
 	    }
 		
+				
+		
 	    ************************
 	    ****** Dots ************
 	    ************************
@@ -982,14 +999,14 @@ program define binsreg, eclass
 		   if ((`dots_p'==`ci_p'&`dots_s'==`ci_s'&"`ciON'"=="T")| ///
 		       (`dots_p'==`cb_p'&`dots_s'==`cb_s'&"`cbON'"=="T")) {
 			  binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
-	                    p(`dots_p') s(`dots_s') type(dots)  ///
+	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
 						byvalue(`byval') usereg `sorted'
 		   }
 		   else {
 		      binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
-	                    p(`dots_p') s(`dots_s') type(dots)  ///
+	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
 						byvalue(`byval') `sorted'
@@ -1004,23 +1021,40 @@ program define binsreg, eclass
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                       `nbins', `dots_p', `dots_s', `deriv', ///
-							                   "dots", `dotsngrid')
+							                   "dots", `dotsngrid', "`wval'", `nwvar')
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                        `nbins', `dots_p', `dots_s', `deriv', ///
-							                    "dots", `dotsngrid', "`xmean'")
+							                    "dots", `dotsngrid', "`wval'", `nwvar', "`xmean'")
 		   }		  
 		  
 		   * dots
 		   local plotnum=`plotnum'+1
-		   local legendnum `legendnum' `plotnum'
+		   if ("`cbON'"=="T") local legendnum `legendnum' `=`plotnum'+1'
+		   else {
+		      local legendnum `legendnum' `plotnum'
+		   }
 		   local col: word `counter_by' of `bycolors'
 		   local sym: word `counter_by' of `bysymbols'
-	       local plotcmd `plotcmd' (scatter dots_fit dots_x ///
-		                 in `dots_first'/`dots_last', ///
-						 mcolor(`col') msymbol(`sym') `dotsplotopt')
+		   local plotcond ""
+		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		      local plotcond if
+		      if ("`plotxrange'"!="") {
+		         local plotcond `plotcond' dots_x>=`min_xr'
+			     if ("`max_xr'"!="") local plotcond `plotcond' &dots_x<=`max_xr' 
+		      }
+			  if ("`plotyrange'"!="") {
+		         if ("`plotxrange'"=="") local plotcond `plotcond' dots_fit>=`min_yr'
+				 else                    local plotcond `plotcond' &dots_fit>=`min_yr'
+			     if ("`max_yr'"!="") local plotcond `plotcond' &dots_fit<=`max_yr' 
+		      }
+		   }
+
+	       local plotcmdby `plotcmdby' (scatter dots_fit dots_x ///
+		                   `plotcond' in `dots_first'/`dots_last', ///
+						   mcolor(`col') msymbol(`sym') `dotsplotopt')
 	    }
 
 	    **********************************************
@@ -1041,14 +1075,14 @@ program define binsreg, eclass
 		      if ((`line_p'==`ci_p'&`line_s'==`ci_s'&"`ciON'"=="T")| ///
 		          (`line_p'==`cb_p'&`line_s'==`cb_s'&"`cbON'"=="T")) {
 				 binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
-	                      p(`line_p') s(`line_s') type(line)  ///
+	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
 						  byvalue(`byval') usereg `sorted'
 			  }
 			  else {
 		         binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
-	                      p(`line_p') s(`line_s') type(line)  ///
+	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') /// 
 						  byvalue(`byval') `sorted'
@@ -1061,15 +1095,29 @@ program define binsreg, eclass
 		   mata: `plotmatby'[|1,`line_start' \ `line_nr',`line_end'|] = ///
 			              binsreg_plotmat("`line_b'", "`line_V'", ., "`kmat'", ///
 		                      `nbins', `line_p', `line_s', `deriv', ///
-							  "line", `linengrid')
+							  "line", `linengrid', "`wval'", `nwvar')
 		   
 		   * line
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
 		   local lty: word `counter_by' of `bylpatterns'
-	       local plotcmd `plotcmd' (line line_fit line_x ///
-		                 in `line_first'/`line_last', sort cmissing(n) ///
-						 lcolor(`col') lpattern(`lty') `lineplotopt')
+		   local plotcond ""
+		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		      local plotcond if
+		      if ("`plotxrange'"!="") {
+		         local plotcond `plotcond' line_x>=`min_xr'
+			     if ("`max_xr'"!="") local plotcond `plotcond' &line_x<=`max_xr' 
+		      }
+			  if ("`plotyrange'"!="") {
+		         if ("`plotxrange'"=="") local plotcond `plotcond' line_fit>=`min_yr'
+				 else                    local plotcond `plotcond' &line_fit>=`min_yr'
+			     if ("`max_yr'"!="") local plotcond `plotcond' &line_fit<=`max_yr' 
+		      }
+		   }
+		   
+	       local plotcmdby `plotcmdby' (line line_fit line_x ///
+		                   `plotcond' in `line_first'/`line_last', sort cmissing(n) ///
+						   lcolor(`col') lpattern(`lty') `lineplotopt')
 	
 	    }
 	 
@@ -1089,11 +1137,17 @@ program define binsreg, eclass
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 		 
-		   capture reg `y_var' `poly_series' `w_var' `conds' `wt', nocon
+		   capture reg `y_var' `poly_series' `w_var' `conds' `wt', nocon `vce'
 		   * store results
-		   tempname poly_b poly_V
+		   tempname poly_b poly_V poly_adjw
 	       if (_rc==0) {
 	 	      matrix `poly_b'=e(b)
+			  if (`nwvar'>0&`deriv'==0) {
+			     matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+2'..`=`polyreg'+1+`nwvar'']'
+			  }
+			  else {
+			     matrix `poly_adjw'=0
+			  }
 			  matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`polyreg'+1']
 			  matrix `poly_V'=e(V)
 	       }
@@ -1109,23 +1163,38 @@ program define binsreg, eclass
 				      `plotmatby'[|1,`poly_start' \ `poly_nr',`poly_start'|]:^(`i'-`deriv')* ///
 					  factorial(`i')/factorial(`i'-`deriv'))	
 	       }
-		   mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=`Xm'*st_matrix("`poly_b'")'
+		   mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
 		   
 		   mata: mata drop `Xm'
 		   
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
 		   local lty: word `counter_by' of `bylpatterns'
-		   local plotcmd `plotcmd' (line poly_fit poly_x ///
-		                 in `poly_first'/`poly_last', ///
-						 sort lcolor(`col') lpattern(`lty') `polyregplotopt')
+		   local plotcond ""
+		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		      local plotcond if
+		      if ("`plotxrange'"!="") {
+		         local plotcond `plotcond' poly_x>=`min_xr'
+			     if ("`max_xr'"!="") local plotcond `plotcond' &poly_x<=`max_xr' 
+		      }
+			  if ("`plotyrange'"!="") {
+		         if ("`plotxrange'"=="") local plotcond `plotcond' poly_fit>=`min_yr'
+				 else                    local plotcond `plotcond' &poly_fit>=`min_yr'
+			     if ("`max_yr'"!="") local plotcond `plotcond' &poly_fit<=`max_yr' 
+		      }
+		   }
+		   
+		   local plotcmdby `plotcmdby' (line poly_fit poly_x ///
+		                   `plotcond' in `poly_first'/`poly_last', ///
+						   sort lcolor(`col') lpattern(`lty') `polyregplotopt')
 		
 		   * add CI for global poly?
 		   if (`polyregcingrid'!=0) {
 	          local polyci_first=`byfirst'
 			  local polyci_last=`byfirst'-1+`polyci_nr'
-			  matrix `poly_V'=`poly_V'[`=`deriv'+1'..`=`polyreg'+1',`=`deriv'+1'..`=`polyreg'+1']
-	          
+			  if (`nwvar'>0&`deriv'==0) matrix `poly_V'=`poly_V'[`=`deriv'+1'..`=`polyreg'+1+`nwvar'',`=`deriv'+1'..`=`polyreg'+1+`nwvar'']
+	          else                      matrix `poly_V'=`poly_V'[`=`deriv'+1'..`=`polyreg'+1',`=`deriv'+1'..`=`polyreg'+1']
+			  
 	          mata: `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'+2|]=binsreg_grids("`kmat'", `polyregcingrid')
 		   
 		      mata: `Xm'=J(`polyci_nr',0,.)
@@ -1134,18 +1203,35 @@ program define binsreg, eclass
 				      `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'|]:^(`i'-`deriv')* ///
 					  factorial(`i')/factorial(`i'-`deriv'))	
 	          }
-			  mata:`mata_fit'=`Xm'*st_matrix("`poly_b'")'; ///
-				   `mata_se'=sqrt(rowsum((`Xm':*(st_matrix("`poly_V'")*`Xm'')'))); ///
+			  mata:`mata_fit'=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
+			  if (`nwvar'>0&`deriv'==0) {
+			      mata: `Xm'=(`Xm', J(`polyci_nr',1,1)#st_matrix("`wval'"))
+			  }
+			  mata:`mata_se'=sqrt(rowsum((`Xm':*(st_matrix("`poly_V'")*`Xm'')'))); ///
 				   `plotmatby'[|1,`polyci_start'+3 \ `polyci_nr',`polyci_start'+3|]=`mata_fit'-`mata_se'*invnormal(`alpha'); ///
-				   `plotmatby'[|1,`polyci_start'+4 \ `polyci_nr',`polyci_start'+4|]=`mata_fit'+`mata_se'*invnormal(`alpha')
-		      
+				   `plotmatby'[|1,`polyci_start'+4 \ `polyci_nr',`polyci_start'+4|]=`mata_fit'+`mata_se'*invnormal(`alpha'); ///
+		           `plotmatby'[selectindex(`plotmatby'[,`=`polyci_start'+1']:==1),(`=`polyci_start'+3',`=`polyci_start'+4')]=J(`=`nbins'-1',2,.)
 		      mata: mata drop `Xm' `mata_fit' `mata_se'
 		
 		      * poly ci
 			  local plotnum=`plotnum'+1
-	          local plotcmd `plotcmd' (rcap polyCI_l polyCI_r polyCI_x ///
-			                in `polyci_first'/`polyci_last', ///
-							sort lcolor(`col') lpattern(`lty') `ciplotopt')
+			  local plotcond ""
+		      if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		         local plotcond if
+		         if ("`plotxrange'"!="") {
+		            local plotcond `plotcond' polyCI_x>=`min_xr'
+			        if ("`max_xr'"!="") local plotcond `plotcond' &polyCI_x<=`max_xr' 
+		         }
+			     if ("`plotyrange'"!="") {
+		            if ("`plotxrange'"=="") local plotcond `plotcond' polyCI_l>=`min_yr'
+				    else                    local plotcond `plotcond' &polyCI_l>=`min_yr'
+			        if ("`max_yr'"!="") local plotcond `plotcond' &polyCI_r<=`max_yr' 
+		         }
+		      }
+
+	          local plotcmdby `plotcmdby' (rcap polyCI_l polyCI_r polyCI_x ///
+			                  `plotcond' in `polyci_first'/`polyci_last', ///
+							  sort lcolor(`col') lpattern(`lty') `ciplotopt')
 		   }
 	    }
 	  
@@ -1175,7 +1261,7 @@ program define binsreg, eclass
 		   capture confirm matrix `ci_b' `ci_V' `xmean' 
 		   if (_rc!=0) {
 			    binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
-	                    p(`ci_p') s(`ci_s') type(ci)  ///
+	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
 						byvalue(`byval') `sorted'
@@ -1191,24 +1277,37 @@ program define binsreg, eclass
 			            binsreg_plotmat("`ci_b'", "`ci_V'", ///
 						      `=invnormal(`alpha')', "`kmat'", ///
 		                      `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-							  `cingrid')
+							  `cingrid', "`wval'", `nwvar')
 		   }
 		   else {
-		      
 		      mata: `plotmatby'[|1,`ci_start' \ `ci_nr',`ci_end'|] = ///
 			            binsreg_plotmat("`ci_b'", "`ci_V'", ///
 						   `=invnormal(`alpha')', "`kmat'", ///
 		                   `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-						   `cingrid', "`xmean'")
+						   `cingrid', "`wval'", `nwvar', "`xmean'")
 		   }
 		   
 		   * ci
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
 		   local lty: word `counter_by' of `bylpatterns'
-	       local plotcmd `plotcmd' (rcap CI_l CI_r CI_x ///
-		                 in `ci_first'/`ci_last', ///
-						 sort lcolor(`col') lpattern(`lty') `ciplotopt')
+		   local plotcond ""
+		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		      local plotcond if
+		      if ("`plotxrange'"!="") {
+	             local plotcond `plotcond' CI_x>=`min_xr'
+			     if ("`max_xr'"!="") local plotcond `plotcond' &CI_x<=`max_xr' 
+		      }
+			  if ("`plotyrange'"!="") {
+		         if ("`plotxrange'"=="") local plotcond `plotcond' CI_l>=`min_yr'
+				 else                    local plotcond `plotcond' &CI_l>=`min_yr'
+			     if ("`max_yr'"!="") local plotcond `plotcond' &CI_r<=`max_yr' 
+		      }
+		   }
+
+	       local plotcmdby `plotcmdby' (rcap CI_l CI_r CI_x ///
+		                   `plotcond' in `ci_first'/`ci_last', ///
+						   sort lcolor(`col') lpattern(`lty') `ciplotopt')
 
 	    }
 	 
@@ -1243,7 +1342,7 @@ program define binsreg, eclass
 		         }
 				 else {
 				    binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
-	                    p(`cb_p') s(`cb_s') type(cb)  ///
+	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
 						byvalue(`byval') `sorted'
@@ -1263,7 +1362,7 @@ program define binsreg, eclass
 		         `cb_basis'=binsreg_spdes(`cb_basis'[,1], "`kmat'", `cb_basis'[,3], `cb_p', `deriv', `cb_s'); ///
 		         `Xm'=binsreg_pred(`cb_basis', st_matrix("`cb_b'")[|1 \ `nseries'|]', ///
 			                       st_matrix("`cb_V'")[|1,1 \ `nseries',`nseries'|], "all"); ///
-			      binsreg_pval(`cb_basis', `Xm'[,2], "`cb_V'", ".", `nsims', `nseries', "two", `=`level'/100', ".", "`cval'")		  
+			      binsreg_pval(`cb_basis', `Xm'[,2], "`cb_V'", ".", `nsims', `nseries', "two", `=`level'/100', ".", "`cval'", "inf")		  
 		   mata: mata drop `cb_basis' `Xm'
 	          
 	       * prediction
@@ -1271,17 +1370,32 @@ program define binsreg, eclass
 			                binsreg_plotmat("`cb_b'", "`cb_V'",      ///
 						                    `=`cval'', "`kmat'",       ///
 		                                    `nbins', `cb_p', `cb_s', `deriv', ///
-							                "cb", `cbngrid')	  
+							                "cb", `cbngrid', "`wval'", `nwvar')	  
 							  
 		   * cb
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
-	       local plotcmd `plotcmd' (rarea CB_l CB_r CB_x ///
-		                 in `cb_first'/`cb_last', sort cmissing(n) ///
-		                 lcolor(`col'%0) fcolor(`col'%20) `cbplotopt')
+		   local plotcond ""
+		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
+		      local plotcond if
+		      if ("`plotxrange'"!="") {
+	             local plotcond `plotcond' CB_x>=`min_xr'
+			     if ("`max_xr'"!="") local plotcond `plotcond' &CB_x<=`max_xr' 
+		      }
+			  if ("`plotyrange'"!="") {
+		         if ("`plotxrange'"=="") local plotcond `plotcond' CB_l>=`min_yr'
+				 else                    local plotcond `plotcond' &CB_l>=`min_yr'
+			     if ("`max_yr'"!="") local plotcond `plotcond' &CB_r<=`max_yr' 
+		      }
+		   }
+
+	       local plotcmdby (rarea CB_l CB_r CB_x ///
+		                   `plotcond' in `cb_first'/`cb_last', sort cmissing(n) ///
+		                   lcolor(none%0) fcolor(`col'%50) fintensity(50) `cbplotopt') `plotcmdby'
 	    }
 		mat `cvallist'=(nullmat(`cvallist') \ `cval')
 		
+		local plotcmd `plotcmd' `plotcmdby'
 		mata: `plotmat'=(`plotmat' \ `plotmatby')
 		
 		*********************************
@@ -1356,175 +1470,6 @@ program define binsreg, eclass
 	 ****************** END loop ****************************************
 	 ********************************************************************
 	 
-	 *******************************************
-	 ******* Test everything all at once *******
-	 *******************************************
-	 if ((`ntestshape'!=0|`"`testmodelparfit'"'!=`""'|"`testmodelpoly'"!="")&"`test_fewobs'"!="T"&"`fewobs'"!="T") {
-	    local testON "T"
-	 }
-	 if ("`testON'"=="T") {
-	     qui binsregtest `y_var' `x_var' `w_var' `wt', deriv(`deriv')  ///
-		                 testmodelparfit(`testmodelparfit') testmodelpoly(`testmodelpoly') ///
-				   	     testmodel(`tmod_p' `tmod_s') /// 
-		                 testshapel(`testshapel') testshaper(`testshaper') testshape2(`testshape2') ///
-		                 testshape(`tsha_p' `tsha_s')  ///
-		                 nbins(`nbins') binspos(`binspos')  ///
-		                 nsims(`nsims') simsgrid(`simsngrid') simsseed(`simsseed') `vce' ///
-						 masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') numdist(`Ndist') numclust(`Nclust')
-	     if ("`testshapel'"!="") {
-		     tempname stat_shapeL pval_shapeL
-		     local testvalueL `=e(testvalueL)'
-	         matrix `stat_shapeL'=e(stat_shapeL)
-	         matrix `pval_shapeL'=e(pval_shapeL)
-	     }
-	     if ("`testshaper'"!="") {
-		     tempname stat_shapeR pval_shapeR
-			 local testvalueR `=e(testvalueR)'
-	         matrix `stat_shapeR'=e(stat_shapeR)
-	         matrix `pval_shapeR'=e(pval_shapeR)  
-	     }
-	     if ("`testshape2'"!="") {
-		     tempname stat_shape2 pval_shape2
-		     local testvalue2 `=e(testvalue2)'
-	 	     matrix `stat_shape2'=e(stat_shape2)
-	         matrix `pval_shape2'=e(pval_shape2)
-	     }
-	     if ("`testmodelpoly'"!="") {
-		     tempname stat_poly pval_poly
-	         local testpolyp=e(testpolyp)
-	         scalar `stat_poly'=e(stat_poly)
-		     scalar `pval_poly'=e(pval_poly)
-	     }
-	     if (`"`testmodelparfit'"'!=`""') {
-		     tempname stat_model pval_model
-	         local testvarlist `=e(testvarlist)'
-	         matrix `stat_model'=e(stat_model)
-			 matrix `pval_model'=e(pval_model)
-	     }
-	 }
-	 
-	 ******************************************************
-	 ****** Display test results **************************
-	 if ("`testON'"=="T") {
-	 
-	 if (`ntestshape'!=0|`"`testmodelparfit'"'!=`""'|"`testmodelpoly'"!="") {
-	    di ""
-	    di in smcl in gr "Hypothesis tests based on binscatter estimates"
-	    di in smcl in gr "Bin selection method: `binselectmethod'"
-	    di in smcl in gr "Placement: `placement'"
-	    di in smcl in gr "Derivative: `deriv'"
-	    di ""
-	    di in smcl in gr "{hline 30}{c TT}{hline 15}"
-	    di in smcl in gr "{lalign 1:# of observations}"   _col(30) " {c |} " _col(32) as result %7.0f `N'
-	    di in smcl in gr "{lalign 1:# of distinct values}"   _col(30) " {c |} " _col(32) as result %7.0f `Ndist'
-	    di in smcl in gr "{lalign 1:# of clusters}"   _col(30) " {c |} " _col(32) as result %7.0f `Nclust'	 
-	    di in smcl in gr "{hline 30}{c +}{hline 15}"
-	    di in smcl in gr "{lalign 1:Bin selection:}"             _col(30) " {c |} "
-		if ("`binselectmethod'"=="User-specified") {
-	       di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(39) as result %7.0f "."
-	       di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(39) as result %7.0f "."
-	    }
-		else {
-	       di in smcl in gr "{ralign 29:Degree of polynomial}"      _col(30) " {c |} " _col(32) as result %7.0f `dots_p'
-	       di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `dots_s'
-	    }
-		di in smcl in gr "{ralign 29:# of bins}"                 _col(30) " {c |} " _col(32) as result %7.0f `nbins'
-	    di in smcl in gr "{hline 30}{c BT}{hline 15}"
-     }
-	 
-	 if (`ntestshape'!=0) {
-	    di ""
-		di in smcl in gr "Shape Restriction Tests:"
-	    di in smcl in gr "Degree: `tsha_p'" _col(15) "# of smoothness constraints: `tsha_s'"
-	    
-	 }
-	 if ("`testshapel'"!="") {
-	    di ""
-		di in smcl in gr "{hline 19}{c TT}{hline 30}"
-	    di in smcl in gr "H0: sup mu <="  _col(20) in gr ///
-		                 "{c |}" _col(22) "sup T"  _col(40) "p value"
-		di in smcl in gr "{hline 19}{c +}{hline 30}"
-		forval i=1/`nL' {
-	       local val: word `i' of `testshapel'   
-		   local stat=`stat_shapeL'[`i',1]
-		   local pval=`pval_shapeL'[`i',1]
-	       di in smcl in yellow "{rcenter 19:`val'}" _col(20) in gr "{c |}" ///
-		                    _col(22) as result %7.3f `stat' ///
-		                    _col(40) as result %7.3f `pval'
-	    }
-		di in smcl in gr "{hline 19}{c BT}{hline 30}"
-	 }
-	 
-	 if ("`testshaper'"!="") {
-	    di ""
-		di in smcl in gr "{hline 19}{c TT}{hline 30}"
-		di in smcl in gr "H0: inf mu >="  _col(20) in gr ///
-		                 "{c |}" _col(22) "inf T"  _col(40) "p value"
-		di in smcl in gr "{hline 19}{c +}{hline 30}"	    
-		forval i=1/`nR' {
-	       local val: word `i' of `testshaper'
-		   local stat=`stat_shapeR'[`i',1]
-		   local pval=`pval_shapeR'[`i',1]
-	       di in smcl in yellow "{rcenter 19:`val'}" _col(20) in gr "{c |}" ///
-		                    _col(22) as result %7.3f `stat' ///
-		                    _col(40) as result %7.3f `pval'
-	    }
-		di in smcl in gr "{hline 19}{c BT}{hline 30}"
-	 }
-     
-	 if ("`testshape2'"!="") {
-	    di ""
-		di in smcl in gr "{hline 19}{c TT}{hline 30}"
-	    di in smcl in gr "H0: mu ="  _col(20) in gr ///
-		                 "{c |}" _col(22) "sup |T|"  _col(40) "p value"
-		di in smcl in gr "{hline 19}{c +}{hline 30}"
-		forval i=1/`nT' {
-	       local val: word `i' of `testshape2'   
-		   local stat=`stat_shape2'[`i',1]
-		   local pval=`pval_shape2'[`i',1]
-	       di in smcl in yellow "{rcenter 19:`val'}" _col(20) in gr "{c |}" ///
-		                    _col(22) as result %7.3f `stat' ///
-		                    _col(40) as result %7.3f `pval'
-	    }
-		di in smcl in gr "{hline 19}{c BT}{hline 30}"
-	 }
-	 
-	 if ("`testmodelpoly'"!=""|`"`testmodelparfit'"'!=`""') {
-	    di ""
-	    di in smcl in gr "Model specification Tests:"
-	    di in smcl in gr "Degree: `tmod_p'" _col(15) "# of smoothness constraints: `tmod_s'"
-	 }
-     if ("`testmodelpoly'"!="") {
-	    di ""
-		di in smcl in gr "{hline 19}{c TT}{hline 30}"
-		di in smcl in gr "H0: mu =" _col(20) in gr ///
-		                 "{c |}" _col(22) "sup |T|"  _col(40) "p value"
-		di in smcl in gr "{hline 19}{c +}{hline 30}"
-	    di in smcl in gr "poly. degree  " as result `testpolyp' _col(20) in gr "{c |}" ///
-		                    _col(22) as result %7.3f `stat_poly' ///
-		                    _col(40) as result %7.3f `pval_poly'
-		di in smcl in gr "{hline 19}{c BT}{hline 30}"
-	 }
-	 if (`"`testmodelparfit'"'!=`""') {
-	    di ""
-		di in smcl in gr `"Input file: `testmodelparfit'.dta"'
-	    di in smcl in gr "{hline 19}{c TT}{hline 30}"
-	    di in smcl in gr "H0: mu ="  _col(20) in gr ///
-		                 "{c |}" _col(22) "sup |T|"  _col(40) "p value"
-		di in smcl in gr "{hline 19}{c +}{hline 30}"
-		local nfitval: word count `testvarlist'
-		forval i=1/`nfitval' {
-	       local val: word `i' of `testvarlist'
-		   local stat=`stat_model'[`i',1]
-		   local pval=`pval_model'[`i',1]
-	       di in smcl in yellow "{rcenter 19:`val'}" _col(20) in gr "{c |}" ///
-		                    _col(22) as result %7.3f `stat' ///
-		                    _col(40) as result %7.3f `pval'
-	    }
-		di in smcl in gr "{hline 19}{c BT}{hline 30}"
-	 }
-	 
-	 }
 	 
 	 *******************************************
 	 *************** Plotting ******************
@@ -1690,38 +1635,7 @@ program define binsreg, eclass
 	 ereturn scalar ci_s=`ci_s'
 	 ereturn scalar cb_p=`cb_p'
 	 ereturn scalar cb_s=`cb_s'
-	 ereturn scalar testshape_p=`tsha_p'
-	 ereturn scalar testshape_s=`tsha_s'
-	 ereturn scalar testmodel_p=`tmod_p'
-	 ereturn scalar testmodel_s=`tmod_s'
 	 
-	 if ("`testON'"=="T") {
-	    if ("`testshapel'"!="") {
-		   ereturn local testvalueL `testvalueL'
-	       ereturn matrix stat_shapeL=`stat_shapeL'
-	       ereturn matrix pval_shapeL=`pval_shapeL'
-	    }
-	    if ("`testshaper'"!="") {
-		   ereturn local testvalueR `testvalueR'
-	       ereturn matrix stat_shapeR=`stat_shapeR'
-	       ereturn matrix pval_shapeR=`pval_shapeR'  
-	    }
-	    if ("`testshape2'"!="") {
-		   ereturn local testvalue2 `testvalue2'
-	 	   ereturn matrix stat_shape2=`stat_shape2'
-	       ereturn matrix pval_shape2=`pval_shape2'
-	    }
-	    if ("`testmodelpoly'"!="") {
-	       ereturn scalar testpolyp=`testpolyp'
-	       ereturn scalar stat_poly=`stat_poly'
-		   ereturn scalar pval_poly=`pval_poly'
-	    }
-	    if (`"`testmodelparfit'"'!=`""') {
-	       ereturn local testvarlist `testvarlist'
-	       ereturn matrix pval_model=`pval_model'
-	       ereturn matrix stat_model=`stat_model'
-	    }
-	 }
 end
 
 * Helper commands
@@ -1731,7 +1645,7 @@ program define binsreg_fit, eclass
      syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, deriv(integer 0) ///
 	        p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
-			xname(name) yname(name) catname(name) edge(name) ///
+			xname(name) yname(name) catname(name) edge(name) ///            /* quantities in mata, subsample */
 			byvalue(string) ///
 			usereg sorted]                                                 /* usereg: force the command to use reg; sored: sorted data? */
 	 
@@ -1776,16 +1690,16 @@ program define binsreg_fit, eclass
 		else {
 		   tempname output
 		   if (`dotsmean'!=0&"`ymeanON'"=="T") {
-		      mata: `output'=binsreg_mean((`xname',`yname'), `catname', `nbins', `edge'); ///
+		      mata: `output'=binsreg_stat((`xname',`yname'), `catname', `nbins', `edge', "mean", -1); ///
 			        st_matrix("`temp_b'", `output'[.,3]'); ///
 					st_matrix("`matxmean'", `output'[.,1..2])
 		   }
 		   else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		      mata: `output'=binsreg_mean(`xname', `catname', `nbins', `edge'); ///
+		      mata: `output'=binsreg_stat(`xname', `catname', `nbins', `edge', "mean", -1); ///
 					st_matrix("`matxmean'", `output')
 		   }
 		   else {
-		      mata: `output'=binsreg_mean(`yname', `catname', `nbins', `edge'); ///
+		      mata: `output'=binsreg_stat(`yname', `catname', `nbins', `edge', "mean", -1); ///
 			        st_matrix("`temp_b'", `output'[.,2]')
 		   }
 		   mata: mata drop `output'
@@ -1798,6 +1712,7 @@ program define binsreg_fit, eclass
 		   capture reg `y_var' ibn.`xcat' `w_var' if `touse' `wt', nocon `vce'
 		   matrix `temp_b'=e(b)
 		   matrix `temp_V'=e(V)
+		   mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins')
 		}
 		else {
 	       local nseries=(`p'-`s'+1)*(`nbins'-1)+`p'+1
@@ -1840,20 +1755,26 @@ mata:
   real matrix binsreg_plotmat(string scalar eb, string scalar eV, real scalar cval, ///
                               string scalar knotname, real scalar J, ///
                               real scalar p, real scalar s, real scalar deriv, ///
-                              string scalar type, real scalar ngrid, | string scalar muxmat) 
+                              string scalar type, real scalar ngrid, string scalar muwmat, ///
+							  real scalar nw, | string scalar muxmat) 
   {
-    real matrix bmat, vmat, knot, xmean, eval, out, fit, se, semat, Xm, result
+    real matrix coef, bmat, rmat, vmat, knot, xmean, wval, eval, out, fit, se, semat, Xm, result
 	real scalar nseries
 	
 	nseries=(p-s+1)*(J-1)+p+1
-	bmat=st_matrix(eb)[|1\nseries|]'
+	coef=st_matrix(eb)
+	bmat=coef[|1\nseries|]'
+	if (nw>0) {
+	   rmat=coef[|(nseries+1)\cols(coef)|]'
+	}
+	
 	if (type=="ci"|type=="cb") {
 	   vmat=st_matrix(eV)[|1,1\nseries,nseries|]
 	}
     
     // Prepare evaluation points
     eval=J(0,3,.)
-    if (args()==11) {
+    if (args()==13) {
 	   xmean=st_matrix(muxmat)
        eval=(eval \ (xmean[,2], J(J, 1, 0), xmean[,1])) 
     }
@@ -1861,10 +1782,19 @@ mata:
 	   eval=(eval \ binsreg_grids(knotname, ngrid))
     }
 	
+	// adjust w variables
+	if (nw>0&deriv==0) {
+	   wval=st_matrix(muwmat)
+       wval=wval*rmat
+	}
+	else {
+	   wval=0
+	}
+	
 	fit=J(0,1,.)
 	se=J(0,1,.)
 	if (p==0) {
-	   if (args()==11) {
+	   if (args()==13) {
 	     fit=(fit \ bmat)
 	   }
 	   if (ngrid!=0) {
@@ -1873,7 +1803,7 @@ mata:
 	   }
 	   if (type=="ci"|type=="cb") {
 	      semat=sqrt(diagonal(vmat))
-		  if (args()==11) {
+		  if (args()==13) {
 	         se=(se \ semat)
 	      }
 		  if (ngrid!=0) {
@@ -1882,21 +1812,21 @@ mata:
 		  }
 	   }
 	   if (type=="dots"|type=="line") {
-	      out=(eval, fit)
+	      out=(eval, fit:+wval)
 	   }
 	   else {
-	      out=(eval, fit-se*cval, fit+se*cval)
+	      out=(eval, (fit:+wval)-se*cval, (fit:+wval)+se*cval)
 	   }
 	}
 	else {
 	   Xm=binsreg_spdes(eval[,1], knotname, eval[,3], p, deriv, s)
 	   if (type=="dots"|type=="line") {
 	     fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
-		 out=(eval, fit)
+		 out=(eval, fit:+wval)
 	   }
 	   else {
 	   	 result=binsreg_pred(Xm, bmat, vmat, "all")
-		 out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+		 out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
 	   }
 	}
 
@@ -1909,47 +1839,6 @@ mata:
 	
 	return(out)
   }
-
-  // Mean by bin, with sorted data
-  real matrix binsreg_mean(real matrix x, real vector xcat, real scalar nbins, ///
-                           real vector edge, ///
-					       | real vector by, real scalar byval)
-  {
-     real matrix subgroup, xsub, binid, binedges, out 
-	 real scalar j, ncol
-	 
-	 xsub=x
-	 if (args()>4) {
-	    subgroup = by:==byval
-		xsub=select(xsub, subgroup)
-	 }
-	 ncol = cols(xsub)
-	
-	 if (edge[1]==.) {
-	    if (nbins==1) {
-	 	   binedges = 0 \ rows(xsub)
-	    } 
-	    else {
-	       binid = xcat
-		   if (args()>4) {
-		     binid = select(binid, subgroup)
-		   }
-		   binedges = 0\selectindex(binid[|1 \ rows(binid)-1|]-binid[|2 \ rows(binid)|])\rows(xsub)
-	    }
-	 }
-	 else {
-	    binedges = edge
-	 }
-	 
-	 out=J(nbins,ncol,.)
-	
-	 for (j=2;j<=nbins+1;j++) {
-	 	out[j-1,.] = mean(xsub[|binedges[j-1]+1, 1 \ binedges[j], ncol|])
-	 }
-	 out=(range(1,nbins,1), out)
-	 
-	 return(out)
-   } 
 
   
 end
