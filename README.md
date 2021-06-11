@@ -54,7 +54,7 @@ Working paper.<br>
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2019): On Binscatter.<br>
+- Cattaneo, Crump, Farrell and Feng (2021): On Binscatter.<br>
 Working paper.<br>
 Supplemental Appendix.<br>
 2021 upgraded version with many new features (see above) coming soon.<br>
