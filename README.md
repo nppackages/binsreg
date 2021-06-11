@@ -16,7 +16,7 @@ Please email: [binsreg.package@gmail.com](mailto:binsreg.package@gmail.com)
 
 This package was first released in Winter 2019, and had one major upgrade in Summer 2021.
 
-- Summer 2021 new features include: (i) discrete choice binscatter (logit and Probit); (ii) quantile regression binscatter; (iii) new generic specification and shape restriction hypothesis testing function (now including Lp metrics); (iv) pairwise group comparison of binscatter estimators; (v) generic point evaluation of covariate-adjusted binscatter. The following file contains a detailed list of upgrades: [upgrades](https://nppackages.github.io/binsreg/binsreg-0.3_upgrades.txt)
+- _Summer 2021 new features include_: (i) discrete choice binscatter (logit and Probit); (ii) quantile regression binscatter; (iii) new generic specification and shape restriction hypothesis testing function (now including Lp metrics); (iv) pairwise group comparison of binscatter estimators; (v) generic point evaluation of covariate-adjusted binscatter. The following file contains a detailed list of upgrades: [upgrades](https://nppackages.github.io/binsreg/binsreg-0.3_upgrades.txt)
 
 
 ## Stata Implementation
