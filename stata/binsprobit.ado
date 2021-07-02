@@ -1,4 +1,4 @@
-*! version 0.3 10-JUN-2021  
+*! version 0.4 02-JUL-2021  
 
 capture program drop binsprobit
 program define binsprobit, eclass
@@ -11,10 +11,11 @@ program define binsprobit, eclass
 			cb(numlist integer max=2 >=0) cbgrid(integer 20) cbplotopt(string asis) ///
 			polyreg(string) polyreggrid(integer 20) polyregcigrid(integer 0) polyregplotopt(string asis) ///
 			by(varname) bycolors(string asis) bysymbols(string asis) bylpatterns(string asis) ///
-			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) samebinsby ///
-			nsims(integer 500) simsgrid(integer 20) simsseed(integer 666) ///
-			dfcheck(numlist integer max=2 >=0) masspoints(string) ///
-			vce(passthru) level(real 95)   ///
+			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) ///
+			samebinsby randcut(numlist max=1 >=0 <=1) ///
+			nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
+			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
+			vce(passthru) level(real 95) asyvar(string) ///
 			noplot savedata(string asis) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
 	 
@@ -49,6 +50,7 @@ program define binsprobit, eclass
 	 if ("`vce'"=="vce(oim)"|"`vce'"=="vce(opg)") local vce_select "vce(ols)"
 	 else                                         local vce_select "`vce'"
 	 
+	 if ("`asyvar'"=="") local asyvar "off"
 	 
 	 * Extract p and s, grid, set default
 	 * dots
@@ -178,6 +180,23 @@ program define binsprobit, eclass
 	 * evaluate at w from another dataset?
 	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
 	 
+	 * use gtools commands instead?
+	 if ("`usegtools'"=="off") local usegtools ""
+	 if ("`usegtools'"=="on")  local usegtools usegtools
+	 if ("`usegtools'"!="") {
+	    capture which gtools
+		if (_rc) {
+		   di as error "Gtools package not installed."
+		   exit
+		}
+		local localcheck "F"
+		local sel_gtools "on"
+	    * use gstats tab instead of tabstat/collapse
+		* use gquantiles instead of _pctile
+		* use gunique instead of binsreg_uniq
+		* use fasterxtile instead of irecode (within binsreg_irecode)
+		* shut down local checks & do not sort
+	 }
 	 
 	 *************************
 	 **** error checks *******
@@ -268,8 +287,6 @@ program define binsprobit, eclass
 
 	 * Mark sample
 	 preserve
-	 marksample touse, nov   /* do not account for missing values !! */
-	 qui keep if `touse'
 	 
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
@@ -318,11 +335,11 @@ program define binsprobit, eclass
 	 qui keep if `touse'
 	 local nsize=_N             /* # of rows in the original dataset */
 	 
-	 if ("`masspoints'"!="off"|"`binspos'"=="QS") {
+	 if ("`usegtools'"==""&("`masspoints'"!="off"|"`binspos'"=="QS")) {
 	    if ("`:sortedby'"!="`x_var'") {
 		  di as text in gr "Sorting dataset on `x_varname'..."
 		  di as text in gr "Note: This step is omitted if dataset already sorted by `x_varname'."
-		  sort `x_var'
+		  sort `x_var', stable
 		}
 		local sorted "sorted"
 	 }
@@ -436,14 +453,26 @@ program define binsprobit, eclass
 	 if ("`selectfullON'"=="T") {
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
-	       mata: `binedges'=binsreg_uniq(`xvec', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+	       if ("`usegtools'"=="") {
+	          mata: `binedges'=binsreg_uniq(`xvec', ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var'
+			  local Ndist=r(unique)
+		   }
 	       local eN=min(`eN', `Ndist')
 	    }
 	    * # of clusters
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
-		   mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   if ("`usegtools'"=="") {
+		      mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   }
+		   else {
+		      qui gunique `clustervar'
+			  local Nclust=r(unique)
+		   }
 		   local eN=min(`eN', `Nclust')   /* effective sample size */
 	    }
 	 
@@ -460,7 +489,7 @@ program define binsprobit, eclass
 			qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
 		                      binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 							  `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							  numdist(`Ndist') numclust(`Nclust')
+							  numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
 			if (e(nbinsrot_regul)==.) {
 			   di as error "bin selection fails."
 			   exit
@@ -490,7 +519,7 @@ program define binsprobit, eclass
 	     else {
 			 if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		     else {		
-	           binsreg_pctile `x_var' `wt', nq(`nbins')
+	           binsreg_pctile `x_var' `wt', nq(`nbins') `usegtools'
 		       mat `fullkmat'=(`xmin' \ r(Q) \ `xmax')
 		     }
 	     }
@@ -511,7 +540,7 @@ program define binsprobit, eclass
 	 * NOTE: ALL checkings are put within the loop
 	 
 	 * Set seed
-	 set seed `simsseed'
+	 if ("`simsseed'"!="") set seed `simsseed'
 	 
 	 * alpha quantile (for two-sided CI)
 	 local alpha=(100-(100-`level')/2)/100
@@ -584,6 +613,7 @@ program define binsprobit, eclass
 	 ******************* Now, enter the loop ***********************************
 	 ***************************************************************************
 	 foreach byval in `byvals' `noby' {
+	    local conds ""
 		if ("`by'"!="") {
 		    local conds "if `by'==`byval'"     /* with "if" */
 	        if ("`bylabel'"=="") local byvalname=`byval'
@@ -621,8 +651,14 @@ program define binsprobit, eclass
 	    
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
-		   mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+		   if ("`usegtools'"=="") {
+		      mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var' `conds'
+			  local Ndist=r(unique)
+		   }
 		   local eN=min(`eN', `Ndist')
 		   mat `Ndistlist'[`counter_by',1]=`Ndist'
 	    }
@@ -631,10 +667,22 @@ program define binsprobit, eclass
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
 		   if (`bynum'==1) {
-		   	  mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   	  if ("`usegtools'"=="") {
+			     mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		      }
+			  else {
+			     qui gunique `clustervar'
+				 local Nclust=r(unique)
+			  }
 		   }
 		   else {
-		      mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
+		      if ("`usegtools'"=="") {
+		         mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
+		      }
+			  else {
+			     qui gunique `clustervar' `conds'
+				 local Nclust=r(unique)
+			  }
 		   }
 		   local eN=min(`eN', `Nclust')   /* effective SUBsample size */
 		   mat `Nclustlist'[`counter_by',1]=`Nclust'
@@ -658,7 +706,7 @@ program define binsprobit, eclass
 			  qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
 		                        binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							    `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							    numdist(`Ndist') numclust(`Nclust')
+							    numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
 			  if (e(nbinsrot_regul)==.) {
 			      di as error "bin selection fails."
 			      exit
@@ -727,7 +775,7 @@ program define binsprobit, eclass
 		   if ("`fewobs'"=="T"&"`eN'"!="`Ndist'") {
 		      if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		      else {		
-	            binsreg_pctile `x_var' `conds' `wt', nq(`nbins')
+	            binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
 		        mat `kmat'=(`xmin' \ r(Q) \ `xmax')
 		      }
 		   }
@@ -743,7 +791,7 @@ program define binsprobit, eclass
 	         else {		
 		        if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		        else {		
-	              binsreg_pctile `x_var' `conds' `wt', nq(`nbins')
+	              binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
 		          mat `kmat'=(`xmin' \ r(Q) \ `xmax')
 		        }
 		     }
@@ -765,7 +813,10 @@ program define binsprobit, eclass
 	          di as text in gr "warnings: repeated knots. Some bins dropped."
 		      local nbins=rowsof(`kmat')-1
 	       }
-		   binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat')
+		   
+		   binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat') ///
+		                                   `usegtools' nbins(`nbins') pos(`pos') knotliston(`knotlistON')
+		   
 		   mata: `xcatsub'=st_data(., "`xcat'")
 		   if (`bynum'>1) {
 		      mata: `xcatsub'=select(`xcatsub', `byindex')
@@ -858,14 +909,21 @@ program define binsprobit, eclass
 		if (`nwvar'>0) {
 		   if (`"`at'"'==`"mean"'|`"`at'"'==`"median"') {
 		     matrix `wval'=J(1, `nwvar', 0)
-			 tempname wvaltemp
+			 tempname wvaltemp mataobj
 			 foreach wpos in `indexlist' {
 			    local wname: word `wpos' of `w_var'
-		        if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
-			    else               qui tabstat `wname' `conds', stat(`at') save
-				mat `wvaltemp'=r(StatTotal)
+		        if ("`usegtools'"=="") {
+		           if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
+			       else               qui tabstat `wname' `conds', stat(`at') save
+				   mat `wvaltemp'=r(StatTotal)
+				}
+				else {
+				   qui gstats tabstat `wname' `conds' `wt', stat(`at') matasave("`mataobj'")
+				   mata: st_matrix("`wvaltemp'", `mataobj'.getOutputCol(1))
+				}
 				mat `wval'[1,`wpos']=`wvaltemp'[1,1]
 		     }
+			 if ("`usegtools'"!="") mata: mata drop `mataobj'
 		   }
 		   else if (`"`at'"'==`"0"') {
    		     matrix `wval'=J(1,`nwvar',0)
@@ -986,6 +1044,11 @@ program define binsprobit, eclass
 	    **** The following handles the usual case ***
 	    *********************************************
 		* Turn on or off?
+		local dotsON ""
+		local lineON ""
+		local polyON ""
+		local ciON   ""
+		local cbON   ""
 	    if (`dotsntot'!=0&"`plot'"==""&"`fewobs'"!="T"&"`dots_fewobs'"!="T") {
 	       local dotsON "T"
 	    }	    
@@ -1020,14 +1083,14 @@ program define binsprobit, eclass
 	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') usereg `sorted'
+						usereg `sorted' `usegtools'
 		   }
 		   else {
 		      binsprobit_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted'
+						`sorted' `usegtools'
 		   }
 		   
 		   mat `dots_b'=e(bmat)
@@ -1039,13 +1102,15 @@ program define binsprobit, eclass
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsprobit_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                       `nbins', `dots_p', `dots_s', `deriv', ///
-							                   "dots", `dotsngrid', "`wval'", `nwvar', "`transform'")
+							                   "dots", `dotsngrid', "`wval'", `nwvar', ///
+											   "`transform'", "`asyvar'")
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsprobit_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                        `nbins', `dots_p', `dots_s', `deriv', ///
-							                    "dots", `dotsngrid', "`wval'", `nwvar', "`transform'", "`xmean'")
+							                    "dots", `dotsngrid', "`wval'", `nwvar', ///
+												"`transform'", "`asyvar'", "`xmean'")
 		   }		  
 		  
 		   * dots
@@ -1096,14 +1161,14 @@ program define binsprobit, eclass
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  byvalue(`byval') usereg `sorted'
+						  usereg `sorted' `usegtools'
 			  }
 			  else {
 		         binsprobit_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') /// 
-						  byvalue(`byval') `sorted'
+						  `sorted' `usegtools'
 			  }
 		      mat `line_b'=e(bmat)
 		      mat `line_V'=e(Vmat)
@@ -1113,7 +1178,7 @@ program define binsprobit, eclass
 		   mata: `plotmatby'[|1,`line_start' \ `line_nr',`line_end'|] = ///
 			              binsprobit_plotmat("`line_b'", "`line_V'", ., "`kmat'", ///
 		                      `nbins', `line_p', `line_s', `deriv', ///
-							  "line", `linengrid', "`wval'", `nwvar', "`transform'")
+							  "line", `linengrid', "`wval'", `nwvar', "`transform'", "`asyvar'")
 		   
 		   * line
 		   local plotnum=`plotnum'+1
@@ -1243,11 +1308,11 @@ program define binsprobit, eclass
 		         if (`deriv'==0) {
 				    mata: `mata_fit'=normal(`Xm'*st_matrix("`poly_b'")')
 					mata: `mata_se'=normalden(`Xm'*st_matrix("`poly_b'")'):* ///
-					                sqrt(rowsum((`Xm':*(st_matrix("`poly_V'")*`Xm'')')))
+					                sqrt(rowsum((`Xm'*st_matrix("`poly_V'")):*`Xm'))
 				 }
 				 else if (`deriv'==1) {
 				    forval i=0/`polyreg' {
-		               mata: `Xm0'=(`Xm0', `plotmatby'[|1,`poly_start' \ `poly_nr',`poly_start'|]:^`i')	
+		               mata: `Xm0'=(`Xm0', `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'|]:^`i')	
 	                }
 					if (`nwvar'>0) mata: `Xm0'=(`Xm0', J(`polyci_nr',1,1)#st_matrix("`wval'"))
 			        mata:`mata_fit'=normalden(`Xm0'*st_matrix("`poly_b'")'):* ///
@@ -1257,13 +1322,13 @@ program define binsprobit, eclass
 					mata: `tempobj'=`Xm0'*st_matrix("`poly_b'")'; ///
 					      `tempobj'=(-`tempobj'):*normalden(`tempobj'):*(`Xm'*st_matrix("`poly_b'")'):*`Xm0' + ///
 					                normalden(`tempobj'):*`Xm'; ///
-						  `mata_se'=sqrt(rowsum((`tempobj':*(st_matrix("`poly_V'")*`tempobj'')')))
-						  mata drop `tempobj'
+						  `mata_se'=sqrt(rowsum((`tempobj'*st_matrix("`poly_V'")):*`tempobj'))
+					mata: mata drop `tempobj'
 				 }
 			  }
 			  else {
 		         mata: `mata_fit'=`Xm'*st_matrix("`poly_b'")';	///			 
-			           `mata_se'=sqrt(rowsum((`Xm':*(st_matrix("`poly_V'")*`Xm'')'))) 
+			           `mata_se'=sqrt(rowsum((`Xm'*st_matrix("`poly_V'")):*`Xm')) 
 			  }
 
 			  mata:`plotmatby'[|1,`polyci_start'+3 \ `polyci_nr',`polyci_start'+3|]=`mata_fit'-`mata_se'*invnormal(`alpha'); ///
@@ -1323,7 +1388,7 @@ program define binsprobit, eclass
 	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted'
+						`sorted' `usegtools'
 				 
 		        mat `ci_b'=e(bmat)
 		        mat `ci_V'=e(Vmat)
@@ -1336,14 +1401,15 @@ program define binsprobit, eclass
 			            binsprobit_plotmat("`ci_b'", "`ci_V'", ///
 						      `=invnormal(`alpha')', "`kmat'", ///
 		                      `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-							  `cingrid', "`wval'", `nwvar', "`transform'")
+							  `cingrid', "`wval'", `nwvar', "`transform'", "`asyvar'")
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`ci_start' \ `ci_nr',`ci_end'|] = ///
 			            binsprobit_plotmat("`ci_b'", "`ci_V'", ///
 						   `=invnormal(`alpha')', "`kmat'", ///
 		                   `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-						   `cingrid', "`wval'", `nwvar', "`transform'", "`xmean'")
+						   `cingrid', "`wval'", `nwvar', ///
+						   "`transform'", "`asyvar'", "`xmean'")
 		   }
 		   
 		   * ci
@@ -1404,7 +1470,7 @@ program define binsprobit, eclass
 	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted'
+						`sorted' `usegtools'
 					mat `cb_b'=e(bmat)
 		            mat `cb_V'=e(Vmat)
 				 }
@@ -1429,7 +1495,8 @@ program define binsprobit, eclass
 			                binsprobit_plotmat("`cb_b'", "`cb_V'",      ///
 						                      `=`cval'', "`kmat'",       ///
 		                                      `nbins', `cb_p', `cb_s', `deriv', ///
-							                  "cb", `cbngrid', "`wval'", `nwvar', "`transform'")	  
+							                  "cb", `cbngrid', "`wval'", `nwvar', ///
+											  "`transform'", "`asyvar'")	  
 							  
 		   * cb
 		   local plotnum=`plotnum'+1
@@ -1706,10 +1773,11 @@ program define binsprobit_fit, eclass
 	        p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
 			xname(name) yname(name) catname(name) edge(name) ///
-			byvalue(string) ///
-			usereg sorted]                                                 /* usereg: force the command to use reg; sored: sorted data? */
+			usereg sorted usegtools]                                                 /* usereg: force the command to use reg; sored: sorted data? */
 	 
+	 preserve
 	 marksample touse
+	 qui keep if `touse'
 	 
 	 if ("`weight'"!="") local wt [`weight'`exp']
 	 
@@ -1726,11 +1794,22 @@ program define binsprobit_fit, eclass
 	 mat `temp_V'=.
 	 
 	 if (`dotsmean'!=0) {
-	    if ("`sorted'"==""|"`weight'"!="") {
-	       preserve
-		   collapse (mean) `x_var' if `touse' `wt', by(`xcat') fast
-		   mkmat `xcat' `x_var', matrix(`matxmean')
-		   restore
+	    if ("`sorted'"==""|"`weight'"!=""|"`usegtools'"!="") {
+	       if ("`usegtools'"=="") {
+		      tempfile tmpfile
+			  qui save `tmpfile', replace
+			  
+		      collapse (mean) `x_var' `wt', by(`xcat') fast
+		      mkmat `xcat' `x_var', matrix(`matxmean')
+			  
+			  use `tmpfile', clear
+		   }
+		   else {
+		      tempname obj
+		      qui gstats tabstat `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
+			  mata: st_matrix("`matxmean'", (`obj'.getnum(.,1), `obj'.getOutputVar("`x_var'")))	
+		      mata: mata drop `obj'
+		   }
 		}
 		else {
 		   tempname output
@@ -1742,7 +1821,7 @@ program define binsprobit_fit, eclass
 	 
 	 * Regression?
 	 if (`p'==0) {
-		 capture probit `y_var' ibn.`xcat' `w_var' if `touse' `wt', nocon `vce'
+		 capture probit `y_var' ibn.`xcat' `w_var' `wt', nocon `vce'
 		 if (_rc==0) {
 		    matrix `temp_b'=e(b)
 		    matrix `temp_V'=e(V)
@@ -1761,13 +1840,9 @@ program define binsprobit_fit, eclass
 		    qui gen `sp`i''=. in 1
 	     }
 	
-	     if ("`byvalue'"=="noby") {
-		   	mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
-		 }
-		 else {
-		    mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s', "`touse'")
-	     }
-		 capture probit `y_var' `series' `w_var' if `touse' `wt', nocon `vce'
+		 mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
+	     
+		 capture probit `y_var' `series' `w_var' `wt', nocon `vce'
 	     * store results
 	     if (_rc==0) {
 		    matrix `temp_b'=e(b)
@@ -1794,56 +1869,54 @@ mata:
                                 string scalar knotname, real scalar J, ///
                                 real scalar p, real scalar s, real scalar deriv, ///
                                 string scalar type, real scalar ngrid, string scalar muwmat, ///
-							    real scalar nw, string scalar transform, | string scalar muxmat) 
+							    real scalar nw, string scalar transform, string scalar avar, | string scalar muxmat) 
   {
     real matrix coef, bmat, rmat, vmat, knot, xmean, wval, eval, out, fit, fit0, se, semat, Xm, Xm0, result
 	real scalar nseries
 	
 	nseries=(p-s+1)*(J-1)+p+1
-	coef=st_matrix(eb)
-	bmat=coef[|1\nseries|]'
-	if (nw>0) {
-	   rmat=coef[|(nseries+1)\cols(coef)|]'
-	}
+	coef=st_matrix(eb)'
+	bmat=coef[|1\nseries|]
+	if (nw>0) rmat=coef[|(nseries+1)\rows(coef)|]
 	
 	if (type=="ci"|type=="cb") {
-	   vmat=st_matrix(eV)[|1,1\nseries,nseries|]
+	   vfull=st_matrix(eV)
+	   vmat=vfull[|1,1\nseries,nseries|]
 	}
     
     // Prepare evaluation points
     eval=J(0,3,.)
-    if (args()==14) {
+    if (args()==15) {
 	   xmean=st_matrix(muxmat)
        eval=(eval \ (xmean[,2], J(J, 1, 0), xmean[,1])) 
     }
-    if (ngrid!=0) {
-	   eval=(eval \ binsreg_grids(knotname, ngrid))
-    }
+    if (ngrid!=0) eval=(eval \ binsreg_grids(knotname, ngrid))
 	
 	// adjust w variables
 	if (nw>0) {
-	   wval=st_matrix(muwmat)
-       wval=wval*rmat
+	   wvec=st_matrix(muwmat)
+       wval=wvec*rmat
 	}
-	else {
-	   wval=0
-	}
+	else wval=0
 	
 	fit=J(0,1,.)
 	se=J(0,1,.)
 	if (p==0) {
-	   if (args()==14) {
-	     fit=(fit \ bmat)
-	   }
+	   if (args()==15) fit=(fit \ bmat)
 	   if (ngrid!=0) {
 	     fit=(fit \ (bmat#(J(ngrid,1,1)\.)))
 		 fit=fit[|1 \ (rows(fit)-1)|]
 	   }
 	   if (type=="ci"|type=="cb") {
-	      semat=sqrt(diagonal(vmat))
-		  if (args()==14) {
-	         se=(se \ semat)
-	      }
+	      if (avar=="on") semat=sqrt(diagonal(vmat))
+		  else {
+		     if (nw>0) {
+			    Xm=(I(nseries), J(nseries,1,1)#wvec)
+				semat=sqrt(rowsum((Xm*vfull):*Xm))
+			 }
+			 else semat=sqrt(diagonal(vmat))
+		  }
+		  if (args()==15) se=(se \ semat)
 		  if (ngrid!=0) {
 		     se=(se \ (semat#(J(ngrid,1,1)\.)))
 		     se=se[|1 \ (rows(se)-1)|]
@@ -1867,7 +1940,7 @@ mata:
 		     if (deriv==0) {
 			    fit=normal(fit:+wval)
 			 }
-			 else if (deriv==1) {
+			 if (deriv==1) {
 			    Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
 			    fit0=binsreg_pred(Xm0, bmat, ., "xb")[,1]
 			    fit=normalden(fit0:+wval):*fit
@@ -1882,25 +1955,58 @@ mata:
 		  }
 	   }
 	   else {
-	   	  result=binsreg_pred(Xm, bmat, vmat, "all")
-	      if (transform=="T") {
-		  	 Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
-			 fit0=binsreg_pred(Xm0, bmat, ., "xb")[,1]
-		     result[,2]=normalden(fit0:+wval):*result[,2]
+	      if (avar=="on") {
+	   	     result=binsreg_pred(Xm, bmat, vmat, "all")
+	         if (transform=="T") {
+		  	    Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
+			    fit0=binsreg_pred(Xm0, bmat, ., "xb")[,1]
+		        result[,2]=normalden(fit0:+wval):*result[,2]
 			 
-		     if (deriv==0) {
-			    result[,1]=normal(result[,1]:+wval)
-			 }
-			 else if (deriv==1) {
-			    result[,1]=normalden(fit0:+wval):*result[,1]
-			 }
+		        if (deriv==0) {
+			       result[,1]=normal(result[,1]:+wval)
+			    }
+			    if (deriv==1) {
+			       result[,1]=normalden(fit0:+wval):*result[,1]
+			    }
 			 
-			 out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
+			    out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+		     }
+		     else {
+		        if (deriv==0) out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
+			    else          out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+	         }
 		  }
 		  else {
-		     if (deriv==0) out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
-			 else          out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
-	      }
+		     result=binsreg_pred(Xm, bmat, vmat, "all")
+		     if (transform=="T") {				
+				if (deriv==0) {
+				   if (nw>0) Xm=(Xm, J(rows(Xm),1,1)#wvec)
+				   result[,2]=normalden(result[,1]:+wval):*sqrt(rowsum((Xm*vfull):*Xm))
+				   result[,1]=normal(result[,1]:+wval)
+				}
+				if (deriv==1) {
+				   Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
+				   if (nw>0) {
+				      Xm0=(Xm0, J(rows(Xm0),1,1)#wvec)
+					  Xm=(Xm, J(rows(Xm),nw,0))
+				   }
+			       fit0=binsreg_pred(Xm0, coef, ., "xb")[,1]
+				   Xm=(-fit0):*normalden(fit0):*result[,1]:*Xm0 + ///
+				      normalden(fit0):*Xm
+				   result[,2]=sqrt(rowsum((Xm*vfull):*Xm))
+				   result[,1]=normalden(fit0):*result[,1]
+				}
+				out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+			 }
+			 else {
+			    if (nw>0) {
+				   if (deriv==0) Xm=(Xm, J(rows(Xm),1,1)#wvec)
+				   else          Xm=(Xm, J(rows(Xm),nw,0))
+				}
+				result=binsreg_pred(Xm, coef, vfull, "all")
+				out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+			 }
+		  }
 	   }
 	}
 

@@ -1,7 +1,7 @@
 ################################################################################
 # Binsreg: illustration file
 # Authors: M. D. Cattaneo, R. Crump, M. Farrell and Y. Feng
-# Last update: 06/10/2021
+# Last update: 07/02/2021
 rm(list=ls(all=TRUE))
 library(binsreg); library(ggplot2)
 
@@ -52,9 +52,14 @@ est$bins_plot
 # Specify y, x, w variables directly (without specifying a data frame), VCE option, ggplot object modification
 est <- binsreg(y, x, cbind(w, t), dots=c(0,0), line=c(3,3), ci=c(3,3),
                cb=c(3,3), polyreg=4, vce="HC1", cluster=data$id)
-
+# Modify other ggplot features
 est$bins_plot + ggtitle("Binned Scatter Plot") +
                 theme(plot.title=element_text(hjust=0.5, vjust=0.5, face='bold'))
+
+# CI and CB: alternative formula for standard errors (nonparametric component only)
+est <- binsreg(y, x, cbind(w, t), dots=c(0,0), line=c(3,3), ci=c(3,3),
+               cb=c(3,3), polyreg=4, vce="HC1", cluster=data$id, asyvar=T)
+est$bins_plot
 
 # Comparison by groups
 est <- binsreg(y, x, w, data=data, by=t, line=c(3,3), cb=c(3,3),
@@ -70,6 +75,9 @@ est <- binsreg(y, x, w, data=data, masspoints="off")
 
 # 0.25 quantile
 binsqreg(y, x, w, data=data, quantile=0.25)
+
+# use bootstrap-based VCE
+binsqreg(y, x, w, data=data, quantile=0.25, ci=c(3,3), vce="boot", R=100)
 
 # Estimate 0.25 and 0.75 quantiles and combine them with the results from binsreg
 est.25   <- binsqreg(y, x, quantile=0.25, line=c(3, 3))
@@ -175,3 +183,6 @@ grid <- bins$data.grid
 bins <- binsregselect(y,x,w, useeffn=1000, subset=(t==0))
 summary(bins)
 
+# Use a random subsample to select the number of bins for the full sample
+bins <- binsregselect(y,x,w, randcut=0.3)
+summary(bins)

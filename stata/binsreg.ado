@@ -1,27 +1,29 @@
-*! version 0.3 10-JUN-2021  
+*! version 0.4 02-JUL-2021  
 
 capture program drop binsreg
 program define binsreg, eclass
      version 13
 	 
 	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, deriv(integer 0) at(string asis) ///
+	        absorb(string asis) reghdfeopt(string asis) ///
 	        dots(numlist integer max=2 >=0) dotsgrid(string) dotsplotopt(string asis) ///
 			line(numlist integer max=2 >=0) linegrid(integer 20) lineplotopt(string asis) ///
 			ci(numlist integer max=2 >=0) cigrid(string) ciplotopt(string asis) /// 
 			cb(numlist integer max=2 >=0) cbgrid(integer 20) cbplotopt(string asis) ///
 			polyreg(string) polyreggrid(integer 20) polyregcigrid(integer 0) polyregplotopt(string asis) ///
 			by(varname) bycolors(string asis) bysymbols(string asis) bylpatterns(string asis) ///
-			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) samebinsby ///
-			nsims(integer 500) simsgrid(integer 20) simsseed(integer 666) ///
-			dfcheck(numlist integer max=2 >=0) masspoints(string) ///
-			vce(passthru) level(real 95)   ///
+			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) ///
+			samebinsby randcut(numlist max=1 >=0 <=1) ///
+			nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
+			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
+			vce(passthru) level(real 95) asyvar(string) ///
 			noplot savedata(string asis) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
 	 
 	 *********************************************
 	 * Regularization constant (for checking only)
 	 local qrot=2
-	 
+
 	 **************************************
 	 * Create weight local
      if ("`weight'"!="") {
@@ -36,12 +38,14 @@ program define binsreg, eclass
 	 if ("`vce'"=="") local vce "vce(robust)"
 	 local vcetemp: subinstr local vce "vce(" "", all
      local vcetemp: subinstr local vcetemp ")" "", all
-	 tokenize "`vcetemp'"
+	 tokenize "`vcetemp'", parse(", ")
 	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| /// 
 		 "`1'"=="cluste"|"`1'"=="cluster") {
-		local clusterON "T"           /* Mark cluster is specified */
+		if ("`3'"==""|"`3'"==",") local clusterON "T"           /* cluster is specified */
 		local clustervar `2'
 	 }
+	 
+	 if ("`asyvar'"=="") local asyvar "off"
 	 
 	 * Extract p and s, grid, set default
 	 * dots
@@ -172,6 +176,35 @@ program define binsreg, eclass
 	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
 	 
 	 
+	 * use gtools commands instead?
+	 if ("`usegtools'"=="off") local usegtools ""
+	 if ("`usegtools'"=="on")  local usegtools usegtools
+	 if ("`usegtools'"!="") {
+	    capture which gtools
+		if (_rc) {
+		   di as error "Gtools package not installed."
+		   exit
+		}
+		local localcheck "F"
+		local sel_gtools "on"
+	    * use gstats tab instead of tabstat/collapse
+		* use gquantiles instead of _pctile
+		* use gunique instead of binsreg_uniq
+		* use fasterxtile instead of irecode (within binsreg_irecode)
+		* shut down local checks & do not sort
+	 }
+ 	 else local sel_gtools "off"
+	 
+	 * use reghdfe?
+	 if ("`absorb'"!="") {
+	    capture which reghdfe
+		if (_rc) {
+		   di as error "reghdfe not installed."
+		   exit
+		}
+		local hdmethod "T"
+	 }
+	 
 	 *************************
 	 **** error checks *******
 	 *************************
@@ -254,16 +287,18 @@ program define binsreg, eclass
 	 }
 	 ******** END error checking ***************************
 
-	 * Mark sample
+	 * Preserve data
 	 preserve
-	 marksample touse, nov   /* do not account for missing values !! */
-	 qui keep if `touse'
+	 *marksample touse, nov   /* do not account for missing values !! */
+	 *qui keep if `touse'
 	 
-	 * Parse varlist into y_var, x_var and w_var
+	 * Parse varlist into y_var, x_var and w_var; time series var. generated;
 	 tokenize `varlist'
+	 
 	 fvrevar `1', tsonly
 	 local y_var "`r(varlist)'"
 	 local y_varname "`1'"
+	 
 	 fvrevar `2', tsonly
 	 local x_var "`r(varlist)'"
 	 local x_varname "`2'"
@@ -300,17 +335,18 @@ program define binsreg, eclass
 	 if (`"`at'"'==""&`nwvar'>0) {
 	    local at "mean"
 	 }
-
+	 
+	 * Now, mark sample
 	 marksample touse
 	 markout `touse' `by', strok	 
 	 qui keep if `touse'
 	 local nsize=_N             /* # of rows in the original dataset */
-	 
-	 if ("`masspoints'"!="off"|"`binspos'"=="QS") {
+ 
+	 if ("`usegtools'"==""&("`masspoints'"!="off"|"`binspos'"=="QS")) {
 	    if ("`:sortedby'"!="`x_var'") {
 		  di as text in gr "Sorting dataset on `x_varname'..."
 		  di as text in gr "Note: This step is omitted if dataset already sorted by `x_varname'."
-		  sort `x_var'
+		  sort `x_var', stable
 		}
 		local sorted "sorted"
 	 }
@@ -349,7 +385,7 @@ program define binsreg, eclass
         }
      }
      else local bynum=1
-	 
+ 
 	 * Default colors, symbols, linepatterns
      if (`"`bycolors'"'==`""') local bycolors ///
                 navy maroon forest_green dkorange teal cranberry lavender ///
@@ -364,8 +400,9 @@ program define binsreg, eclass
 
 	 * Temp name in MATA
 	 tempname xvec yvec byvec cluvec binedges
-	 mata: `xvec'=st_data(., "`x_var'"); `yvec'=st_data(.,"`y_var'"); `byvec'=.; `cluvec'=.
+	 mata: `xvec'=st_data(., "`x_var'"); `yvec'=st_data(.,"`y_var'"); `byvec'=.; `cluvec'=. 
 	 
+	
 	 *******************************************************
 	 *** Mass point counting *******************************
 	 tempname Ndistlist Nclustlist
@@ -424,14 +461,26 @@ program define binsreg, eclass
 	 if ("`selectfullON'"=="T") {
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
-	       mata: `binedges'=binsreg_uniq(`xvec', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+		   if ("`usegtools'"=="") {
+	          mata: `binedges'=binsreg_uniq(`xvec', ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var'
+			  local Ndist=r(unique)
+		   }
 	       local eN=min(`eN', `Ndist')
 	    }
 	    * # of clusters
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
-		   mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   if ("`usegtools'"=="") {
+		      mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   }
+		   else {
+		      qui gunique `clustervar'
+			  local Nclust=r(unique)
+		   }
 		   local eN=min(`eN', `Nclust')   /* effective sample size */
 	    }
 	 
@@ -446,9 +495,10 @@ program define binsreg, eclass
 	    }
 		else {
 			qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
-		                      binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+		                      absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+							  binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 							  `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							  numdist(`Ndist') numclust(`Nclust')
+							  numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
 			if (e(nbinsrot_regul)==.) {
 			   di as error "bin selection fails."
 			   exit
@@ -478,11 +528,12 @@ program define binsreg, eclass
 	     else {
 			 if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		     else {		
-	           binsreg_pctile `x_var' `wt', nq(`nbins')
+	           binsreg_pctile `x_var' `wt', nq(`nbins') `usegtools'
 		       mat `fullkmat'=(`xmin' \ r(Q) \ `xmax')
 		     }
 	     }
 	 }
+	
 	 
 	 *** Placement name, for display ************
 	 if ("`pos'"=="user") {
@@ -499,7 +550,7 @@ program define binsreg, eclass
 	 * NOTE: ALL checkings are put within the loop
 	 
 	 * Set seed
-	 set seed `simsseed'
+	 if ("`simsseed'"!="") set seed `simsseed'
 	 
 	 * alpha quantile (for two-sided CI)
 	 local alpha=(100-(100-`level')/2)/100
@@ -568,11 +619,12 @@ program define binsreg, eclass
      if ("`by'"=="") local noby="noby"
 	 local byvalnamelist ""              /* save group name (value) */
 	 local plotcmd ""                    /* plotting cmd */
-	 
+
 	 ***************************************************************************
 	 ******************* Now, enter the loop ***********************************
 	 ***************************************************************************
 	 foreach byval in `byvals' `noby' {
+	    local conds ""
 		if ("`by'"!="") {
 		    local conds "if `by'==`byval'"     /* with "if" */
 	        if ("`bylabel'"=="") local byvalname=`byval'
@@ -581,6 +633,8 @@ program define binsreg, eclass
 			}
 			local byvalnamelist `byvalnamelist' `byvalname'
 		}
+		
+		
 		if (`bynum'>1) {
 		   mata: `byindex'=`byvec':==`byval'
 		   mata: `xsub'=select(`xvec',`byindex'); `ysub'=select(`yvec', `byindex')
@@ -588,7 +642,7 @@ program define binsreg, eclass
 		else {
 		   mata: `xsub'=`xvec'; `ysub'=`yvec'
 		}
-		
+			
 		* Subsample size
 		if ("`wtype'"=="f") sum `x_var' `conds' `wt', meanonly
 		else                sum `x_var' `conds', meanonly
@@ -610,8 +664,14 @@ program define binsreg, eclass
 	    
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
-		   mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+		   if ("`usegtools'"=="") {
+		      mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var' `conds'
+			  local Ndist=r(unique)
+		   }
 		   local eN=min(`eN', `Ndist')
 		   mat `Ndistlist'[`counter_by',1]=`Ndist'
 	    }
@@ -620,10 +680,22 @@ program define binsreg, eclass
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
 		   if (`bynum'==1) {
-		   	  mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   	  if ("`usegtools'"=="") {
+			     mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		      }
+			  else {
+			     qui gunique `clustervar'
+				 local Nclust=r(unique)
+			  }
 		   }
 		   else {
-		      mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
+		      if ("`usegtools'"=="") {
+		         mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
+		      }
+			  else {
+			     qui gunique `clustervar' `conds'
+				 local Nclust=r(unique)
+			  }
 		   }
 		   local eN=min(`eN', `Nclust')   /* effective SUBsample size */
 		   mat `Nclustlist'[`counter_by',1]=`Nclust'
@@ -645,9 +717,10 @@ program define binsreg, eclass
 	       }
 		   else {
 			  qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
-		                        binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
+		                        absorb(`absorb') reghdfeopt(`reghdfeopt') /// 
+								binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							    `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							    numdist(`Ndist') numclust(`Nclust')
+							    numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
 			  if (e(nbinsrot_regul)==.) {
 			      di as error "bin selection fails."
 			      exit
@@ -670,7 +743,7 @@ program define binsreg, eclass
 		   local fewobs "T"
 		   local nbins=`eN'
 		}
-		
+
 	    ******************************************************
 	    * Check effective sample size for each case **********
 		******************************************************
@@ -710,35 +783,35 @@ program define binsreg, eclass
  
 	    * Generate category variable for data and save knot in matrix
 		tempname kmat
-	    
 		if ("`knotlistON'"=="T") {
 		   mat `kmat'=`fullkmat'
 		   if ("`fewobs'"=="T"&"`eN'"!="`Ndist'") {
 		      if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		      else {		
-	            binsreg_pctile `x_var' `conds' `wt', nq(`nbins')
+	            binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
 		        mat `kmat'=(`xmin' \ r(Q) \ `xmax')
 		      }
 		   }
 		}
 		else {
 		   if ("`fewmasspoints'"==""&("`fewobs'"!="T"|"`eN'"!="`Ndist'")) {
-             if ("`pos'"=="ES") {
-	            local stepsize=(`xmax'-`xmin')/`nbins'
-	            forvalues i=1/`=`nbins'+1' {
-		           mat `kmat'=(nullmat(`kmat') \ `=`xmin'+`stepsize'*(`i'-1)')
-		        }
-		     }
-	         else {		
-		        if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
-		        else {		
-	              binsreg_pctile `x_var' `conds' `wt', nq(`nbins')
-		          mat `kmat'=(`xmin' \ r(Q) \ `xmax')
-		        }
-		     }
+              if ("`pos'"=="ES") {
+	             local stepsize=(`xmax'-`xmin')/`nbins'
+	             forvalues i=1/`=`nbins'+1' {
+		            mat `kmat'=(nullmat(`kmat') \ `=`xmin'+`stepsize'*(`i'-1)')
+		         }
+		      }
+	          else {
+		         if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
+		         else {
+	               binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
+		           mat `kmat'=(`xmin' \ r(Q) \ `xmax')
+		         }
+		      }
 		   }
 		}
-	
+
+
 		* Renew knot list if few mass points
 		if (("`fewobs'"=="T"&"`eN'"=="`Ndist'")|"`fewmasspoints'"!="") {
 		   qui tab `x_var' `conds', matrow(`kmat')
@@ -754,12 +827,16 @@ program define binsreg, eclass
 	          di as text in gr "warnings: repeated knots. Some bins dropped."
 		      local nbins=rowsof(`kmat')-1
 	       }
-		   binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat')
+
+		   binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat') ///
+		                                   `usegtools' nbins(`nbins') pos(`pos') knotliston(`knotlistON')
+
 		   mata: `xcatsub'=st_data(., "`xcat'")
 		   if (`bynum'>1) {
 		      mata: `xcatsub'=select(`xcatsub', `byindex')
 		   }
         }
+
 
 	    *************************************************
 	    **** Check for empty bins ***********************
@@ -847,14 +924,21 @@ program define binsreg, eclass
 		if (`nwvar'>0) {
 		   if (`"`at'"'==`"mean"'|`"`at'"'==`"median"') {
 		     matrix `wval'=J(1, `nwvar', 0)
-			 tempname wvaltemp
+			 tempname wvaltemp mataobj
 			 foreach wpos in `indexlist' {
 			    local wname: word `wpos' of `w_var'
-		        if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
-			    else               qui tabstat `wname' `conds', stat(`at') save
-				mat `wvaltemp'=r(StatTotal)
+				if ("`usegtools'"=="") {
+		           if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
+			       else               qui tabstat `wname' `conds', stat(`at') save
+				   mat `wvaltemp'=r(StatTotal)
+				}
+				else {
+				   qui gstats tabstat `wname' `conds' `wt', stat(`at') matasave("`mataobj'")
+				   mata: st_matrix("`wvaltemp'", `mataobj'.getOutputCol(1))
+				}
 				mat `wval'[1,`wpos']=`wvaltemp'[1,1]
 		     }
+			 if ("`usegtools'"!="") mata: mata drop `mataobj'
 		   }
 		   else if (`"`at'"'==`"0"') {
    		     matrix `wval'=J(1,`nwvar',0)
@@ -896,18 +980,25 @@ program define binsreg, eclass
 		   }
 		   
 	       local nseries=`nbins'
-	       capture reg `y_var' ibn.`xcat' `w_var' `conds' `wt', nocon `vce'
+	       if ("`absorb'"=="") capture reg `y_var' ibn.`xcat' `w_var' `conds' `wt', nocon `vce'
+		   else                capture reghdfe `y_var' ibn.`xcat' `w_var' `conds' `wt', absorb(`absorb') `vce' `reghdfeopt'	
+		   
 		   tempname fewobs_b fewobs_V
 		   if (_rc==0) {
 		      mat `fewobs_b'=e(b)
 		      mat `fewobs_V'=e(V)
-		      mata: binsreg_checkdrop("`fewobs_b'", "`fewobs_V'", `nseries')
+		      if ("`absorb'"=="") mata: binsreg_checkdrop("`fewobs_b'", "`fewobs_V'", `nseries')
+			  else                mata: binsreg_checkdrop("`fewobs_b'", "`fewobs_V'", `nseries', "T")
+			  
 		      if (`nwvar'>0) {
-			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+(`fewobs_b'[1,`=`nseries'+1'..`=`nseries'+`nwvar'']*`wval'')*J(1,`nseries',1)
-		      }
+			     if ("`absorb'"=="") mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+(`fewobs_b'[1,`=`nseries'+1'..`=`nseries'+`nwvar'']*`wval'')*J(1,`nseries',1)
+		         else                mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+ ///
+				                         (`fewobs_b'[1,`=`nseries'+1'..`=`nseries'+`nwvar'']*`wval''+`fewobs_b'[1, `=`nseries'+`nwvar'+1'])*J(1,`nseries',1)
+			  }
 			  else {
-			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']
-		      }
+			     if ("`absorb'"=="") mat `fewobs_b'=`fewobs_b'[1,1..`nseries']
+		         else                mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+`fewobs_b'[1, `=`nseries'+1']*J(1,`nseries',1)
+			  }
 		   }
 		   else {
 		      error _rc
@@ -944,10 +1035,12 @@ program define binsreg, eclass
 		      di as text in gr "warning: ci(0 0) is used."
 		   
 		      if (`nwvar'>0) {
-			     mata: `mata_se'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"))
+			     if ("`absorb'"=="") mata: `mata_se'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"))
+			     else                mata: `mata_se'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"), J(`nseries',1,1))
 			  }
 			  else {
-			     mata: `mata_se'=I(`nseries')
+			     if ("`absorb'"=="") mata: `mata_se'=I(`nseries')
+			     else                mata: `mata_se'=(I(`nseries'), J(`nseries',1,1))
 			  }
 		      mata: `plotmatby'[|1,`ci_start'+1 \ `nbins',`ci_start'+2|]=`plotmatby'[|1,`dots_start'+1 \ `nbins',`dots_start'+2|]; ///
 					`mata_se'=sqrt(rowsum((`mata_se'*st_matrix("`fewobs_V'")):*`mata_se')); ///
@@ -962,11 +1055,16 @@ program define binsreg, eclass
 							  sort lcolor(`col') lpattern(`lty') `ciplotopt')
 		   }
 	    } 
-	 
+
 	    *********************************************
 	    **** The following handles the usual case ***
 	    *********************************************
 		* Turn on or off?
+		local dotsON ""
+		local lineON ""
+		local polyON ""
+		local ciON   ""
+		local cbON   ""
 	    if (`dotsntot'!=0&"`plot'"==""&"`fewobs'"!="T"&"`dots_fewobs'"!="T") {
 	       local dotsON "T"
 	    }	    
@@ -984,7 +1082,6 @@ program define binsreg, eclass
 	    }
 		
 				
-		
 	    ************************
 	    ****** Dots ************
 	    ************************
@@ -993,7 +1090,7 @@ program define binsreg, eclass
 	    if ("`dotsON'"=="T") {
 		   local dots_first=`byfirst'
 		   local dots_last=`byfirst'+`dots_nr'-1
-		   
+
 		   * fitting
 		   tempname dots_b dots_V
 		   if ((`dots_p'==`ci_p'&`dots_s'==`ci_s'&"`ciON'"=="T")| ///
@@ -1002,32 +1099,36 @@ program define binsreg, eclass
 	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') usereg `sorted'
+						usereg `sorted' `usegtools' ///
+						absorb(`absorb') reghdfeopt(`reghdfeopt')
 		   }
 		   else {
 		      binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted'
+						`sorted' `usegtools' ///
+						absorb(`absorb') reghdfeopt(`reghdfeopt')
 		   }
 		   
 		   mat `dots_b'=e(bmat)
 		   mat `dots_V'=e(Vmat)
 		   if (`dotsngrid_mean'!=0) mat `xmean'=e(xmat)
-		   
+
 		   * prediction
 		   if (`dotsngrid_mean'==0) {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                       `nbins', `dots_p', `dots_s', `deriv', ///
-							                   "dots", `dotsngrid', "`wval'", `nwvar')
+							                   "dots", `dotsngrid', "`wval'", `nwvar', ///
+											   "`hdmethod'", "`asyvar'")
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                        `nbins', `dots_p', `dots_s', `deriv', ///
-							                    "dots", `dotsngrid', "`wval'", `nwvar', "`xmean'")
+							                    "dots", `dotsngrid', "`wval'", `nwvar', ///
+												"`hdmethod'", "`asyvar'", "`xmean'")
 		   }		  
 		  
 		   * dots
@@ -1078,14 +1179,16 @@ program define binsreg, eclass
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  byvalue(`byval') usereg `sorted'
+						  usereg `sorted' `usegtools' ///
+						  absorb(`absorb') reghdfeopt(`reghdfeopt')
 			  }
 			  else {
 		         binsreg_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') /// 
-						  byvalue(`byval') `sorted'
+						  `sorted' `usegtools' ///
+						  absorb(`absorb') reghdfeopt(`reghdfeopt')
 			  }
 		      mat `line_b'=e(bmat)
 		      mat `line_V'=e(Vmat)
@@ -1095,7 +1198,7 @@ program define binsreg, eclass
 		   mata: `plotmatby'[|1,`line_start' \ `line_nr',`line_end'|] = ///
 			              binsreg_plotmat("`line_b'", "`line_V'", ., "`kmat'", ///
 		                      `nbins', `line_p', `line_s', `deriv', ///
-							  "line", `linengrid', "`wval'", `nwvar')
+							  "line", `linengrid', "`wval'", `nwvar', "`hdmethod'", "`asyvar'")
 		   
 		   * line
 		   local plotnum=`plotnum'+1
@@ -1120,7 +1223,8 @@ program define binsreg, eclass
 						   lcolor(`col') lpattern(`lty') `lineplotopt')
 	
 	    }
-	 
+
+
 	    ***********************************
 	    ******* Polynomial fit ************
 	    ***********************************
@@ -1131,24 +1235,30 @@ program define binsreg, eclass
 	       mata:`plotmatby'[|1,`poly_start' \ `poly_nr',`poly_start'+2|]=binsreg_grids("`kmat'",`polyregngrid')
 		   
 	       local poly_series ""
-	       forval i=0/`polyreg' {
+	       forval i=1/`polyreg' {
 		      tempvar x_var_`i'
 			  qui gen `x_var_`i''=`x_var'^`i' `conds'
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 		 
-		   capture reg `y_var' `poly_series' `w_var' `conds' `wt', nocon `vce'
+		   * shut down vce if poly ci not required
+		   local vce_poly ""
+		   if (`polyregcingrid'!=0) local vce_poly `vce'
+		   
+		   if ("`absorb'"=="") capture reg `y_var' `poly_series' `w_var' `conds' `wt', `vce_poly'
+		   else                capture reghdfe `y_var' `poly_series' `w_var' `conds' `wt', absorb(`absorb') `vce_poly' `reghdfeopt'
+		   
 		   * store results
 		   tempname poly_b poly_V poly_adjw
 	       if (_rc==0) {
 	 	      matrix `poly_b'=e(b)
-			  if (`nwvar'>0&`deriv'==0) {
-			     matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+2'..`=`polyreg'+1+`nwvar'']'
-			  }
-			  else {
-			     matrix `poly_adjw'=0
-			  }
-			  matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`polyreg'+1']
+			  
+			  if (`nwvar'>0&`deriv'==0) matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+1'..`=`polyreg'+`nwvar'']'
+			  else                      matrix `poly_adjw'=0
+			  
+			  if (`deriv'==0) matrix `poly_b'=(`poly_b'[1, `=`polyreg'+`nwvar'+1'], `poly_b'[1,1..`polyreg'])
+			  else matrix `poly_b'=`poly_b'[1, `deriv'..`polyreg']
+			  
 			  matrix `poly_V'=e(V)
 	       }
 	       else {
@@ -1164,7 +1274,7 @@ program define binsreg, eclass
 					  factorial(`i')/factorial(`i'-`deriv'))	
 	       }
 		   mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
-		   
+	   
 		   mata: mata drop `Xm'
 		   
 		   local plotnum=`plotnum'+1
@@ -1187,13 +1297,11 @@ program define binsreg, eclass
 		   local plotcmdby `plotcmdby' (line poly_fit poly_x ///
 		                   `plotcond' in `poly_first'/`poly_last', ///
 						   sort lcolor(`col') lpattern(`lty') `polyregplotopt')
-		
+
 		   * add CI for global poly?
 		   if (`polyregcingrid'!=0) {
 	          local polyci_first=`byfirst'
 			  local polyci_last=`byfirst'-1+`polyci_nr'
-			  if (`nwvar'>0&`deriv'==0) matrix `poly_V'=`poly_V'[`=`deriv'+1'..`=`polyreg'+1+`nwvar'',`=`deriv'+1'..`=`polyreg'+1+`nwvar'']
-	          else                      matrix `poly_V'=`poly_V'[`=`deriv'+1'..`=`polyreg'+1',`=`deriv'+1'..`=`polyreg'+1']
 			  
 	          mata: `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'+2|]=binsreg_grids("`kmat'", `polyregcingrid')
 		   
@@ -1203,10 +1311,16 @@ program define binsreg, eclass
 				      `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'|]:^(`i'-`deriv')* ///
 					  factorial(`i')/factorial(`i'-`deriv'))	
 	          }
+			  
 			  mata:`mata_fit'=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
-			  if (`nwvar'>0&`deriv'==0) {
-			      mata: `Xm'=(`Xm', J(`polyci_nr',1,1)#st_matrix("`wval'"))
+			  if (`deriv'==0) {
+			     if (`nwvar'>0) mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], J(`polyci_nr',1,1)#st_matrix("`wval'"),`Xm'[.,1])
+				 else           mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], `Xm'[.,1])
 			  }
+			  else {
+			     matrix `poly_V'=`poly_V'[`deriv'..`polyreg',`deriv'..`polyreg']
+			  }
+			  
 			  mata:`mata_se'=sqrt(rowsum((`Xm':*(st_matrix("`poly_V'")*`Xm'')'))); ///
 				   `plotmatby'[|1,`polyci_start'+3 \ `polyci_nr',`polyci_start'+3|]=`mata_fit'-`mata_se'*invnormal(`alpha'); ///
 				   `plotmatby'[|1,`polyci_start'+4 \ `polyci_nr',`polyci_start'+4|]=`mata_fit'+`mata_se'*invnormal(`alpha'); ///
@@ -1264,7 +1378,8 @@ program define binsreg, eclass
 	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted'
+						`sorted' `usegtools' ///
+						absorb(`absorb') reghdfeopt(`reghdfeopt')
 				 
 		        mat `ci_b'=e(bmat)
 		        mat `ci_V'=e(Vmat)
@@ -1277,14 +1392,14 @@ program define binsreg, eclass
 			            binsreg_plotmat("`ci_b'", "`ci_V'", ///
 						      `=invnormal(`alpha')', "`kmat'", ///
 		                      `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-							  `cingrid', "`wval'", `nwvar')
+							  `cingrid', "`wval'", `nwvar', "`hdmethod'", "`asyvar'")
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`ci_start' \ `ci_nr',`ci_end'|] = ///
 			            binsreg_plotmat("`ci_b'", "`ci_V'", ///
 						   `=invnormal(`alpha')', "`kmat'", ///
 		                   `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-						   `cingrid', "`wval'", `nwvar', "`xmean'")
+						   `cingrid', "`wval'", `nwvar', "`hdmethod'", "`asyvar'", "`xmean'")
 		   }
 		   
 		   * ci
@@ -1345,7 +1460,8 @@ program define binsreg, eclass
 	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted'
+						`sorted' `usegtools' ///
+						absorb(`absorb') reghdfeopt(`reghdfeopt')
 					mat `cb_b'=e(bmat)
 		            mat `cb_V'=e(Vmat)
 				 }
@@ -1357,20 +1473,34 @@ program define binsreg, eclass
 		   local uni_last=`simsngrid'*`nbins'+`nbins'-1
 		   local nseries=(`cb_p'-`cb_s'+1)*(`nbins'-1)+`cb_p'+1
 	       
-		   tempname cb_basis
+		   tempname cb_basis coeff vcov vcovtemp
 		   mata: `cb_basis'=binsreg_grids("`kmat'", `simsngrid'); ///
 		         `cb_basis'=binsreg_spdes(`cb_basis'[,1], "`kmat'", `cb_basis'[,3], `cb_p', `deriv', `cb_s'); ///
-		         `Xm'=binsreg_pred(`cb_basis', st_matrix("`cb_b'")[|1 \ `nseries'|]', ///
-			                       st_matrix("`cb_V'")[|1,1 \ `nseries',`nseries'|], "all"); ///
-			      binsreg_pval(`cb_basis', `Xm'[,2], "`cb_V'", ".", `nsims', `nseries', "two", `=`level'/100', ".", "`cval'", "inf")		  
-		   mata: mata drop `cb_basis' `Xm'
+				 `coeff'=st_matrix("`cb_b'")'; `vcov'=st_matrix("`cb_V'")
+		   
+		   if ("`absorb'"!="") {
+		      mata: `cb_basis'=(`cb_basis', J(rows(`cb_basis'),1,1)); ///
+			        `coeff'=(`coeff'[|1 \ `nseries'|] \ `coeff'[cols(`coeff')]); ///
+					`vcov'= (`vcov'[|1,1 \ `nseries', `nseries'|], `vcov'[|1,cols(`vcov') \ `nseries', cols(`vcov')|] \ ///
+				             `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///
+					st_matrix("`vcovtemp'", `vcov')
+		   }
+		   else {
+		      mata: `coeff'=`coeff'[|1 \ `nseries'|]; `vcov'=`vcov'[|1,1 \ `nseries', `nseries'|]
+		   }
+		   
+		   mata; `Xm'=binsreg_pred(`cb_basis', `coeff', `vcov', "all")
+		   if ("`absorb'"=="") mata: binsreg_pval(`cb_basis', `Xm'[,2], "`cb_V'", ".", `nsims', `nseries', "two", `=`level'/100', ".", "`cval'", "inf")	
+		   else                mata: binsreg_pval(`cb_basis', `Xm'[,2], "`vcovtemp'", ".", `nsims', `=`nseries'+1', "two", `=`level'/100', ".", "`cval'", "inf")	
+		   
+		   mata: mata drop `cb_basis' `Xm' `coeff' `vcov'
 	          
 	       * prediction
 		   mata: `plotmatby'[|1,`cb_start' \ `cb_nr',`cb_end'|] =   ///
 			                binsreg_plotmat("`cb_b'", "`cb_V'",      ///
 						                    `=`cval'', "`kmat'",       ///
 		                                    `nbins', `cb_p', `cb_s', `deriv', ///
-							                "cb", `cbngrid', "`wval'", `nwvar')	  
+							                "cb", `cbngrid', "`wval'", `nwvar', "`hdmethod'", "`asyvar'")	  
 							  
 		   * cb
 		   local plotnum=`plotnum'+1
@@ -1469,8 +1599,7 @@ program define binsreg, eclass
 	 capture mata: mata drop `xcatsub'
 	 ****************** END loop ****************************************
 	 ********************************************************************
-	 
-	 
+
 	 *******************************************
 	 *************** Plotting ******************
 	 *******************************************
@@ -1611,7 +1740,7 @@ program define binsreg, eclass
 	    qui save `"`savedata'"', `replace'
 	 }
 	 ***************************************************************************
-	 	 
+
 	 *********************************
 	 ********** Return ***************
 	 *********************************
@@ -1646,18 +1775,28 @@ program define binsreg_fit, eclass
 	        p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
 			xname(name) yname(name) catname(name) edge(name) ///            /* quantities in mata, subsample */
-			byvalue(string) ///
-			usereg sorted]                                                 /* usereg: force the command to use reg; sored: sorted data? */
+			usereg sorted usegtools absorb(string asis) reghdfeopt(string asis)]                                                 /* usereg: force the command to use reg; sored: sorted data? */
 	 
+	 preserve
 	 marksample touse
+	 qui keep if `touse'
 	 
 	 if ("`weight'"!="") local wt [`weight'`exp']
-	 
+	 	 
 	 tokenize `varlist'
 	 local y_var `1'
 	 local x_var `2'
 	 macro shift 2
 	 local w_var "`*'"
+	 
+	 if ("`absorb'"!="") {
+	    local usereg "usereg"
+		local usereghdfe "T"
+	 }
+	 else {
+	    local usereghdfe "F"
+	 }
+	 
 	 if ("`w_var'"==""&`p'==0&("`type'"=="dots"|"`type'"=="line")&"`usereg'"=="") {
 	    local ymeanON "T"
 	 }
@@ -1668,24 +1807,45 @@ program define binsreg_fit, eclass
 	 mat `temp_b'=.
 	 mat `temp_V'=.
 	 if (`dotsmean'!=0|"`ymeanON'"=="T") {
-	    if ("`sorted'"==""|"`weight'"!="") {
-	       preserve
-	       if (`dotsmean'!=0&"`ymeanON'"=="T") {
-	          collapse (mean) `y_var' (mean) `x_var' if `touse' `wt', by(`xcat') fast
-		      mkmat `xcat' `x_var', matrix(`matxmean')
-		      mkmat `y_var', matrix(`temp_b')
-		      mat `temp_b'=`temp_b''               /* row vector */
-		   }
-		   else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		      collapse (mean) `x_var' if `touse' `wt', by(`xcat') fast
-		      mkmat `xcat' `x_var', matrix(`matxmean')
+	    if ("`sorted'"==""|"`weight'"!=""|"`usegtools'"!="") {
+	       if ("`usegtools'"=="") {
+		      tempfile tmpfile
+			  qui save `tmpfile', replace
+			  
+	          if (`dotsmean'!=0&"`ymeanON'"=="T") {
+	             collapse (mean) `y_var' (mean) `x_var' `wt', by(`xcat') fast
+			     mkmat `xcat' `x_var', matrix(`matxmean')
+		         mkmat `y_var', matrix(`temp_b')
+		         mat `temp_b'=`temp_b''               /* row vector */
+		      }
+		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
+		         collapse (mean) `x_var' `wt', by(`xcat') fast
+		         mkmat `xcat' `x_var', matrix(`matxmean')
+		      }
+		      else {
+		         collapse (mean) `y_var' `wt', by(`xcat') fast
+		         mkmat `y_var', matrix(`temp_b')
+		         mat `temp_b'=`temp_b'' 
+		      }
+		      use `tmpfile', clear
 		   }
 		   else {
-		      collapse (mean) `y_var' if `touse' `wt', by(`xcat') fast
-		      mkmat `y_var', matrix(`temp_b')
-		      mat `temp_b'=`temp_b'' 
+		      tempname obj
+		      if (`dotsmean'!=0&"`ymeanON'"=="T") { 
+	             qui gstats tabstat `y_var' `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
+				 mata: st_matrix("`temp_b'", `obj'.getOutputVar("`y_var'")'); ///
+				       st_matrix("`matxmean'", (`obj'.getnum(.,1), `obj'.getOutputVar("`x_var'")))			  
+		      }
+		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
+		         qui gstats tabstat `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
+				 mata: st_matrix("`matxmean'", (`obj'.getnum(.,1), `obj'.getOutputVar("`x_var'")))		
+		      }
+		      else {
+		         qui gstats tabstat `y_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
+		         mata: st_matrix("`temp_b'", `obj'.getOutputVar("`y_var'")')
+		      }
+			  mata: mata drop `obj'
 		   }
-		   restore
 		}
 		else {
 		   tempname output
@@ -1705,14 +1865,17 @@ program define binsreg_fit, eclass
 		   mata: mata drop `output'
 		}
 	 }
-	 
+
 	 * Regression?
 	 if ("`ymeanON'"!="T") {
 	    if (`p'==0) {
-		   capture reg `y_var' ibn.`xcat' `w_var' if `touse' `wt', nocon `vce'
+		   if ("`absorb'"=="") capture reg `y_var' ibn.`xcat' `w_var' `wt', nocon `vce'
+		   else                capture reghdfe `y_var' ibn.`xcat' `w_var' `wt', absorb(`absorb') `vce' `reghdfeopt'
+		   
 		   matrix `temp_b'=e(b)
 		   matrix `temp_V'=e(V)
-		   mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins')
+		   if ("`absorb'"=="") mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins')
+           else                mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins', "T")
 		}
 		else {
 	       local nseries=(`p'-`s'+1)*(`nbins'-1)+`p'+1
@@ -1723,18 +1886,17 @@ program define binsreg_fit, eclass
 		      qui gen `sp`i''=. in 1
 	       }
 	
-	       if ("`byvalue'"=="noby") {
-		   	  mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
-		   }
-		   else {
-		      mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s', "`touse'")
-	       }
-		   capture reg `y_var' `series' `w_var' if `touse' `wt', nocon `vce'
-	       * store results
+		   mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
+		   
+		   if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon `vce'
+	       else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `vce' `reghdfeopt'
+		   
+		   * store results
 	       if (_rc==0) {
 		      matrix `temp_b'=e(b)
 		      matrix `temp_V'=e(V)
-			  mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nseries')
+			  if ("`absorb'"=="") mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nseries')
+			  else                mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nseries', "T")
 	       }
 	       else {
 	          error  _rc
@@ -1742,11 +1904,12 @@ program define binsreg_fit, eclass
            }
 	    }
 	 }
-	 
+
 	 ereturn clear
 	 ereturn matrix bmat=`temp_b'
 	 ereturn matrix Vmat=`temp_V'
 	 ereturn matrix xmat=`matxmean'         /* xcat, xbar */
+	 ereturn local  hdmethod "`usereghdfe'"
 end
 
 mata:
@@ -1756,56 +1919,64 @@ mata:
                               string scalar knotname, real scalar J, ///
                               real scalar p, real scalar s, real scalar deriv, ///
                               string scalar type, real scalar ngrid, string scalar muwmat, ///
-							  real scalar nw, | string scalar muxmat) 
+							  real scalar nw, string scalar hdmethod, string scalar avar, | string scalar muxmat) 
   {
     real matrix coef, bmat, rmat, vmat, knot, xmean, wval, eval, out, fit, se, semat, Xm, result
 	real scalar nseries
 	
 	nseries=(p-s+1)*(J-1)+p+1
-	coef=st_matrix(eb)
-	bmat=coef[|1\nseries|]'
-	if (nw>0) {
-	   rmat=coef[|(nseries+1)\cols(coef)|]'
-	}
-	
+	coef=st_matrix(eb)'
+	bmat=coef[|1\nseries|]
+	if (nw>0) rmat=coef[|(nseries+1)\(nseries+nw)|]
+
 	if (type=="ci"|type=="cb") {
-	   vmat=st_matrix(eV)[|1,1\nseries,nseries|]
+	   vfull=st_matrix(eV)
+	   vmat=vfull[|1,1\nseries,nseries|]
 	}
     
     // Prepare evaluation points
     eval=J(0,3,.)
-    if (args()==13) {
+	if (args()==15) {
 	   xmean=st_matrix(muxmat)
        eval=(eval \ (xmean[,2], J(J, 1, 0), xmean[,1])) 
     }
-    if (ngrid!=0) {
-	   eval=(eval \ binsreg_grids(knotname, ngrid))
-    }
-	
+    if (ngrid!=0) eval=(eval \ binsreg_grids(knotname, ngrid))
+    
 	// adjust w variables
 	if (nw>0&deriv==0) {
-	   wval=st_matrix(muwmat)
-       wval=wval*rmat
+	   wvec=st_matrix(muwmat)
+       wval=wvec*rmat
 	}
-	else {
-	   wval=0
-	}
+	else wval=0
+	
+	if (hdmethod=="T"&deriv==0) wval=wval+coef[rows(coef),1]
 	
 	fit=J(0,1,.)
 	se=J(0,1,.)
 	if (p==0) {
-	   if (args()==13) {
-	     fit=(fit \ bmat)
-	   }
+	   if (args()==15) fit=(fit \ bmat)
+	   
 	   if (ngrid!=0) {
 	     fit=(fit \ (bmat#(J(ngrid,1,1)\.)))
 		 fit=fit[|1 \ (rows(fit)-1)|]
 	   }
 	   if (type=="ci"|type=="cb") {
-	      semat=sqrt(diagonal(vmat))
-		  if (args()==13) {
-	         se=(se \ semat)
-	      }
+	      if (avar=="on") {
+		     if (hdmethod=="T") {
+			    semat=sqrt((diagonal(vmat):+vfull[rows(vfull), cols(vfull)])  ///
+		                    +2*vfull[|1,cols(vfull) \ nseries, cols(vfull)|])
+		     }
+			 else semat=sqrt(diagonal(vmat))
+		  }
+		  else {
+			 if (nw>0) Xm=(I(nseries), J(nseries, 1, 1)#wvec)
+			 else      Xm=I(nseries)
+			 if (hdmethod=="T") Xm=(Xm, J(nseries, 1, 1))
+			 semat=sqrt(rowsum((Xm*vfull):*Xm))
+		  }
+		  
+		  if (args()==15) se=(se \ semat)
+	      
 		  if (ngrid!=0) {
 		     se=(se \ (semat#(J(ngrid,1,1)\.)))
 		     se=se[|1 \ (rows(se)-1)|]
@@ -1821,12 +1992,35 @@ mata:
 	else {
 	   Xm=binsreg_spdes(eval[,1], knotname, eval[,3], p, deriv, s)
 	   if (type=="dots"|type=="line") {
-	     fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
-		 out=(eval, fit:+wval)
+	      fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
+		  out=(eval, fit:+wval)
 	   }
 	   else {
-	   	 result=binsreg_pred(Xm, bmat, vmat, "all")
-		 out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
+	     if (avar=="on") {
+	        if (hdmethod=="T"&deriv==0) {
+		       vmat=(vmat, vfull[|1,cols(vfull) \ nseries, cols(vfull)|] \ ///
+			         vfull[|rows(vfull),1 \ rows(vfull), nseries|], vfull[rows(vfull), cols(vfull)])
+		       se=binsreg_pred((Xm, J(rows(Xm),1,1)), ., vmat, "se")[,2]
+		       fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
+			   out=(eval, (fit:+wval)-cval*se, (fit:+wval)+cval*se)
+		    }
+		    else {
+	   	       result=binsreg_pred(Xm, bmat, vmat, "all")
+		       out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
+	        }
+		 }
+		 else {
+		    if (nw>0) {
+			   if (deriv==0) Xm=(Xm, J(rows(Xm),1,1)#wvec)
+			   else          Xm=(Xm, J(rows(Xm),nw,0))
+			}
+			if (hdmethod=="T") {
+			   if (deriv==0) Xm=(Xm, J(rows(Xm),1,1))
+			   else          Xm=(Xm, J(rows(Xm),1,0))
+			}
+			result=binsreg_pred(Xm, coef, vfull, "all")
+		    out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+		 }
 	   }
 	}
 

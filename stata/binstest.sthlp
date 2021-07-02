@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3 10-JUN-2021}{...}
+{* *! version 0.4 02-JUL-2021}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -18,13 +18,15 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 16} {cmdab:binstest} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt estmethod(cmdname)} {opt deriv(v)}{p_end}
-{p 16 16} {opt testmodel(p s)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
-{p 16 16} {opt testshape(p s)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)} {opt lp(metric)}{p_end}
-{p 16 16} {opt bins(p s)} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)}{p_end}
-{p 16 16} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
-{p 16 16} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 16 16} {cmd:vce(}{it:{help vcetype}}{cmd:)} ]{p_end}
+{p 4 13} {cmdab:binstest} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {p_end}
+{p 13 13} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
+{p 13 13} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
+{p 13 13} {opt testmodel(p s)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
+{p 13 13} {opt testshape(p s)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)} {opt lp(metric)}{p_end}
+{p 13 13} {opt bins(p s)} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt randcut(#)}{p_end}
+{p 13 13} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
+{p 13 13} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
+{p 13 13} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt usegtools(on/off)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
 
@@ -58,12 +60,38 @@ A companion R package with the same capabilities is available (see website below
 
 {dlgtab:Estimand}
 
-{p 4 8} {opt estmethod(cmdname)} specifies the binscatter model. The default is {cmd:estmethod(reg)}, which corresponds to the binscatter least squares regression. Other options are: {cmd:estmethod(qreg #)} for binscatter quantile regression where # is the quantile to be estimated, {cmd:estmethod(logit)} for binscatter logistic regression and {cmd:estmethod(probit)} for binscatter probit regression.
-{p_end}  
+{p 4 8} {opt estmethod(cmdname)} specifies the binscatter model. The default is {cmd:estmethod(reg)},
+which corresponds to the binscatter least squares regression. Other options are: {cmd:estmethod(qreg #)}
+for binscatter quantile regression where # is the quantile to be estimated, {cmd:estmethod(logit)} for
+binscatter logistic regression and {cmd:estmethod(probit)} for binscatter probit regression.
+{p_end}
 
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
 {p_end}
+
+{p 4 8} {opt at(position)} specifies the values of {it:covars} at which the estimated function is evaluated for plotting.
+The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the median of {it:covars},
+{cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
+{p_end}
+
+{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:covars} (if specified) are excluded from the evaluation.
+{p_end}
+
+{p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
+{p_end}
+
+{dlgtab:Reghdfe}
+
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}.
+When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
+{p_end}
+
+{p 4 8} {opt reghdfeopt(reghdfe_option)} options to be passed on to the command {cmd:reghdfe}. 
+Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this option.
+{p_end}
+
+{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
 
 {dlgtab:Parametric Model Specification Testing}
 
@@ -94,7 +122,8 @@ Each number {it:a} in the {it:numlist} corresponds to one boundary of a one-side
 {p_end}
 
 {p 4 8} {opt testshape2(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
-Each number {it:a} in the {it:numlist} corresponds to one boundary of a two-sided hypothesis test of the form H0: {it:sup_x |mu(x)-a|=0}.
+Each number {it:a} in the {it:numlist} corresponds to one boundary of a two-sided hypothesis test of the
+form H0: {it:sup_x |mu(x)-a|=0}.
 {p_end}
 
 {dlgtab:Metric for Hypothesis Testing}
@@ -125,6 +154,9 @@ The other option is: {cmd:rot} for rule of thumb implementation.
 If not specified, the data-driven ROT selector is used instead.
 {p_end}
 
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection. Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
+{p_end}
+
 {dlgtab:Simulation}
 
 {p 4 8} {opt nsims(#)} specifies the number of random draws for constructing confidence bands and hypothesis testing.
@@ -141,7 +173,7 @@ The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluat
 {dlgtab:Mass Points and Degrees of Freedom}
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2019b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -156,16 +188,34 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Other Options}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress}, {help logit##options:logit} or {help qreg##qreg_options:qreg}.
-The default is {cmd:vce(robust)}.
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress},
+{help logit##options:logit} or {help qreg##qreg_options:qreg}. The default is {cmd:vce(robust)}.
 {p_end}
 
+{p 4 8} {opt asyvar(on/off)} specifies the method used to compute standard errors.
+If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the
+uncertainty related to other control variables {it:covars} is omitted. Default is {cmd:asyvar(off)},
+that is, the uncertainty related to {it:covars} is taken into account.
+{p_end}
+
+{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
+Default is {cmd:usegtools(off)}.
+{p_end}
+
+{p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
+{p_end}
 
 {marker examples}{...}
 {title:Examples}
 
-{p 4 8} Test linear model{p_end}
-{p 8 8} . {stata binstest y x w, testmodelpoly(1)}{p_end}
+{p 4 8} Setup{p_end}
+{p 8 8} . {stata sys use auto}
+
+{p 4 8} Test for linearity{p_end}
+{p 8 8} . {stata binstest mpg weight foreign, testmodelpoly(1)}{p_end}
+
+{p 4 8} Test for monotonicity{p_end}
+{p 8 8} . {stata binstest mpg weight foreign, deriv(1) bins(1 1) testshapel(0)}{p_end}
 
 
 {marker stored_results}{...}

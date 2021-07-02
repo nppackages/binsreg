@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3 10-JUN-2021}{...}
+{* *! version 0.4 29-JUN-2021}{...}
 {viewerjumpto "Syntax" "binsreg##syntax"}{...}
 {viewerjumpto "Description" "binsreg##description"}{...}
 {viewerjumpto "Options" "binsreg##options"}{...}
@@ -19,17 +19,19 @@
 {title:Syntax}
 
 {p 4 12} {cmdab:binsreg} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt deriv(v)} {opt at(position)}{p_end}
+{p 12 12} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
 {p 12 12} {opt dots(p s)} {opt dotsgrid(dotsgridoption)} {opt dotsplotopt(dotsoption)}{p_end}
 {p 12 12} {opt line(p s)} {opt linegrid(#)} {opt lineplotopt(lineoption)}{p_end}
 {p 12 12} {opt ci(p s)} {opt cigrid(cigridoption)} {opt ciplotopt(rcapoption)}{p_end}
 {p 12 12} {opt cb(p s)} {opt cbgrid(#)} {opt cbplotopt(rareaoption)}{p_end}
 {p 12 12} {opt polyreg(p)} {opt polyreggrid(#)} {opt polyregcigrid(#)} {opt polyregplotopt(lineoption)}{p_end}
 {p 12 12} {opth by(varname)} {cmd:bycolors(}{it:{help colorstyle}list}{cmd:)} {cmd:bysymbols(}{it:{help symbolstyle}list}{cmd:)} {cmd:bylpatterns(}{it:{help linepatternstyle}list}{cmd:)}{p_end}
-{p 12 12} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby}{p_end}
+{p 12 12} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby} {opt randcut(#)}{p_end}
 {p 12 12} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 12 12} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt level(level)}{p_end}
-{p 12 12} {opt noplot} {opt savedata(filename)} {opt replace} {opt plotxrange(min max)} {opt plotyrange(min max)} {it:{help twoway_options}} ]{p_end}
+{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)}{p_end}
+{p 12 12} {opt level(level)} {opt usegtools(on/off)} {opt noplot} {opt savedata(filename)} {opt replace}{p_end}
+{p 12 12} {opt plotxrange(min max)} {opt plotyrange(min max)} {it:{help twoway_options}} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
 
@@ -65,12 +67,40 @@ A companion R package with the same capabilities is available (see website below
 
 {dlgtab:Estimand}
 
-{p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
+{p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation and plotting.
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
 {p_end}
 
 {p 4 8} {opt at(position)} specifies the values of {it:covars} at which the estimated function is evaluated for plotting.
-The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the median of {it:covars}, {cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
+The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the median of {it:covars}, {cmd:at(0)} for zeros,
+and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
+
+{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:covars} (if specified) are excluded from the evaluation.
+{p_end}
+
+{dlgtab:Reghdfe}
+
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}.
+When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
+{p_end}
+
+{p 4 8} {opt reghdfeopt(reghdfe_option)} options to be passed on to the command {cmd:reghdfe}.
+{p_end}
+
+{p 4 8} {it:Important:} 
+
+{p 6 9} 1. Fixed effects added via {cmd:absorb()} are not used in the evaluation of the estimated function, regardless of the option specified within {cmd:at()}.
+To plot the binscatter function for a particular category of interest, save the values of {it:covars} at which the function is evaluated in another file, say,
+{cmd:wval}, specify the corresponding factor variables in {it:covar} directly, and add the option {cmd:at(wval)}.
+{p_end}
+
+{p 6 9} 2. {cmd:absorb()} and {cmd:vce()} should not be specified within {cmd:reghdfeopt()}.
+{p_end}
+
+{p 6 9} 3. Make sure the package reghdfe installed has a version number greater than or equal to 5.9.0 (03jun2020). An older version may result in an error in Mata.
+{p_end}
+
+{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
 {p_end}
 
 {dlgtab:Dots}
@@ -191,9 +221,13 @@ The other option is: {cmd:rot} for rule of thumb implementation.
 If not specified, the data-driven ROT selector is used instead.
 {p_end}
 
-{p 4 8} {opt samebinsby} forces a common partitioning/binning structure across all subgroups specified by the option {cmd:by()}.
-The knots positions are selected according to the option {cmd:binspos()} and using the full sample.
-If {cmd:nbins()} is not specified, then the number of bins is selected via the companion command {help binsregselect:binsregselect} and using the full sample.{p_end}
+{p 4 8} {opt samebinsby} forces a common partitioning/binning structure across all subgroups specified by the option {cmd:by()}. The knots positions are selected according to the option {cmd:binspos()} and using the full sample.
+If {cmd:nbins()} is not specified, then the number of bins is selected via the companion command {help binsregselect:binsregselect} and using the full sample.
+{p_end}
+
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
+{p_end}
 
 {dlgtab:Simulation}
 
@@ -211,7 +245,7 @@ The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluat
 {dlgtab:Mass Points and Degrees of Freedom}
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2019b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -224,13 +258,27 @@ Available options:
 {p 8 8} {opt masspoints(veryfew)} forces the command to proceed as if {it:indvar} has only a few number of mass points (i.e., distinct values).
 In other words, forces the command to proceed as if the mass point and degrees of freedom checks were failed.{p_end}
 
-{dlgtab:Other Options}
+{dlgtab:Standard Error}
 
 {p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the command {help regress##options:regress}.
 The default is {cmd:vce(robust)}.
 {p_end}
 
+{p 4 8} {opt asyvar(on/off)} specifies the method used to compute standard errors.
+If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the uncertainty related to other control variables {it:covars} is omitted.
+Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:covars} is taken into account.
+{p_end}
+
+{dlgtab:Other Options}
+
 {p 4 8} {opt level(#)} sets the nominal confidence level for confidence interval and confidence band estimation.
+{p_end}
+
+{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
+Default is {cmd:usegtools(off)}.
+{p_end}
+
+{p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
 {p_end}
 
 {p 4 8} {opt noplot} omits binscatter plotting.
@@ -255,9 +303,17 @@ The default is {cmd:vce(robust)}.
 {marker examples}{...}
 {title:Examples}
 
-{p 4 8} Run a binscatter regression and report the plot{p_end}
-{p 8 8} . {stata binsreg y x w}{p_end}
+{p 4 8} Setup{p_end}
+{p 8 8} . {stata  sysuse auto}{p_end}
 
+{p 4 8} Run a binscatter regression and report the plot{p_end}
+{p 8 8} . {stata binsreg mpg weight foreign}{p_end}
+
+{p 4 8} Add confidence intervals and confidence band{p_end}
+{p 8 8} . {stata binsreg mpg weight foreign, ci(3 3) cb(3 3)}{p_end}
+
+{p 4 8} Run binscatter regression by group{p_end}
+{p 8 8} . {stata binsreg mpg weight, by(foreign)}{p_end}
 
 {marker stored_results}{...}
 {title:Stored results}

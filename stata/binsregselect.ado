@@ -1,15 +1,16 @@
-*! version 0.3 10-JUN-2021  
+*! version 0.4 02-JUL-2021  
 
 capture program drop binsregselect
 program define binsregselect, eclass
      version 13
 	 
 	 syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, deriv(integer 0) ///
-	        bins(numlist integer max=2 >=0) binspos(string) ///
+	        absorb(string asis) reghdfeopt(string asis) ///
+			bins(numlist integer max=2 >=0) binspos(string) ///
 			binsmethod(string) nbinsrot(string) ///
 			simsgrid(integer 20) savegrid(string asis) replace ///
-			dfcheck(numlist integer max=2 >=0) masspoints(string) ///
-			vce(passthru) useeffn(string) ///
+			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
+			vce(passthru) useeffn(string) randcut(numlist max=1 >=0 <=1) ///
 			norotnorm numdist(string) numclust(string)]   
 			/* last line only for internal use */
 			
@@ -77,6 +78,42 @@ program define binsregselect, eclass
 	 local dfcheck_n1 "`1'"
 	 local dfcheck_n2 "`2'"
 	 
+	 * use gtools commands instead?
+	 if ("`usegtools'"=="off") local usegtools ""
+	 if ("`usegtools'"=="on")  local usegtools usegtools
+	 if ("`usegtools'"!="") {
+	    capture which gtools
+		if (_rc) {
+		   di as error "Gtools package not installed."
+		   exit
+		}
+		local localcheck "F"
+	    * use gstats tab instead of tabstat/collapse
+		* use gquantiles instead of _pctile
+		* use gunique instead of binsreg_uniq
+		* use fasterxtile instead of irecode (within binsreg_irecode)
+		* shut down local checks & do not sort
+	 }
+	 
+	 * cluster var?	 
+	 local vcetemp: subinstr local vce "vce(" "", all
+	 local vcetemp: subinstr local vcetemp ")" "", all
+	 tokenize "`vcetemp'", parse(", ")
+	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"|"`1'"=="cluste"|"`1'"=="cluster") {
+	    if ("`3'"==""|"`3'"==",") local clusterON "T"
+		local clustervar `2'  /* only keep the 1st cluster var */
+     }
+	 	 di "`clusterON'"
+	 * use reghdfe?
+	 if ("`absorb'"!="") {
+	    capture which reghdfe
+		if (_rc) {
+		   di as error "reghdfe not installed."
+		   exit
+		}
+	 }
+	 
+	 *****************************************************
 	 * Error checks
 	 if (`p'<0) {
 	    di as error "bins() incorrectly specified."
@@ -99,8 +136,6 @@ program define binsregselect, eclass
 	 
 	 * Mark sample
 	 preserve
-	 marksample touse, nov   /* do not account for missing values !! */
-	 qui keep if `touse'
 	 
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
@@ -118,12 +153,13 @@ program define binsregselect, eclass
 	 fvrevar `w_var', tsonly
 	 local w_var "`r(varlist)'"       /* so time series operator respected */
 	 
-	 marksample touse      /* now renew the mark to account for missing values */
+	 marksample touse      /* now renew the marker to account for missing values */
 	 qui keep if `touse'
 	 local eN=_N
+	 local samplesize=_N
 	 
-	 if ("`masspoints'"!="off"|"`binspos'"=="QS") {
-	    if ("`:sortedby'"!="`x_var'") sort `x_var'
+	 if ("`usegtools'"==""&("`masspoints'"!="off"|"`binspos'"=="QS")) {
+	    if ("`:sortedby'"!="`x_var'") sort `x_var', stable
 	 }
 	 
 	 * Normalize support
@@ -134,10 +170,8 @@ program define binsregselect, eclass
 	 local N=r(N)      /* sample size, with wt */
 	 local xmin=r(min)
 	 local xmax=r(max)
-	 qui gen `z_var'=(`x_var'-`xmin')/(`xmax'-`xmin')
 	 
-	 tempname zvec Xm binedges
-	 mata: `zvec'=st_data(., "`z_var'")
+	 tempname xvec zvec Xm binedges
 		 
 	 * Extract effective sample size
 	 local Ndist=.
@@ -146,57 +180,115 @@ program define binsregselect, eclass
 		   local Ndist=`numdist'
 		}
 		else {
-		   mata: `binedges'=binsreg_uniq(`zvec', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+		   if ("`usegtools'"=="") {
+	          mata: `binedges'=binsreg_uniq(st_data(.,"`x_var'"), ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var'
+			  local Ndist=r(unique)
+		   }
 		}   
 		local eN=min(`eN', `Ndist')
 	 }
+	 
 	 local Nclust=.
-	 if ("`vce'"!="") {
-	    local vcetemp: subinstr local vce "vce(" "", all
-		local vcetemp: subinstr local vcetemp ")" "", all
-		tokenize "`vcetemp'"
-		if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| /// 
-		    "`1'"=="cluste"|"`1'"=="cluster") {
-		    if ("`numclust'"!=""&"`numclust'"!=".") {
-			   local Nclust=`numclust'
-			}
-			else {
-			   st_local("Nclust", strofreal(rows(uniqrows(st_data(.,"`2'")))))
-			}
-		}
+	 if ("`clusterON'"=="T") {
+		if ("`numclust'"!=""&"`numclust'"!=".") {
+		   local Nclust=`numclust'
+	    }
+		else {
+		   if ("`usegtools'"=="") {
+		      mata: st_local("Nclust", strofreal(rows(uniqrows(st_data(.,"`clustervar'")))))
+		   }
+		   else {
+		      qui gunique `clustervar'
+			  local Nclust=r(unique)
+		   }
+	    }
 		local eN=min(`eN', `Nclust')
 	 }
+	 
+	 * Take a subsample?
+	 if ("`randcut'"!="") {
+	    mata: `xvec'=st_data(.,"`x_var'")
+		qui keep if runiform()<=`randcut'
+		local eN_sub=_N
+		
+		local Ndist_sub=.
+		if ("`massadj'"=="T") {
+		   if ("`usegtools'"=="") {
+	          mata: `binedges'=binsreg_uniq(st_data(.,"`x_var'"), ., 1, "Ndist_sub")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var'
+			  local Ndist_sub=r(unique)
+		   }
+		   local eN_sub=min(`eN_sub', `Ndist_sub')
+	    }
+	    
+		local Nclust_sub=.
+	    if ("`clusterON'"=="T") {
+		   if ("`usegtools'"=="") {
+		       mata: st_local("Nclust_sub", strofreal(rows(uniqrows(st_data(.,"`clustervar'")))))
+		   }
+		   else {
+		       qui gunique `clustervar'
+			   local Nclust_sub=r(unique)
+		   }
+		   local eN_sub=min(`eN_sub', `Nclust_sub')
+	    }
+	 }
+	 else {
+		local eN_sub=`eN'
+		local Ndist_sub=`Ndist'
+		local Nclust_sub=`Nclust'
+	 }
+	 
+	 sum `x_var', meanonly
+	 gen `z_var'=(`x_var'-`=r(min)')/(`=r(max)'-`=r(min)')
+	 mata: `zvec'=st_data(., "`z_var'")   /* normalized x, subsample */
+
+	 * prepare locals for reporting
+	 local imse_bsq_rot=.
+	 local imse_var_rot=.
+	 local imse_bsq_dpi=.
+	 local imse_var_dpi=.
 	 
 	 ***************************
 	 ******* ROT choice ********
 	 ***************************
 	 tempname vcons bcons coef
+	 tempvar resid1 resid2   /* only used by reghdfe */
 	 local J_rot_reg=.
 	 local J_rot_unreg=.
 	 if ("`nbinsrot'"!="") local J_rot_reg=`nbinsrot'
 	 
 	 * Initial checking of sample size (for ROT)
 	 if (`J_rot_reg'==.&"`rot_fewobs'"=="") {
-        if (`eN'<=`dfcheck_n1'+`p'+1+`qrot') {
+        if (`eN_sub'<=`dfcheck_n1'+`p'+1+`qrot') {
 	       local rot_fewobs "T"
 	       di as text in gr "warning: too small effective sample size for bin selection."
 	    }
 	 }
+	 
 	 if ("`rot_fewobs'"!="T"&`J_rot_reg'==.) {
 		* Power series
 	    local series_rot ""
-		forvalues i=0/`=`p'+`qrot'' {
+		forvalues i=1/`=`p'+`qrot'' {
 	       tempvar z_var_`i'
 	       qui gen `z_var_`i''=`z_var'^`i'
 		   local series_rot `series_rot' `z_var_`i''
 	    }
 	    
 	    * Variance Component
-	    capture reg `y_var' `series_rot' `w_var' `wt', nocons `vce'
-	    if (_rc==0) {
+	    if ("`absorb'"=="") capture reg `y_var' `series_rot' `w_var' `wt'
+		else                capture reghdfe `y_var' `series_rot' `w_var' `wt', absorb(`absorb') resid(`resid1')
+		
+		if (_rc==0) {
 		   mat `coef'=e(b)
-	       mat `coef'=`coef'[1,`=`p'+2'..`=`p'+1+`qrot'']
+	       mat `coef'=`coef'[1,`=`p'+1'..`=`p'+`qrot'']
 	    }
 	    else {
 	       error _rc
@@ -204,22 +296,29 @@ program define binsregselect, eclass
 	    }
 	    
 		tempvar pred_y y_var_2 pred_y2 s2
-	    qui predict `pred_y', xb
+	    if ("`absorb'"=="") predict `pred_y', xb
+		else                predict `pred_y', xbd
 		
 	    qui gen `y_var_2'=`y_var'^2
-		capture reg `y_var_2' `series_rot' `w_var' `wt'
-	    qui predict `pred_y2', xb
-	    qui gen `s2'=`pred_y2'-`pred_y'^2         /* sigma^2(x) var */
-	 
+		if ("`absorb'"=="") {
+		   capture reg `y_var_2' `series_rot' `w_var' `wt'
+	       predict `pred_y2', xb
+		}
+		else {
+		   capture reghdfe `y_var_2' `series_rot' `w_var' `wt', absorb(`absorb') resid(`resid2')
+		   predict `pred_y2', xbd
+		}
+		
+		qui gen `s2'=`pred_y2'-`pred_y'^2         /* sigma^2(x) var */
+	    	 
 	    * Normal density
 	    if ("`rotnorm'"=="") {
-	       qui mean `z_var' `wt'
-		   tempname m_z sd_z
-		   mat `m_z'=e(b)
-		   mat `sd_z'=e(V)
-	       local zbar=`m_z'[1,1]
-	       local zsd=sqrt(e(N)*`sd_z'[1,1])
-	       tempvar fz
+		   if ("`wtype'"!="p") qui sum `z_var' `wt'
+		   else                qui sum `z_var' [aw`exp']
+		   local zbar=r(mean)
+		   local zsd=r(sd)
+		 	       
+		   tempvar fz
 		   * trim density from below
 		   local cutval=normalden(invnormal(`den_alp')*`zsd', 0, `zsd')
 	       qui gen `fz'=max(normalden(`z_var', `zbar', `zsd'), `cutval')	 
@@ -235,7 +334,6 @@ program define binsregselect, eclass
 		
 	    * Bias component
 	    * gen data for derivative
-		tempname i
 		tempvar pred_deriv
 		mata: `Xm'=J(rows(`zvec'),0,.) 
 		
@@ -263,9 +361,12 @@ program define binsregselect, eclass
 	    * ROT J
 	    local J_rot_unreg=ceil((`imse_b'*2*(`p'+1-`deriv')/               ///
 		                       (`imse_v'*(1+2*`deriv')))^(1/(2*`p'+2+1))* ///
-		                      `eN'^(1/(2*`p'+2+1)))
+		                      `eN_sub'^(1/(2*`p'+2+1)))
 		local J_rot_reg=max(`J_rot_unreg', ///
-		                    ceil((2*(`p'+1-`deriv')/(1+2*`deriv')*`rot_lb'*`eN')^(1/(2*`p'+2+1)))) 
+		                    ceil((2*(`p'+1-`deriv')/(1+2*`deriv')*`rot_lb'*`eN_sub')^(1/(2*`p'+2+1)))) 
+   	 
+	    local imse_bsq_rot=`imse_b'
+	    local imse_var_rot=`imse_v'
 	 }
 	 
 	 ** Repeated knots? ***************
@@ -288,14 +389,17 @@ program define binsregselect, eclass
 		     mat `kmat'=(0 \ 1)
 		  }
 		  else {
-	         binsreg_pctile `z_var' `wt', nq(`J_rot_reg')
+	         binsreg_pctile `z_var' `wt', nq(`J_rot_reg') `usegtools'
 		     mat `kmat'=(0 \ r(Q) \ 1)
 		  }
 	    }
         
 	    mata: st_matrix("`kmat'", (0 \ uniqrows(st_matrix("`kmat'")[|2 \ `=`J_rot_reg'+1'|])))
 	    local J_rot_uniq=rowsof(`kmat')-1
-	    if ("`binsmethod'"=="DPI"&"`dpi_fewobs'"=="") binsreg_irecode `z_var', knotmat(`kmat') bin(`zcat')
+	    if ("`binsmethod'"=="DPI"&"`dpi_fewobs'"=="") {
+		   binsreg_irecode `z_var', knotmat(`kmat') bin(`zcat') ///
+		                            `usegtools' nbins(`J_rot_uniq') pos(`binspos') knotliston(T)
+		}
 	 }
 	 
 	 *********************************
@@ -305,7 +409,7 @@ program define binsregselect, eclass
 	 * Check if DPI can be implemented
 	 if ("`J_rot_uniq'"!="."&"`binsmethod'"=="DPI"&"`masspoints'"!="veryfew") {
 	    * Compare with degree of freedom
-		if ((`p'-`s'+1)*(`J_rot_uniq'-1)+`p'+2+`dfcheck_n2'>=`eN') {
+		if ((`p'-`s'+1)*(`J_rot_uniq'-1)+`p'+2+`dfcheck_n2'>=`eN_sub') {
 		   di as text in gr  "warning: too small effective sample size for DPI selection."
 		   local dpi_fewobs "T"
 	    }
@@ -325,29 +429,32 @@ program define binsregselect, eclass
 	 if ("`binsmethod'"=="DPI"&"`dpi_fewobs'"!="T") {	
 		* Update vce condition
 		if ("`massadj'"=="T") {
-		   if ("`Nclust'"==".") {
-		      local vce "vce(cluster `z_var')"
+		   if ("`absorb'"=="") {
+		      if ("`clusterON'"=="") {
+		         local vce "vce(cluster `z_var')"
+		      }
+		      else {
+		         if (`Nclust_sub'>`Ndist_sub') {
+			        local vce "vce(cluster `z_var')"
+				    di as text in gr "warning: # of mass points < # of clusters. vce option overridden."
+			     }
+		      }
 		   }
 		   else {
-		      if (`Nclust'>`Ndist') {
-			     local vce "vce(cluster `z_var')"
-				 di as text in gr "warning: # of mass points < # of clusters. vce option overridden."
-			  }
+		      if ("`clustervar'"=="") local vce "vce(cluster `z_var')"
 		   }
 		}
 		
-		********************************
+		**************************************
 	    * Start computation
 		tempvar derivfit derivse biasterm biasterm_v projbias
 		qui gen `derivfit'=. in 1
 		qui gen `derivse'=. in 1
-		qui gen `biasterm'=. in 1                   /* save bias */
-		if (`deriv'>0) {
-		    qui gen `biasterm_v'=. in 1             /* error of approx deriv */
-		}
-		qui gen `projbias'=. in 1                   /* save proj of bias */
+		qui gen `biasterm'=. in 1                     /* save bias */
+		if (`deriv'>0) qui gen `biasterm_v'=. in 1    /* error of approx deriv */
+		qui gen `projbias'=. in 1                     /* save proj of bias */
 		
-		**********************
+		**************************************
 		* predict leading bias
 		mata: bias("`z_var'", "`zcat'", "`kmat'", `p', 0, "`biasterm'")
 		if (`deriv'>0) {
@@ -366,8 +473,10 @@ program define binsregselect, eclass
 		
 		mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `=`p'+1', 0, `=`s'+1')
 	 
-	    capture reg `y_var' `series' `w_var' `wt', nocon
-	    * store results
+	    if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon
+	    else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `reghdfeopt'
+		
+		* store results
 		tempname temp_b temp_V
 	    if (_rc==0) {
 		    matrix `temp_b'=e(b)
@@ -408,18 +517,7 @@ program define binsregselect, eclass
 		    error _rc
 			exit _rc
 		}
-		   
-		capture reg `y_var' `series' `w_var' `wt', nocon `vce'        /* for variance purpose */
-	    * store results
-	    if (_rc==0) {
-		    matrix `temp_b'=e(b)
-		    matrix `temp_V'=e(V)
-	    }
-	    else {
-	        error  _rc
-	   	    exit _rc
-        }
-		   
+		
 		mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
 	          st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
 
@@ -434,10 +532,31 @@ program define binsregselect, eclass
 		else            qui sum `biasterm', meanonly
 		local m_bias=r(mean)
 		local imse_b=`m_bias'*`J_rot_uniq'^(2*(`p'+1-`deriv'))
-	 
-		mata: st_store(., "`derivse'", ///
-		               (binsreg_pred(`Xm', (st_matrix("`temp_b'")[|1 \ `nseries'|])', ///
-		                st_matrix("`temp_V'")[|1,1 \ `nseries',`nseries'|], "se")[,2]):^2) ///
+
+		* for variance purpose
+		if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon `vce'        
+	    else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `vce' `reghdfeopt'
+		
+		* store results
+	    if (_rc==0) {
+		    matrix `temp_b'=e(b)
+		    matrix `temp_V'=e(V)
+			tempname vcov
+			mata: `vcov'=st_matrix("`temp_V'")
+			if ("`absorb'"=="") mata: `vcov'=`vcov'[|1,1 \ `nseries',`nseries'|]
+	        else {
+			   mata: `vcov'=(`vcov'[|1,1 \ `nseries', `nseries'|], `vcov'[|1,cols(`vcov') \ `nseries', cols(`vcov')|] \ ///
+				             `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///
+					 `Xm'=(`Xm', J(rows(`Xm'),1,1))
+		    }
+		}
+	    else {
+	        error  _rc
+	   	    exit _rc
+        }
+		
+		mata: st_store(., "`derivse'", (binsreg_pred(`Xm', ., `vcov', "se")[,2]):^2)
+		mata: mata drop `vcov'
 		
 		if ("`wt'"!="") qui sum `derivse' [aw`exp'], meanonly
 		else            qui sum `derivse', meanonly
@@ -448,20 +567,27 @@ program define binsregselect, eclass
         * DPI J
 	    local J_dpi=ceil((`imse_b'*2*(`p'+1-`deriv')/               ///
 		                 (`imse_v'*(1+2*`deriv')))^(1/(2*`p'+2+1)))
+						 
+		local imse_bsq_dpi=`imse_b'
+	    local imse_var_dpi=`imse_v'*`eN_sub'
+		
 	 }
 	 local J_dpi_uniq=`J_dpi'
 	 
 	 mata: mata drop `zvec'
-	 ************************************************
 	 
-	 * update J if useeffn specified
-	 if ("`useeffn'"!="") {
-	    local scaling=(`useeffn'/`eN')^(1/(2*`p'+2+1))
-	    if (`J_rot_unreg'!=.) local J_rot_unreg=`J_rot_unreg'*`scaling'
-		if (`J_rot_reg'!=.)   local J_rot_reg=`J_rot_reg'*`scaling'
-		if (`J_rot_uniq'!=.)  local J_rot_uniq=`J_rot_uniq'*`scaling'
-		if (`J_dpi'!=.)       local J_dpi=`J_dpi'*`scaling'
-		if (`J_dpi_uniq'!=.)  local J_dpi_uniq=`J_dpi_uniq'*`scaling'
+	 
+	 ************************************************
+	 * update J if useeffn or subsample specified
+	 if ("`useeffn'"!=""|"`randcut'"!="") {
+	    if ("`useeffn'"!="") local scaling=(`useeffn'/`eN')^(1/(2*`p'+2+1))
+		if ("`randcut'"!="") local scaling=(`eN'/`eN_sub')^(1/(2*`p'+2+1))
+	    
+		if (`J_rot_unreg'!=.) local J_rot_unreg=ceil(`J_rot_unreg'*`scaling')
+		if (`J_rot_reg'!=.)   local J_rot_reg=ceil(`J_rot_reg'*`scaling')
+		if (`J_rot_uniq'!=.)  local J_rot_uniq=ceil(`J_rot_uniq'*`scaling')
+		if (`J_dpi'!=.)       local J_dpi=ceil(`J_dpi'*`scaling')
+		if (`J_dpi_uniq'!=.)  local J_dpi_uniq=ceil(`J_dpi_uniq'*`scaling')
 	 }
 	 
 	 * Reconstruct knot list
@@ -486,7 +612,12 @@ program define binsregselect, eclass
 	    }
 	    else {
 		   if (`Jselected'>1) {
-	          binsreg_pctile `x_var' `wt', nq(`Jselected')
+	          if ("`randcut'"!="") {
+			     qui set obs `samplesize'
+			     mata: st_store(., "`x_var'", `xvec')
+				 mata: mata drop `xvec'
+			  }
+			  binsreg_pctile `x_var' `wt', nq(`Jselected')
 			  mat `xkmat'=(`xmin'\ r(Q) \ `xmax')
 		   }
 		   else mat `xkmat'=(`xmin' \ `xmax')		   
@@ -502,6 +633,7 @@ program define binsregselect, eclass
 		}
 	 }
 	 else mat `xkmat'=.
+	 
 	 
 	 if ("`binsmethod'"=="DPI") {
 	     local method "IMSE-optimal: plug-in choice"
@@ -575,17 +707,23 @@ program define binsregselect, eclass
 	 if (`J_dpi'!=.) local df_dpi=(`p'-`s'+1)*(`J_dpi'-1)+`p'+1
 	 local df_dpi_uniq=.
 	 if (`J_dpi_uniq'!=.) local df_dpi_uniq=(`p'-`s'+1)*(`J_dpi_uniq'-1)+`p'+1
-	 di in smcl in gr "{hline 14}{c TT}{hline 13}{c TT}{hline 10}"
-	 di in smcl in gr "{rcenter 13: method}" _col(13) " {c |} " "{rcenter 12: # of bins}" _col(29) "{c |}" "{rcenter 10: df}"
-	 di in smcl in gr "{hline 14}{c +}{hline 13}{c +}{hline 10}"
-	 di in smcl in gr "{rcenter 13: ROT-POLY}"  _col(13) " {c |} " as result %7.0f `J_rot_unreg' _col(29) in gr "{c |}" as result %7.0f `df_rot_unreg'
-	 di in smcl in gr "{rcenter 13: ROT-REGUL}" _col(13) " {c |} " as result %7.0f `J_rot_reg'   _col(29) in gr "{c |}" as result %7.0f `df_rot_reg'
-	 di in smcl in gr "{rcenter 13: ROT-UKNOT}" _col(13) " {c |} " as result %7.0f `J_rot_uniq'  _col(29) in gr "{c |}" as result %7.0f `df_rot_uniq'
-	 di in smcl in gr "{rcenter 13: DPI}"       _col(13) " {c |} " as result %7.0f `J_dpi'       _col(29) in gr "{c |}" as result %7.0f `df_dpi'
-	 di in smcl in gr "{rcenter 13: DPI-UKNOT}" _col(13) " {c |} " as result %7.0f `J_dpi_uniq'  _col(29) in gr "{c |}" as result %7.0f `df_dpi_uniq'
-	 di in smcl in gr "{hline 14}{c BT}{hline 13}{c BT}{hline 10}"
+	 di in smcl in gr "{hline 14}{c TT}{hline 12}{c TT}{hline 10}{c TT}{hline 14}{c TT}{hline 14}"
+	 di in smcl in gr "{rcenter 13: method}" _col(13) " {c |} " "{center 11: # of bins}" _col(26) "{c |}" "{rcenter 10: df}" _col(39) "{c |}" "{center 14: imse, bias^2}" _col(54) "{c |}" "{center 14: imse, var.}"
+	 di in smcl in gr "{hline 14}{c +}{hline 12}{c +}{hline 10}{c +}{hline 14}{c +}{hline 14}"
+	 di in smcl in gr "{rcenter 13: ROT-POLY}"  _col(13) " {c |} " as result %7.0f `J_rot_unreg'        _col(28) in gr "{c |}" as result %7.0f `df_rot_unreg' ///
+	                                            _col(39) in gr "{c |}  " as result %7.3f `imse_bsq_rot' _col(54) in gr "{c |}  " as result %7.3f `imse_var_rot'
+	 di in smcl in gr "{rcenter 13: ROT-REGUL}" _col(13) " {c |} " as result %7.0f `J_rot_reg'          _col(28) in gr "{c |}" as result %7.0f `df_rot_reg' ///
+	                                            _col(39) in gr "{c |}  " as result %7.3f .              _col(54) in gr "{c |}  " as result %7.3f .
+	 di in smcl in gr "{rcenter 13: ROT-UKNOT}" _col(13) " {c |} " as result %7.0f `J_rot_uniq'         _col(28) in gr "{c |}" as result %7.0f `df_rot_uniq' ///
+	                                            _col(39) in gr "{c |}  " as result %7.3f .              _col(54) in gr "{c |}  " as result %7.3f .
+	 di in smcl in gr "{rcenter 13: DPI}"       _col(13) " {c |} " as result %7.0f `J_dpi'              _col(28) in gr "{c |}" as result %7.0f `df_dpi' ///
+	                                            _col(39) in gr "{c |}  " as result %7.3f `imse_bsq_dpi' _col(54) in gr "{c |}  " as result %7.3f `imse_var_dpi'
+	 di in smcl in gr "{rcenter 13: DPI-UKNOT}" _col(13) " {c |} " as result %7.0f `J_dpi_uniq'         _col(28) in gr "{c |}" as result %7.0f `df_dpi_uniq' ///
+	                                            _col(39) in gr "{c |}  " as result %7.3f .              _col(54) in gr "{c |}  " as result %7.3f .
+	 di in smcl in gr "{hline 14}{c BT}{hline 12}{c BT}{hline 10}{c BT}{hline 14}{c BT}{hline 14}"
 	 
 	 * return
+	 * notes: J_rot_uniq is obtained possibly based on the subsample; J_dpi_uniq is ALWAYS obtained based on the full sample
 	 ereturn clear
 	 ereturn scalar N=`N'
 	 *ereturn scalar eN=`eN'
@@ -594,6 +732,10 @@ program define binsregselect, eclass
 	 ereturn scalar p=`p'
 	 ereturn scalar s=`s'
 	 ereturn scalar deriv=`deriv'
+	 ereturn scalar imse_bsq_rot=`imse_bsq_rot'
+	 ereturn scalar imse_var_rot=`imse_var_rot'
+	 ereturn scalar imse_bsq_dpi=`imse_bsq_dpi'
+	 ereturn scalar imse_var_dpi=`imse_var_dpi'
 	 ereturn scalar nbinsrot_poly=`J_rot_unreg'
 	 ereturn scalar nbinsrot_regul=`J_rot_reg'
 	 ereturn scalar nbinsrot_uknot=`J_rot_uniq'

@@ -1,20 +1,22 @@
-*! version 0.3 10-JUN-2021 
+*! version 0.4 02-JUL-2021 
 
 capture program drop binsqreg
 program define binsqreg, eclass
      version 13
 	 
-	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw pw] [, quantile(numlist max=1 >0 <1) deriv(integer 0) ///
+	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw pw] [, ///
+	        quantile(numlist max=1 >0 <1) deriv(integer 0) at(string asis) ///
 	        dots(numlist integer max=2 >=0) dotsgrid(string) dotsplotopt(string asis) ///
 			line(numlist integer max=2 >=0) linegrid(integer 20) lineplotopt(string asis) ///
 			ci(numlist integer max=2 >=0) cigrid(string) ciplotopt(string asis) /// 
 			cb(numlist integer max=2 >=0) cbgrid(integer 20) cbplotopt(string asis) ///
 			polyreg(string) polyreggrid(integer 20) polyregcigrid(integer 0) polyregplotopt(string asis) ///
 			by(varname) bycolors(string asis) bysymbols(string asis) bylpatterns(string asis) ///
-			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) samebinsby ///
-			nsims(integer 500) simsgrid(integer 20) simsseed(integer 666) ///
-			dfcheck(numlist integer max=2 >=0) masspoints(string) at(string asis) ///
-			vce(passthru) level(real 95)   ///
+			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) ///
+			samebinsby randcut(numlist max=1 >=0 <=1) ///
+			nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
+			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
+			vce(passthru) level(real 95) asyvar(string) ///
 			noplot savedata(string asis) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
 	 
@@ -61,6 +63,8 @@ program define binsqreg, eclass
 		local boot "off"
 	 }  
 
+	 if ("`asyvar'"=="") local asyvar "off"
+	 
 	 * vce for bin selection purpose
 	 if ("`vce'"=="vce(iid)") local vce_select "vce(ols)"
 	 else                     local vce_select "vce(robust)"
@@ -197,6 +201,28 @@ program define binsqreg, eclass
 	 * evaluate at w from another dataset?
 	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
 	 
+	 
+	 * use gtools commands instead?
+	 if ("`usegtools'"=="off") local usegtools ""
+	 if ("`usegtools'"=="on")  local usegtools usegtools
+	 
+	 if ("`usegtools'"!="") {
+	    capture which gtools
+		if (_rc) {
+		   di as error "Gtools package not installed."
+		   exit
+		}
+		local localcheck "F"
+		local sel_gtools "on"
+	    * use gstats tab instead of tabstat/collapse
+		* use gquantiles instead of _pctile
+		* use gunique instead of binsreg_uniq
+		* use fasterxtile instead of irecode (within binsreg_irecode)
+		* shut down local checks & do not sort
+	 }
+	 else local sel_gtools "off"
+
+	 
 	 *************************
 	 **** error checks *******
 	 *************************
@@ -285,14 +311,14 @@ program define binsqreg, eclass
 
 	 * Mark sample
 	 preserve
-	 marksample touse, nov   /* do not account for missing values !! */
-	 qui keep if `touse'
 	 
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
+	 
 	 fvrevar `1', tsonly
 	 local y_var "`r(varlist)'"
 	 local y_varname "`1'"
+	 
 	 fvrevar `2', tsonly
 	 local x_var "`r(varlist)'"
 	 local x_varname "`2'"
@@ -330,16 +356,17 @@ program define binsqreg, eclass
 	    local at "mean"
 	 }
 
+	 * Now, mark sample
 	 marksample touse
 	 markout `touse' `by', strok	 
 	 qui keep if `touse'
 	 local nsize=_N             /* # of rows in the original dataset */
 	 
-	 if ("`masspoints'"!="off"|"`binspos'"=="QS") {
+	 if ("`usegtools'"==""&("`masspoints'"!="off"|"`binspos'"=="QS")) {
 	    if ("`:sortedby'"!="`x_var'") {
 		  di as text in gr "Sorting dataset on `x_varname'..."
 		  di as text in gr "Note: This step is omitted if dataset already sorted by `x_varname'."
-		  sort `x_var'
+		  sort `x_var', stable
 		}
 		local sorted "sorted"
 	 }
@@ -453,14 +480,26 @@ program define binsqreg, eclass
 	 if ("`selectfullON'"=="T") {
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
-	       mata: `binedges'=binsreg_uniq(`xvec', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+	       if ("`usegtools'"=="") {
+	          mata: `binedges'=binsreg_uniq(`xvec', ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var'
+			  local Ndist=r(unique)
+		   }
 	       local eN=min(`eN', `Ndist')
 	    }
 	    * # of clusters
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
-		   mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   if ("`usegtools'"=="") {
+		      mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   }
+		   else {
+		      qui gunique `clustervar'
+			  local Nclust=r(unique)
+		   }
 		   local eN=min(`eN', `Nclust')   /* effective sample size */
 	    }
 	 
@@ -477,7 +516,7 @@ program define binsqreg, eclass
 			qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
 		                      binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 							  `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							  numdist(`Ndist') numclust(`Nclust')
+							  numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
 			if (e(nbinsrot_regul)==.) {
 			   di as error "bin selection fails."
 			   exit
@@ -507,7 +546,7 @@ program define binsqreg, eclass
 	     else {
 			 if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		     else {		
-	           binsreg_pctile `x_var' `wt', nq(`nbins')
+	           binsreg_pctile `x_var' `wt', nq(`nbins') `usegtools'
 		       mat `fullkmat'=(`xmin' \ r(Q) \ `xmax')
 		     }
 	     }
@@ -528,7 +567,7 @@ program define binsqreg, eclass
 	 * NOTE: ALL checkings are put within the loop
 	 
 	 * Set seed
-	 set seed `simsseed'
+	 if ("`simsseed'"!="") set seed `simsseed'
 	 
 	 * alpha quantile (for two-sided CI)
 	 local alpha=(100-(100-`level')/2)/100
@@ -602,6 +641,7 @@ program define binsqreg, eclass
 	 ******************* Now, enter the loop ***********************************
 	 ***************************************************************************
 	 foreach byval in `byvals' `noby' {
+		local conds ""
 		if ("`by'"!="") {
 		    local conds "if `by'==`byval'"     /* with "if" */
 	        if ("`bylabel'"=="") local byvalname=`byval'
@@ -610,6 +650,7 @@ program define binsqreg, eclass
 			}
 			local byvalnamelist `byvalnamelist' `byvalname'
 		}
+		
 		if (`bynum'>1) {
 		   mata: `byindex'=`byvec':==`byval'
 		   mata: `xsub'=select(`xvec',`byindex'); `ysub'=select(`yvec', `byindex')
@@ -639,8 +680,14 @@ program define binsqreg, eclass
 	    
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
-		   mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
-		   mata: mata drop `binedges'
+		   if ("`usegtools'"=="") {
+		      mata: `binedges'=binsreg_uniq(`xsub', ., 1, "Ndist")
+		      mata: mata drop `binedges'
+		   }
+		   else {
+		      qui gunique `x_var' `conds'
+			  local Ndist=r(unique)
+		   }
 		   local eN=min(`eN', `Ndist')
 		   mat `Ndistlist'[`counter_by',1]=`Ndist'
 	    }
@@ -649,10 +696,22 @@ program define binsqreg, eclass
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
 		   if (`bynum'==1) {
-		   	  mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		   	  if ("`usegtools'"=="") {
+			     mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
+		      }
+			  else {
+			     qui gunique `clustervar'
+				 local Nclust=r(unique)
+			  }
 		   }
 		   else {
-		      mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
+		      if ("`usegtools'"=="") {
+		         mata: st_local("Nclust", strofreal(rows(uniqrows(select(`cluvec', `byindex')))))
+		      }
+			  else {
+			     qui gunique `clustervar' `conds'
+				 local Nclust=r(unique)
+			  }
 		   }
 		   local eN=min(`eN', `Nclust')   /* effective SUBsample size */
 		   mat `Nclustlist'[`counter_by',1]=`Nclust'
@@ -676,7 +735,7 @@ program define binsqreg, eclass
 			  qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
 		                        binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							    `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							    numdist(`Ndist') numclust(`Nclust')
+							    numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
 			  if (e(nbinsrot_regul)==.) {
 			      di as error "bin selection fails."
 			      exit
@@ -745,7 +804,7 @@ program define binsqreg, eclass
 		   if ("`fewobs'"=="T"&"`eN'"!="`Ndist'") {
 		      if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		      else {		
-	            binsreg_pctile `x_var' `conds' `wt', nq(`nbins')
+	            binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
 		        mat `kmat'=(`xmin' \ r(Q) \ `xmax')
 		      }
 		   }
@@ -761,7 +820,7 @@ program define binsqreg, eclass
 	         else {		
 		        if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		        else {		
-	              binsreg_pctile `x_var' `conds' `wt', nq(`nbins')
+	              binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
 		          mat `kmat'=(`xmin' \ r(Q) \ `xmax')
 		        }
 		     }
@@ -783,7 +842,10 @@ program define binsqreg, eclass
 	          di as text in gr "warnings: repeated knots. Some bins dropped."
 		      local nbins=rowsof(`kmat')-1
 	       }
-		   binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat')
+		   
+		   binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat') ///
+		                                   `usegtools' nbins(`nbins') pos(`pos') knotliston(`knotlistON')
+		   
 		   mata: `xcatsub'=st_data(., "`xcat'")
 		   if (`bynum'>1) {
 		      mata: `xcatsub'=select(`xcatsub', `byindex')
@@ -876,14 +938,21 @@ program define binsqreg, eclass
 		if (`nwvar'>0) {
 		   if (`"`at'"'==`"mean"'|`"`at'"'==`"median"') {
 		     matrix `wval'=J(1, `nwvar', 0)
-			 tempname wvaltemp
+			 tempname wvaltemp mataobj
 			 foreach wpos in `indexlist' {
 			    local wname: word `wpos' of `w_var'
-		        if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
-			    else               qui tabstat `wname' `conds', stat(`at') save
-				mat `wvaltemp'=r(StatTotal)
+				if ("`usegtools'"=="") {
+		           if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
+			       else               qui tabstat `wname' `conds', stat(`at') save
+				   mat `wvaltemp'=r(StatTotal)
+				}
+				else {
+				   qui gstats tabstat `wname' `conds' `wt', stat(`at') matasave("`mataobj'")
+				   mata: st_matrix("`wvaltemp'", `mataobj'.getOutputCol(1))
+				}
 				mat `wval'[1,`wpos']=`wvaltemp'[1,1]
 		     }
+			 if ("`usegtools'"!="") mata: mata drop `mataobj'
 		   }
 		   else if (`"`at'"'==`"0"') {
    		     matrix `wval'=J(1,`nwvar',0)
@@ -1003,6 +1072,11 @@ program define binsqreg, eclass
 	    **** The following handles the usual case ***
 	    *********************************************
 		* Turn on or off?
+		local dotsON ""
+		local lineON ""
+		local polyON ""
+		local ciON   ""
+		local cbON   ""
 	    if (`dotsntot'!=0&"`plot'"==""&"`fewobs'"!="T"&"`dots_fewobs'"!="T") {
 	       local dotsON "T"
 	    }	    
@@ -1037,14 +1111,14 @@ program define binsqreg, eclass
 	                       p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			               xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			               xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						   byvalue(`byval') usereg `sorted' boot(`boot') reps(`reps')
+						   usereg `sorted' boot(`boot') reps(`reps') `usegtools'
 		   }
 		   else {
 		      binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
 	                       p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			               xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			               xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						   byvalue(`byval') `sorted' boot(`boot') reps(`reps')
+						   `sorted' boot(`boot') reps(`reps') `usegtools'
 		   }
 		   
 		   mat `dots_b'=e(bmat)
@@ -1057,13 +1131,15 @@ program define binsqreg, eclass
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsqreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                       `nbins', `dots_p', `dots_s', `deriv', ///
-							                   "dots", `dotsngrid', "`wval'", `nwvar', "`=e(spmethod)'")
+							                   "dots", `dotsngrid', "`wval'", `nwvar', ///
+											   "`=e(spmethod)'", "`asyvar'")
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
 			                  binsqreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                        `nbins', `dots_p', `dots_s', `deriv', ///
-							                    "dots", `dotsngrid', "`wval'", `nwvar', "`=e(spmethod)'", "`xmean'")
+							                    "dots", `dotsngrid', "`wval'", `nwvar', ///
+												"`=e(spmethod)'", "`asyvar'", "`xmean'")
 		   }		  
 		  
 		   * dots
@@ -1114,14 +1190,14 @@ program define binsqreg, eclass
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  byvalue(`byval') usereg `sorted' boot(`boot') reps(`reps')
+						  usereg `sorted' boot(`boot') reps(`reps') `usegtools'
 			  }
 			  else {
 		         binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') /// 
-						  byvalue(`byval') `sorted' boot(`boot') reps(`reps')
+						  `sorted' boot(`boot') reps(`reps') `usegtools'
 			  }
 		      mat `line_b'=e(bmat)
 		      mat `line_V'=e(Vmat)
@@ -1131,7 +1207,7 @@ program define binsqreg, eclass
 		   mata: `plotmatby'[|1,`line_start' \ `line_nr',`line_end'|] = ///
 			              binsqreg_plotmat("`line_b'", "`line_V'", ., "`kmat'", ///
 		                      `nbins', `line_p', `line_s', `deriv', ///
-							  "line", `linengrid', "`wval'", `nwvar', "`=e(spmethod)'")
+							  "line", `linengrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'")
 		   
 		   * line
 		   local plotnum=`plotnum'+1
@@ -1182,21 +1258,19 @@ program define binsqreg, eclass
 		   * store results
 		   tempname poly_b poly_V poly_adjw
 	       if (_rc==0) {
-		      * move the constant term to the begining
 	 	      matrix `poly_b'=e(b)
-			  matrix `poly_b'=(`poly_b'[1, `=`polyreg'+`nwvar'+1'], `poly_b'[1,1..`polyreg'])
 			  
 			  if (`nwvar'>0&`deriv'==0) {
-			     matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+2'..`=`polyreg'+`nwvar'+1']'
+			     matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+1'..`=`polyreg'+`nwvar'']'
 			  }
 			  else {
 			     matrix `poly_adjw'=0
 			  }
-			  matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`polyreg'+1']
+			  
+			  if (`deriv'==0) matrix `poly_b'=(`poly_b'[1, `=`polyreg'+`nwvar'+1'], `poly_b'[1,1..`polyreg'])
+			  else            matrix `poly_b'=`poly_b'[1, `deriv'..`polyreg']
 			  
 			  matrix `poly_V'=e(V)
-			  *matrix `poly_V'=(`poly_V'[colsof(`poly_V'), colsof(`poly_V')], `poly_V'[colsof(`poly_V'), 1..`polyreg'] \
-				*			   `poly_V'[1..`polyreg', colsof(`poly_V')], `poly_V'[1..`polyreg', 1..`polyreg'])
 	       }
 	       else {
 	          error  _rc
@@ -1316,7 +1390,7 @@ program define binsqreg, eclass
 	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted' boot(`boot') reps(`reps')
+						`sorted' boot(`boot') reps(`reps') `usegtools'
 				 
 		        mat `ci_b'=e(bmat)
 		        mat `ci_V'=e(Vmat)
@@ -1329,14 +1403,14 @@ program define binsqreg, eclass
 			            binsqreg_plotmat("`ci_b'", "`ci_V'", ///
 						      `=invnormal(`alpha')', "`kmat'", ///
 		                      `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-							  `cingrid', "`wval'", `nwvar', "`=e(spmethod)'")
+							  `cingrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'")
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`ci_start' \ `ci_nr',`ci_end'|] = ///
 			            binsqreg_plotmat("`ci_b'", "`ci_V'", ///
 						   `=invnormal(`alpha')', "`kmat'", ///
 		                   `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-						   `cingrid', "`wval'", `nwvar', "`=e(spmethod)'", "`xmean'")
+						   `cingrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'", "`xmean'")
 		   }
 		   
 		   * ci
@@ -1397,7 +1471,7 @@ program define binsqreg, eclass
 	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						byvalue(`byval') `sorted' boot(`boot') reps(`reps')
+						`sorted' boot(`boot') reps(`reps') `usegtools'
 					mat `cb_b'=e(bmat)
 		            mat `cb_V'=e(Vmat)
 				 }
@@ -1427,7 +1501,7 @@ program define binsqreg, eclass
 			                binsqreg_plotmat("`cb_b'", "`cb_V'",      ///
 						                     `=`cval'', "`kmat'",       ///
 		                                     `nbins', `cb_p', `cb_s', `deriv', ///
-							                 "cb", `cbngrid', "`wval'", `nwvar', "`=e(spmethod)'")	  
+							                 "cb", `cbngrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'")	  
 							   
 		   * cb
 		   local plotnum=`plotnum'+1
@@ -1703,11 +1777,12 @@ program define binsqreg_fit, eclass
 	        deriv(integer 0) p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
 			xname(name) yname(name) catname(name) edge(name) ///
-			byvalue(string) ///
-			usereg sorted boot(string) reps(string)]                                                 /* usereg: force the command to use reg; sored: sorted data? */
+			usereg sorted boot(string) reps(string) usegtools]                  /* usereg: force the command to use reg; sored: sorted data? */
 	 
+	 preserve
 	 marksample touse
-	 
+	 qui keep if `touse'
+
 	 if ("`weight'"!="") local wt [`weight'`exp']
 	 
 	 tokenize `varlist'
@@ -1715,6 +1790,7 @@ program define binsqreg_fit, eclass
 	 local x_var `2'
 	 macro shift 2
 	 local w_var "`*'"
+	 
 	 if ("`w_var'"==""&`p'==0&("`type'"=="dots"|"`type'"=="line")&"`usereg'"=="") {
 	    local ymeanON "T"
 	 }
@@ -1728,25 +1804,54 @@ program define binsqreg_fit, eclass
 	 mat `temp_b'=.
 	 mat `temp_V'=.
 	 if (`dotsmean'!=0|"`ymeanON'"=="T") {
-	    if ("`sorted'"==""|"`weight'"!="") {
+	    if ("`sorted'"==""|"`weight'"!=""|"`usegtools'"!="") {
 		   local stat="p"+"`=round(`quantile'*100)'"
-	       preserve
-	       if (`dotsmean'!=0&"`ymeanON'"=="T") {
-	          collapse (`stat') `y_var' (mean) `x_var' if `touse' `wt', by(`xcat') fast
-		      mkmat `xcat' `x_var', matrix(`matxmean')
-		      mkmat `y_var', matrix(`temp_b')
-		      mat `temp_b'=`temp_b''               /* row vector */
-		   }
-		   else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		      collapse (mean) `x_var' if `touse' `wt', by(`xcat') fast
-		      mkmat `xcat' `x_var', matrix(`matxmean')
+	       
+		   if ("`usegtools'"=="") {
+		      tempfile tmpfile
+			  qui save `tmpfile', replace
+	          
+			  if (`dotsmean'!=0&"`ymeanON'"=="T") {
+	             collapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
+		         mkmat `xcat' `x_var', matrix(`matxmean')
+		         mkmat `y_var', matrix(`temp_b')
+				 mat `temp_b'=`temp_b''               /* row vector */
+		      }
+		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
+		         collapse (mean) `x_var' `wt', by(`xcat') fast
+		         mkmat `xcat' `x_var', matrix(`matxmean')
+		      }
+		      else {
+		         collapse (`stat') `y_var' `wt', by(`xcat') fast
+		         mkmat `y_var', matrix(`temp_b')
+		         mat `temp_b'=`temp_b'' 
+		      }
+		      use `tmpfile', clear
 		   }
 		   else {
-		      collapse (`stat') `y_var' if `touse' `wt', by(`xcat') fast
-		      mkmat `y_var', matrix(`temp_b')
-		      mat `temp_b'=`temp_b'' 
+		   	  tempname obj
+		      if (`dotsmean'!=0&"`ymeanON'"=="T") {
+			     tempfile tmpfile
+			     qui save `tmpfile', replace
+	             
+				 gcollapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
+		         mkmat `xcat' `x_var', matrix(`matxmean')
+		         mkmat `y_var', matrix(`temp_b')
+				 mat `temp_b'=`temp_b''               /* row vector */
+				 
+				 use `tmpfile', clear
+		      }
+		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
+		         qui gstats tabstat `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
+				 mata: st_matrix("`matxmean'", (`obj'.getnum(.,1), `obj'.getOutputVar("`x_var'")))		
+		         mata: mata drop `obj'
+			  }
+		      else {
+		         qui gstats tabstat `y_var' `wt', stats(`stat') by(`xcat') matasave("`obj'")
+		         mata: st_matrix("`temp_b'", `obj'.getOutputVar("`y_var'")')
+		         mata: mata drop `obj'
+			  }
 		   }
-		   restore
 		}
 		else {
 		   tempname output
@@ -1772,10 +1877,10 @@ program define binsqreg_fit, eclass
 	 if ("`ymeanON'"!="T") {
 	    if (`p'==0) {
 		   if ("`boot'"=="on") {
-		      capture bsqreg `y_var' ibn.`xcat' `w_var' if `touse', quantile(`quantile') reps(`reps')
+		      capture bsqreg `y_var' ibn.`xcat' `w_var', quantile(`quantile') reps(`reps')
 		   }
 		   else {
-		      capture qreg `y_var' ibn.`xcat' `w_var' if `touse' `wt', quantile(`quantile') `vce'
+		      capture qreg `y_var' ibn.`xcat' `w_var' `wt', quantile(`quantile') `vce'
 		   }
 		   if (_rc==0) {
 		      matrix `temp_b'=e(b)
@@ -1796,18 +1901,13 @@ program define binsqreg_fit, eclass
 		      qui gen `sp`i''=. in 1
 	       }
 	
-	       if ("`byvalue'"=="noby") {
-		   	  mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
-		   }
-		   else {
-		      mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s', "`touse'")
-	       }
+		   mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
 		   
 		   if ("`boot'"=="on") {
-		      capture bsqreg `y_var' `series' `w_var' if `touse', quantile(`quantile') reps(`reps')
+		      capture bsqreg `y_var' `series' `w_var', quantile(`quantile') reps(`reps')
 		   }
 		   else {
-		      capture qreg `y_var' `series' `w_var' if `touse' `wt', quantile(`quantile') `vce'
+		      capture qreg `y_var' `series' `w_var' `wt', quantile(`quantile') `vce'
 	       }
 		   * store results
 	       if (_rc==0) {
@@ -1836,7 +1936,7 @@ mata:
                                string scalar knotname, real scalar J, ///
                                real scalar p, real scalar s, real scalar deriv, ///
                                string scalar type, real scalar ngrid, string scalar muwmat, ///
-					 		   real scalar nw, string scalar spmethod, | string scalar muxmat) 
+					 		   real scalar nw, string scalar spmethod, string scalar avar, | string scalar muxmat) 
   {
     real matrix bmat, vmat, knot, xmean, wvec, eval, out, fit, se, Xm, result
 	real scalar nseries
@@ -1844,34 +1944,24 @@ mata:
 	nseries=(p-s+1)*(J-1)+p+1
 	bmat=st_matrix(eb)'
 	
-	if (type=="ci"|type=="cb") {
-	   vmat=st_matrix(eV)
-	}
+	if (type=="ci"|type=="cb") vmat=st_matrix(eV)
     
     // Prepare evaluation points
     eval=J(0,3,.)
-    if (args()==14) {
+    if (args()==15) {
 	   xmean=st_matrix(muxmat)
        eval=(eval \ (xmean[,2], J(J, 1, 0), xmean[,1])) 
     }
-    if (ngrid!=0) {
-	   eval=(eval \ binsreg_grids(knotname, ngrid))
-    }
+    if (ngrid!=0) eval=(eval \ binsreg_grids(knotname, ngrid))
 	
 	// import w variables and the CONSTANT!!!
-	if (nw>0) {
-	   wvec=(st_matrix(muwmat), 1)
-	}
-	else {
-	   wvec=1
-	}
+	if (nw>0) wvec=(st_matrix(muwmat), 1)
+	else      wvec=1
 	
 	fit=J(0,1,.)
 	se=J(0,1,.)
 	if (spmethod=="T") {
-	   if (args()==14) {
-	      fit=(fit \ bmat)
-	   }
+	   if (args()==15) fit=(fit \ bmat)
 	   if (ngrid!=0) {
 	      fit=(fit \ (bmat#(J(ngrid,1,1)\.)))
 		  fit=fit[|1 \ (rows(fit)-1)|]
@@ -1893,12 +1983,19 @@ mata:
 	   }
 	   else {
 	      if (deriv==0) {
-		     vmat=(vmat[|1,1 \ nseries, nseries|], vmat[|1,cols(vmat) \ nseries, cols(vmat)|] \ ///
-			       vmat[|rows(vmat),1 \ rows(vmat), nseries|], vmat[rows(vmat), cols(vmat)])
-		     se=binsreg_pred((Xm, J(rows(Xm),1,1)), ., vmat, "se")[,2]
-		     Xm=(Xm, J(rows(Xm), 1, 1)#wvec)
-		     fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
-			 out=(eval, fit-cval*se, fit+cval*se)
+		     if (avar=="on") {
+		        vmat=(vmat[|1,1 \ nseries, nseries|], vmat[|1,cols(vmat) \ nseries, cols(vmat)|] \ ///
+			          vmat[|rows(vmat),1 \ rows(vmat), nseries|], vmat[rows(vmat), cols(vmat)])
+		        se=binsreg_pred((Xm, J(rows(Xm),1,1)), ., vmat, "se")[,2]
+		        Xm=(Xm, J(rows(Xm), 1, 1)#wvec)
+		        fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
+			    out=(eval, fit-cval*se, fit+cval*se)
+			 }
+			 else {
+			    Xm=(Xm, J(rows(Xm), 1, 1)#wvec)
+		        result=binsreg_pred(Xm, bmat, vmat, "all")
+				out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+			 }
 		  }
 		  else {
 		     result=binsreg_pred(Xm, bmat[|1 \ nseries|], vmat[|1,1 \ nseries, nseries|], "all")

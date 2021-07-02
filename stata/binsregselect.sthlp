@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3 10-JUN-2021}{...}
+{* *! version 0.4 02-JUL-2021}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}
@@ -19,10 +19,11 @@
 {title:Syntax}
 
 {p 4 18} {cmdab:binsregselect} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [{cmd:,} {opt deriv(v)}{p_end}
+{p 18 18} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
 {p 18 18} {opt bins(p s)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)}{p_end}
 {p 18 18} {opt simsgrid(#)} {opt savegrid(filename)} {opt replace}{p_end}
 {p 18 18} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 18 18} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt useeffn(#)} ]{p_end}
+{p 18 18} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt usegtools(on/off)} {opt useeffn(#)} {opt randcut(#)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
 
@@ -43,7 +44,17 @@
 {dlgtab:Estimand}
 
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
-The default is {cmd:deriv(0)}, which corresponds to the function itself.
+The default is {cmd:deriv(0)}, which corresponds to the function itself.{p_end}
+
+{dlgtab:Reghdfe}
+
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each absvar. When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
+{p_end}
+
+{p 4 8} {opt reghdfeopt(reghdfe_option)} options to be passed on to {cmd:reghdfe}. Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this option.
+{p_end}
+
+{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
 {p_end}
 
 {dlgtab:Partitioning/Binning Selection}
@@ -85,7 +96,7 @@ and {it:binsreg_bin}, indicating which bin the evaluation point belongs to.
 {dlgtab:Mass Points and Degrees of Freedom}
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2019b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -104,15 +115,26 @@ In other words, forces the command to proceed as if the mass point and degrees o
 The default is {cmd:vce(robust)}.
 {p_end}
 
+{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
+Default is {cmd:usegtools(off)}.
+{p_end}
+
+{p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
+{p_end}
+
 {p 4 8} {opt useeffn(#)} specifies the effective sample size {it:#} to be used when computing the (IMSE-optimal) number of bins. This option is useful for extrapolating the optimal number of bins to larger (or smaller) datasets than the one used to compute it.
 {p_end}
 
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection. Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
     
 {marker examples}{...}
 {title:Examples}
 
+{p 4 8} Setup{p_end}
+{p 8 8} . {stata sysuse auto}{p_end}
+
 {p 4 8} Select IMSE-optimal number of bins using DPI-procedure{p_end}
-{p 8 8} . {stata binsregselect y x w}{p_end}
+{p 8 8} . {stata binsregselect mpg weight foreign}{p_end}
 
 
 {marker stored_results}{...}
@@ -126,6 +148,10 @@ The default is {cmd:vce(robust)}.
 {synopt:{cmd:e(p)}}degree of piecewise polynomial{p_end}
 {synopt:{cmd:e(s)}}smoothness of piecewise polynomial{p_end}
 {synopt:{cmd:e(deriv)}}order of derivative{p_end}
+{synopt:{cmd:e(imse_bsq_rot)}}bias constant in IMSE, ROT selection{p_end}
+{synopt:{cmd:e(imse_var_rot)}}variance constant in IMSE, ROT selection{p_end}
+{synopt:{cmd:e(imse_bsq_dpi)}}bias constant in IMSE, DPI selection{p_end}
+{synopt:{cmd:e(imse_var_dpi)}}variance constant in IMSE, DPI selection{p_end}
 {synopt:{cmd:e(nbinsrot_poly)}}ROT number of bins, unregularized{p_end}
 {synopt:{cmd:e(nbinsrot_regul)}}ROT number of bins, regularized or user-specified{p_end}
 {synopt:{cmd:e(nbinsrot_uknot)}}ROT number of bins, unique knots{p_end}

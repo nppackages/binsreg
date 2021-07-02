@@ -1,4 +1,4 @@
-* version 0.3, 10-JUN-2021 
+* version 0.4, 02-JUL-2021 
 *****************************************************************
 ****** This file contains necessary mata functions used in ******
 ******************** BINSREG Package ****************************
@@ -273,24 +273,19 @@ version 13
 	 real scalar isdrop
 	 
      beta=st_matrix(betaname)
-	 if (cols(beta)<k) {
-	    display("{gr:warning: many regressors are dropped.}")
-	 }
+	 beta=beta[|1\k|]'
+     se=diagonal(st_matrix(covname))[|1\k|]
+     isdrop=sum(((beta:==0)+(se:==0)):==2)
+	 if (args()==3) {
+		pragma unused useqreg
+		if (isdrop>0) {
+	       display("{gr:warning: some {it:X variables} are dropped.}")
+        }
+     }
 	 else {
-	    beta=beta[|1\k|]'
-        se=diagonal(st_matrix(covname))[|1\k|]
-        isdrop=sum(((beta:==0)+(se:==0)):==2)
-	    if (args()==3) {
-		   pragma unused useqreg
-		   if (isdrop>0) {
-	          display("{gr:warning: some {it:X variables} are dropped.}")
-           }
-		}
-		else {
-		  if (isdrop>1) {
-	          display("{gr:warning: some {it:X variables} are dropped.}")
-           }
-		}
+	    if (isdrop>1) {
+	       display("{gr:warning: some {it:X variables} are dropped.}")
+        }
 	 }
    }
    mata mosave binsreg_checkdrop(), replace

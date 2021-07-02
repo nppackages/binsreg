@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3 10-JUN-2021}{...}
+{* *! version 0.4 02-JUL-2021}{...}
 {viewerjumpto "Syntax" "binspwc##syntax"}{...}
 {viewerjumpto "Description" "binspwc##description"}{...}
 {viewerjumpto "Options" "binspwc##options"}{...}
@@ -18,12 +18,14 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 16} {cmdab:binspwc} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt estmethod(cmdname)} {opt deriv(v)} {opt by(varname)}{p_end}
-{p 16 16} {opt pwc(p s)} {opt testtype(type)} {opt lp(metric)}{p_end}
-{p 16 16} {opt bins(p s)} {opt bynbins(numlist)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby}{p_end}
-{p 16 16} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
-{p 16 16} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 16 16} {cmd:vce(}{it:{help vcetype}}{cmd:)} ]{p_end}
+{p 4 12} {cmdab:binspwc} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {p_end}
+{p 12 12} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink} {opt by(varname)}{p_end}
+{p 12 12} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
+{p 12 12} {opt pwc(p s)} {opt testtype(type)} {opt lp(metric)}{p_end}
+{p 12 12} {opt bins(p s)} {opt bynbins(numlist)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby} {opt randcut(#)}{p_end}
+{p 12 12} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
+{p 12 12} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
+{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt usegtools(on/off)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
 
@@ -64,7 +66,30 @@ A companion R package with the same capabilities is available (see website below
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
 {p_end}
 
+{p 4 8} {opt at(position)} specifies the values of {it:covars} at which the estimated function is evaluated for plotting.
+The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the
+median of {it:covars}, {cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
+{p_end}
+
+{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:covars} (if specified) are excluded from the evaluation.
+{p_end}
+
+{p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
+{p_end}
+
 {p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis; both numeric and string variables are supported.  When {opt by(varname)} is specified, {cmdab:binspwc} implements estimation by each subgroup separately and then conduct {it:all} pairwise comparison tests. By default, the binning structure is selected for each subgroup separately, but see the option samebinsby below for imposing a common binning structure across subgroups.
+
+{dlgtab:Reghdfe}
+
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}.
+When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
+{p_end}
+
+{p 4 8} {opt reghdfeopt(reghdfe_option)} options to be passed on to the command {cmd:reghdfe}. 
+Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this option.
+{p_end}
+
+{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
 
 {dlgtab:Pairwise Group Comparison Testing}
 
@@ -104,6 +129,8 @@ If not specified, the data-driven ROT selector is used instead.
 The knots positions are selected according to the option {cmd:binspos()} and using the full sample.
 If {cmd:nbins()} is not specified, then the number of bins is selected via the companion command {help binsregselect:binsregselect} and using the full sample.{p_end}
 
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection. Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.{p_end}
+
 {dlgtab:Simulation}
 
 {p 4 8} {opt nsims(#)} specifies the number of random draws for constructing confidence bands and hypothesis testing.
@@ -120,7 +147,7 @@ The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluat
 {dlgtab:Mass Points and Degrees of Freedom}
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2019b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -139,12 +166,29 @@ In other words, forces the command to proceed as if the mass point and degrees o
 The default is {cmd:vce(robust)}.
 {p_end}
 
+{p 4 8} {opt asyvar(on/off)} specifies the method used to compute standard errors.
+If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the uncertainty related to other control variables {it:covars} is omitted.
+Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:covars} is taken into account.
+{p_end}
+
+{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
+Default is {cmd:usegtools(off)}.
+{p_end}
+
+{p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
+{p_end}
 
 {marker examples}{...}
 {title:Examples}
 
-{p 4 8} Test the difference between two groups{p_end}
-{p 8 8} . {stata binspwc y x w, by(t)}{p_end}
+{p 4 8} Setup{p_end}
+{p 8 8} . {stata  sysuse auto}{p_end}
+
+{p 4 8} Generate two groups{p_end}
+{p 8 8} . {stata  gen group=price>5000}{p_end}
+
+{p 4 8} Test for the difference between two groups{p_end}
+{p 8 8} . {stata binspwc mpg weight foreign, by(group)}{p_end}
 
 
 {marker stored_results}{...}
