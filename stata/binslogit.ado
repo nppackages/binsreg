@@ -1,4 +1,4 @@
-*! version 0.4 02-JUL-2021 
+*! version 0.4.1 11-JUL-2021 
 
 capture program drop binslogit
 program define binslogit, eclass
@@ -912,6 +912,7 @@ program define binslogit, eclass
 		   if (`"`at'"'==`"mean"'|`"`at'"'==`"median"') {
 		     matrix `wval'=J(1, `nwvar', 0)
 			 tempname wvaltemp mataobj
+			 mata: `mataobj'=.
 			 foreach wpos in `indexlist' {
 			    local wname: word `wpos' of `w_var'
 		        if ("`usegtools'"=="") {
@@ -925,7 +926,7 @@ program define binslogit, eclass
 				}
 				mat `wval'[1,`wpos']=`wvaltemp'[1,1]
 		     }
-			 if ("`usegtools'"!="") mata: mata drop `mataobj'
+			 mata: mata drop `mataobj'
 		   }
 		   else if (`"`at'"'==`"0"') {
    		     matrix `wval'=J(1,`nwvar',0)
@@ -1196,7 +1197,7 @@ program define binslogit, eclass
 			  if ("`plotyrange'"!="") {
 		         if ("`plotxrange'"=="") local plotcond `plotcond' line_fit>=`min_yr'
 				 else                    local plotcond `plotcond' &line_fit>=`min_yr'
-			     if ("`max_yr'"!="") local plotcond `plotcond' &line_fit<=`max_yr' 
+			     if ("`max_yr'"!="") local plotcond `plotcond' &(line_fit<=`max_yr'|line_fit==.) 
 		      }
 		   }
 		   
@@ -1520,7 +1521,7 @@ program define binslogit, eclass
 			  if ("`plotyrange'"!="") {
 		         if ("`plotxrange'"=="") local plotcond `plotcond' CB_l>=`min_yr'
 				 else                    local plotcond `plotcond' &CB_l>=`min_yr'
-			     if ("`max_yr'"!="") local plotcond `plotcond' &CB_r<=`max_yr' 
+			     if ("`max_yr'"!="") local plotcond `plotcond' &(CB_r<=`max_yr'|CB_r==.) 
 		      }
 		   }
 

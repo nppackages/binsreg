@@ -1,0 +1,105 @@
+. tempfile file_q25 file_q75 file_reg
+{\smallskip}
+. preserve
+{\smallskip}
+. binsqreg y x, quantile(0.25) line(3 3) savedata(`file_q25')
+Sorting dataset on x...
+Note: This step is omitted if dataset already sorted by x.
+{\smallskip}
+Binscatter plot, quantile
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+Output file: /var/folders/85/ghqhbjfx4ysg9_s5gs0byqlw0000gn/T//S_01018.000003.dta
+{\smallskip}
+\HLI{30}{\TOPT}\HLI{15}
+\# of observations             {\VBAR}    1000
+\# of distinct values          {\VBAR}    1000
+\# of clusters                 {\VBAR}       .
+\HLI{30}{\PLUS}\HLI{15}
+Bin selection:                {\VBAR} 
+         Degree of polynomial {\VBAR}       0
+  \# of smoothness constraints {\VBAR}       0
+                    \# of bins {\VBAR}      20
+\HLI{30}{\BOTT}\HLI{15}
+{\smallskip}
+\HLI{9}{\TOPT}\HLI{30}
+         {\VBAR}      p       s       df
+\HLI{9}{\PLUS}\HLI{30}
+ dots    {\VBAR}      0       0       20
+ line    {\VBAR}      3       3       23
+\HLI{9}{\BOTT}\HLI{30}
+{\smallskip}
+. binsqreg y x, quantile(0.75) line(3 3) savedata(`file_q75')
+Sorting dataset on x...
+Note: This step is omitted if dataset already sorted by x.
+{\smallskip}
+Binscatter plot, quantile
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+Output file: /var/folders/85/ghqhbjfx4ysg9_s5gs0byqlw0000gn/T//S_01018.000004.dta
+{\smallskip}
+\HLI{30}{\TOPT}\HLI{15}
+\# of observations             {\VBAR}    1000
+\# of distinct values          {\VBAR}    1000
+\# of clusters                 {\VBAR}       .
+\HLI{30}{\PLUS}\HLI{15}
+Bin selection:                {\VBAR} 
+         Degree of polynomial {\VBAR}       0
+  \# of smoothness constraints {\VBAR}       0
+                    \# of bins {\VBAR}      20
+\HLI{30}{\BOTT}\HLI{15}
+{\smallskip}
+\HLI{9}{\TOPT}\HLI{30}
+         {\VBAR}      p       s       df
+\HLI{9}{\PLUS}\HLI{30}
+ dots    {\VBAR}      0       0       20
+ line    {\VBAR}      3       3       23
+\HLI{9}{\BOTT}\HLI{30}
+{\smallskip}
+. binsreg y x, line(3 3) cb(3 3) savedata(`file_reg')
+Sorting dataset on x...
+Note: This step is omitted if dataset already sorted by x.
+{\smallskip}
+Binscatter plot
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+Output file: /var/folders/85/ghqhbjfx4ysg9_s5gs0byqlw0000gn/T//S_01018.000005.dta
+{\smallskip}
+\HLI{30}{\TOPT}\HLI{15}
+\# of observations             {\VBAR}    1000
+\# of distinct values          {\VBAR}    1000
+\# of clusters                 {\VBAR}       .
+\HLI{30}{\PLUS}\HLI{15}
+Bin selection:                {\VBAR} 
+         Degree of polynomial {\VBAR}       0
+  \# of smoothness constraints {\VBAR}       0
+                    \# of bins {\VBAR}      20
+\HLI{30}{\BOTT}\HLI{15}
+{\smallskip}
+\HLI{9}{\TOPT}\HLI{30}
+         {\VBAR}      p       s       df
+\HLI{9}{\PLUS}\HLI{30}
+ dots    {\VBAR}      0       0       20
+ line    {\VBAR}      3       3       23
+ CB      {\VBAR}      3       3       23
+\HLI{9}{\BOTT}\HLI{30}
+{\smallskip}
+. use `file_reg', clear
+{\smallskip}
+. append using `file_q25' `file_q75', generate(source)
+{\smallskip}
+. twoway (scatter dots_fit dots_x if source==0, mcolor(navy)) ///
+>        (line line_fit line_x if source==0, sort lcolor(navy)) ///
+>            (rarea CB_l CB_r CB_x if source==0, sort fcolor(navy\%50) lcolor(none\%0) finte
+> nsity(50)) ///
+>            (line line_fit line_x if source==1, sort) ///
+>            (line line_fit line_x if source==2, sort), ///
+>            ytitle(Y) xtitle(X) title(Binscatter Plot) ///
+>            legend(order(1 "E[Y|X]" 2 "E[Y|X]" 3 "Conf. Band for E[Y|X]" 4 "0.25 quantile
+> " 5 "0.75 quantile"))
+{\smallskip}
+. restore
+{\smallskip}

@@ -1,0 +1,27 @@
+. binstest y x w, deriv(1) nbins(20) testshaper(0)
+
+Hypothesis tests based on binscatter estimates
+Estimation method: reg
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 1
+
+----------------------------------------------
+# of observations             |    1000
+# of distinct values          |    1000
+# of clusters                 |       .
+------------------------------+---------------
+Bin selection:                | 
+         Degree of polynomial |       0
+  # of smoothness constraints |       0
+                    # of bins |      20
+----------------------------------------------
+
+Shape Restriction Tests:
+Degree: 3     # of smoothness constraints: 3
+
+--------------------------------------------------
+H0: inf mu >=      | inf T             p value
+-------------------+------------------------------
+         0         |  -2.680             0.194
+--------------------------------------------------

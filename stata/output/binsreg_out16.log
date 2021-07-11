@@ -1,0 +1,25 @@
+. binslogit d x w, nolink
+Sorting dataset on x...
+Note: This step is omitted if dataset already sorted by x.
+
+Binscatter plot, logit model
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+
+----------------------------------------------
+# of observations             |    1000
+# of distinct values          |    1000
+# of clusters                 |       .
+------------------------------+---------------
+Bin selection:                | 
+         Degree of polynomial |       0
+  # of smoothness constraints |       0
+                    # of bins |      12
+----------------------------------------------
+
+----------------------------------------
+         |      p       s       df
+---------+------------------------------
+ dots    |      0       0       12
+----------------------------------------

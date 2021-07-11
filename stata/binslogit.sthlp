@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4 02-JUL-2021}{...}
+{* *! version 0.4.1 11-JUL-2021}{...}
 {viewerjumpto "Syntax" "binslogit##syntax"}{...}
 {viewerjumpto "Description" "binslogit##description"}{...}
 {viewerjumpto "Options" "binslogit##options"}{...}
@@ -341,7 +341,7 @@ Default is {cmd:usegtools(off)}.
 {browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.
 {p_end}
 
-{p 4 8} Yingjie Feng, Princeton University, Princeton, NJ.
-{browse "mailto:yingjief@princeton.edu":yingjief@princeton.edu}.
+{p 4 8} Yingjie Feng, Tsinghua University, Beijing, China.
+{browse "mailto:fengyingjiepku@gmail.com":fengyingjiepku@gmail.com}.
 {p_end}
 

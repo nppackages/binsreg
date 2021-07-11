@@ -1,0 +1,35 @@
+. binspwc y x w, by(t) estmethod(qreg 0.4)
+
+Pairwise group comparison based on binscatter estimates
+Estimation method: qreg
+Group variable: t
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+----------------------------------------------
+Bin selection:                | 
+         Degree of polynomial |       0
+  # of smoothness constraints |       0
+------------------------------+---------------
+Hypothesis test:              | 
+         Degree of polynomial |       3
+  # of smoothness constraints |       3
+----------------------------------------------
+
+Group 1 vs. Group 0
+----------------------------------------------------
+Group t=                      |      1   |     0
+------------------------------+----------+----------
+# of observations             |     515  |     485
+# of distinct values          |     515  |     485
+# of clusters                 |       .  |       .
+# of bins                     |      15  |      20
+----------------------------------------------------
+
+diff = group 1 - group 0
+--------------------------------------------------
+H0:                | sup |T|           p value
+-------------------+------------------------------
+diff=0             |   5.157             0.000
+--------------------------------------------------
+

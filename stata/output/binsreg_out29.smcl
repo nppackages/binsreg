@@ -1,0 +1,26 @@
+{com}. binsregselect y x w, randcut(0.3)
+
+{res}
+{txt}Bin selection for binscatter estimates
+Method: IMSE-optimal: plug-in choice
+Position: Quantile-spaced
+
+{hline 28}{c TT}{hline 10}
+{ralign 27:# of observations}{col 28} {c |} {col 30}{res}   1000
+{txt}{ralign 27:# of distince values}{col 28} {c |} {col 30}{res}   1000
+{txt}{ralign 27:# of clusters}{col 28} {c |} {col 30}{res}      .
+{txt}{ralign 27:eff. sample size}{col 28} {c |} {col 30}{res}   1000
+{txt}{hline 28}{c +}{hline 10}
+{ralign 27:Degree of polynomial}{col 28} {c |} {col 30}{res}      0
+{txt}{ralign 27:# of smoothness constraint}{col 28} {c |} {col 30}{res}      0
+{txt}{hline 28}{c BT}{hline 10}
+
+{hline 14}{c TT}{hline 12}{c TT}{hline 10}{c TT}{hline 14}{c TT}{hline 14}
+{rcenter 13: method}{col 13} {c |} {center 11: # of bins}{col 26}{c |}{rcenter 10: df}{col 39}{c |}{center 14: imse, bias^2}{col 54}{c |}{center 14: imse, var.}
+{hline 14}{c +}{hline 12}{c +}{hline 10}{c +}{hline 14}{c +}{hline 14}
+{rcenter 13: ROT-POLY}{col 13} {c |} {res}     21{col 28}{txt}{c |}{res}     21{col 39}{txt}{c |}  {res}  4.244{col 54}{txt}{c |}  {res}  1.233
+{txt}{rcenter 13: ROT-REGUL}{col 13} {c |} {res}     21{col 28}{txt}{c |}{res}     21{col 39}{txt}{c |}  {res}      .{col 54}{txt}{c |}  {res}      .
+{txt}{rcenter 13: ROT-UKNOT}{col 13} {c |} {res}     21{col 28}{txt}{c |}{res}     21{col 39}{txt}{c |}  {res}      .{col 54}{txt}{c |}  {res}      .
+{txt}{rcenter 13: DPI}{col 13} {c |} {res}     24{col 28}{txt}{c |}{res}     24{col 39}{txt}{c |}  {res}  7.397{col 54}{txt}{c |}  {res}  1.271
+{txt}{rcenter 13: DPI-UKNOT}{col 13} {c |} {res}     24{col 28}{txt}{c |}{res}     24{col 39}{txt}{c |}  {res}      .{col 54}{txt}{c |}  {res}      .
+{txt}{hline 14}{c BT}{hline 12}{c BT}{hline 10}{c BT}{hline 14}{c BT}{hline 14}

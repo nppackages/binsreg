@@ -1,0 +1,27 @@
+. binstest y x w, estmethod(qreg 0.5) testmodelpoly(1)
+
+Hypothesis tests based on binscatter estimates
+Estimation method: qreg
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+
+----------------------------------------------
+# of observations             |    1000
+# of distinct values          |    1000
+# of clusters                 |       .
+------------------------------+---------------
+Bin selection:                | 
+         Degree of polynomial |       0
+  # of smoothness constraints |       0
+                    # of bins |      21
+----------------------------------------------
+
+Model specification Tests:
+Degree: 3     # of smoothness constraints: 3
+
+--------------------------------------------------
+H0: mu =           | sup |T|           p value
+-------------------+------------------------------
+poly. degree  1    |   5.736             0.000
+--------------------------------------------------

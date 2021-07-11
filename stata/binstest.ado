@@ -1,4 +1,4 @@
-*! version 0.4 02-JUL-2021 
+*! version 0.4.1 11-JUL-2021 
 
 capture program drop binstest
 program define binstest, eclass
@@ -469,6 +469,7 @@ program define binstest, eclass
 	   if (`"`at'"'==`"mean"'|`"`at'"'==`"median"') {
 	      matrix `wval'=J(1, `nwvar', 0)
 	 	  tempname wvaltemp mataobj
+		  mata: `mataobj'=.
 		  foreach wpos in `indexlist' {
 			 local wname: word `wpos' of `w_var'
 			 if ("`usegtools'"=="") {
@@ -482,7 +483,7 @@ program define binstest, eclass
 			 }
 			 mat `wval'[1,`wpos']=`wvaltemp'[1,1]
 		  }
-		  if ("`usegtools'"!="") mata: mata drop `mataobj'
+		  mata: mata drop `mataobj'
 	   }
 	   else if (`"`at'"'==`"0"') {
    		  matrix `wval'=J(1,`nwvar',0)
