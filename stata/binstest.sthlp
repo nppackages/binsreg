@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.1 11-JUL-2021}{...}
+{* *! version 0.4.2 17-JUL-2021}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -31,6 +31,10 @@
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
 
 {p 4 8} p, s and v are integers satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
+
+{p 4 8} At least one test has to be specified via {opt testmodelparfit()}, {opt testmodelpoly()}, {opt testshapel()},
+{opt testshaper()} and/or {opt testshape2()}.
+{p_end}
 
 {p 4 8} {opt fweight}s, {opt aweight}s and {opt pweight}s are allowed; see {help weight}.{p_end}
 

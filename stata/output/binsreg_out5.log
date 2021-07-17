@@ -1,8 +1,0 @@
-. qui binsreg y x w, nbins(20) dots(0,0) line(3,3)
-
-. qui binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3)
-
-. qui binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3) cb(3,3)
-
-. qui binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4)
-

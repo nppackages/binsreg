@@ -1,4 +1,4 @@
-*! version 0.4.1 11-JUL-2021  
+*! version 0.4.2 17-JUL-2021  
 
 capture program drop binsreg
 program define binsreg, eclass
@@ -1257,7 +1257,10 @@ program define binsreg, eclass
 			  if (`nwvar'>0&`deriv'==0) matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+1'..`=`polyreg'+`nwvar'']'
 			  else                      matrix `poly_adjw'=0
 			  
-			  if (`deriv'==0) matrix `poly_b'=(`poly_b'[1, `=`polyreg'+`nwvar'+1'], `poly_b'[1,1..`polyreg'])
+			  if (`deriv'==0) {
+			     if (`polyreg'>0) matrix `poly_b'=(`poly_b'[1, `=`polyreg'+`nwvar'+1'], `poly_b'[1,1..`polyreg'])
+				 else             matrix `poly_b'=`poly_b'[1, `=`polyreg'+`nwvar'+1']
+			  }
 			  else matrix `poly_b'=`poly_b'[1, `deriv'..`polyreg']
 			  
 			  matrix `poly_V'=e(V)
@@ -1315,8 +1318,15 @@ program define binsreg, eclass
 			  
 			  mata:`mata_fit'=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
 			  if (`deriv'==0) {
-			     if (`nwvar'>0) mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], J(`polyci_nr',1,1)#st_matrix("`wval'"),`Xm'[.,1])
-				 else           mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], `Xm'[.,1])
+			     if (`polyreg'>0) {
+			        if (`nwvar'>0) mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], J(`polyci_nr',1,1)#st_matrix("`wval'"),`Xm'[.,1])
+				    else           mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], `Xm'[.,1])
+			     }
+				 else {
+				 	if (`nwvar'>0) mata: `Xm'=(J(`polyci_nr',1,1)#st_matrix("`wval'"),`Xm'[.,1])
+				    else           mata: `Xm'=`Xm'[.,1]
+
+				 }
 			  }
 			  else {
 			     matrix `poly_V'=`poly_V'[`deriv'..`polyreg',`deriv'..`polyreg']

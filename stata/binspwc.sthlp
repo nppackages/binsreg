@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.1 11-JUL-2021}{...}
+{* *! version 0.4.2 17-JUL-2021}{...}
 {viewerjumpto "Syntax" "binspwc##syntax"}{...}
 {viewerjumpto "Description" "binspwc##description"}{...}
 {viewerjumpto "Options" "binspwc##options"}{...}
@@ -18,8 +18,8 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 12} {cmdab:binspwc} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {p_end}
-{p 12 12} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink} {opt by(varname)}{p_end}
+{p 4 12} {cmdab:binspwc} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} {cmd:,} {opt by(varname)} [{p_end}
+{p 12 12} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 12 12} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
 {p 12 12} {opt pwc(p s)} {opt testtype(type)} {opt lp(metric)}{p_end}
 {p 12 12} {opt bins(p s)} {opt bynbins(numlist)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby} {opt randcut(#)}{p_end}
@@ -59,8 +59,11 @@ A companion R package with the same capabilities is available (see website below
 
 {dlgtab:Estimand}
 
+{p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis; both numeric and string variables are supported.  When {opt by(varname)} is specified, {cmdab:binspwc} implements estimation by each subgroup separately and then conduct {it:all} pairwise comparison tests. By default, the binning structure is selected for each subgroup separately, but see the option {cmd:samebinsby} below for imposing a common binning structure across subgroups.
+{p_end}
+
 {p 4 8} {opt estmethod(cmdname)} specifies the binscatter model. The default is {cmd:estmethod(reg)}, which corresponds to the binscatter least squares regression. Other options are: {cmd:estmethod(qreg #)} for binscatter quantile regression where # is the quantile to be estimated, {cmd:estmethod(logit)} for binscatter logistic regression and {cmd:estmethod(probit)} for binscatter probit regression.
-{p_end}  
+{p_end}
 
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
@@ -76,8 +79,6 @@ median of {it:covars}, {cmd:at(0)} for zeros, and {cmd:at(filename)} for particu
 
 {p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
 {p_end}
-
-{p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis; both numeric and string variables are supported.  When {opt by(varname)} is specified, {cmdab:binspwc} implements estimation by each subgroup separately and then conduct {it:all} pairwise comparison tests. By default, the binning structure is selected for each subgroup separately, but see the option samebinsby below for imposing a common binning structure across subgroups.
 
 {dlgtab:Reghdfe}
 

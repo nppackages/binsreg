@@ -1,4 +1,4 @@
-*! version 0.4.1 11-JUL-2021 
+*! version 0.4.2 17-JUL-2021 
 
 capture program drop binstest
 program define binstest, eclass
@@ -807,9 +807,14 @@ program define binstest, eclass
 	 	       matrix `poly_b'=e(b)
 			   if (`nwvar'>0&`deriv'==0) matrix `poly_adjw'=`wval'*`poly_b'[1, `=`testpolyp'+1'..`=`testpolyp'+`nwvar'']'
                else                      matrix `poly_adjw'=0                        
-               if (`deriv'==0) matrix `poly_b'=(`poly_b'[1, `=`testpolyp'+`nwvar'+1'], `poly_b'[1,1..`testpolyp'])
-               else            matrix `poly_b'=`poly_b'[1, `deriv'..`testpolyp']
-			   
+               
+			   if (`deriv'==0) {
+			      if (`testpolyp'>0) matrix `poly_b'=(`poly_b'[1, `=`testpolyp'+`nwvar'+1'], `poly_b'[1,1..`testpolyp'])
+				  else               matrix `poly_b'=`poly_b'[1, `=`testpolyp'+`nwvar'+1']
+               }
+			   else {
+			      matrix `poly_b'=`poly_b'[1, `deriv'..`testpolyp']
+			   }
 			   *if ("`estmethod'"=="qreg") matrix `poly_b'=(`poly_b'[1,colsof(`poly_b')], `poly_b'[1, 1..`testpolyp'])
 			   *matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`testpolyp'+1']
 	       }

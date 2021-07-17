@@ -1,4 +1,4 @@
-*! version 0.4.1 11-JUL-2021 
+*! version 0.4.2 17-JUL-2021 
 
 capture program drop binslogit
 program define binslogit, eclass
@@ -1228,13 +1228,6 @@ program define binslogit, eclass
 		   tempname poly_b poly_V poly_adjw
 	       if (_rc==0) {
 	 	      matrix `poly_b'=e(b)
-			  *if (`nwvar'>0) {
-			  *   matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+2'..`=`polyreg'+1+`nwvar'']'
-			  *}
-			  *else {
-			  *   matrix `poly_adjw'=0
-			  *}
-			  *matrix `poly_b'=`poly_b'[1, 1..`=`polyreg'+1']
 			  matrix `poly_V'=e(V)
 	       }
 	       else {

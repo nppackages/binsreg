@@ -1,12 +1,12 @@
-*! version 0.4.1 11-JUL-2021 
+*! version 0.4.2 17-JUL-2021 
 
 capture program drop binspwc
 program define binspwc, eclass
     version 13
 	 
-	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, deriv(integer 0) at(string asis) nolink ///
+	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] , by(varname) [deriv(integer 0) at(string asis) nolink ///
 	       estmethod(string) absorb(string asis) reghdfeopt(string asis) ///
-		   by(varname) pwc(numlist integer max=2 >=0) testtype(string) lp(string) ///
+		   pwc(numlist integer max=2 >=0) testtype(string) lp(string) ///
 		   bins(numlist integer max=2 >=0) bynbins(numlist integer >=0) binspos(string) ///
 		   binsmethod(string) nbinsrot(string) samebinsby randcut(numlist max=1 >=0 <=1) ///
 		   nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
