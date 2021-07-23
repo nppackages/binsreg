@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.2 17-JUL-2021}{...}
+{* *! version 0.4.3 23-JUL-2021}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -12,13 +12,13 @@
 
 {title:Title}
 
-{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.{p_end}
+othercovs{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.{p_end}
 
 
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 13} {cmdab:binstest} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {p_end}
+{p 4 13} {cmdab:binstest} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [ {cmd:,} {p_end}
 {p 13 13} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 13 13} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
 {p 13 13} {opt testmodel(p s)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
@@ -28,7 +28,7 @@
 {p 13 13} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
 {p 13 13} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt usegtools(on/off)} ]{p_end}
 
-{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
+{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
 {p 4 8} p, s and v are integers satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
@@ -52,7 +52,9 @@ Binned scatter plots based on different models can be constructed using the comp
 A companion R package with the same capabilities is available (see website below).
 {p_end}
 
-{p 4 8} Companion commands: {help binsreg:binsreg} for binscatter regression with robust inference procedures and plots, {help binsqreg:binsqreg} for binscatter quantile regression with robust inference procedures and plots, {help binslogit:binslogit} for binscatter logit estimation with robust inference procedures and plots, {help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
+{p 4 8} Companion commands: {help binsreg:binsreg} for binscatter regression with robust inference procedures and plots, {help binsqreg:binsqreg} for binscatter quantile regression with robust inference procedures and plots,
+{help binslogit:binslogit} for binscatter logit estimation with robust inference procedures and plots,
+{help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
 
 {p 4 8} Related Stata and R packages are available in the following website:{p_end}
 
@@ -74,12 +76,12 @@ binscatter logistic regression and {cmd:estmethod(probit)} for binscatter probit
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
 {p_end}
 
-{p 4 8} {opt at(position)} specifies the values of {it:covars} at which the estimated function is evaluated for plotting.
-The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the median of {it:covars},
-{cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
+{p 4 8} {opt at(position)} specifies the values of {it:othercovs} at which the estimated function is evaluated for plotting.
+The default is {cmd:at(mean)}, which corresponds to the mean of {it:othercovs}. Other options are: {cmd:at(median)} for the median of {it:othercovs},
+{cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:othercovs} saved in another file.
 {p_end}
 
-{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:covars} (if specified) are excluded from the evaluation.
+{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified) are excluded from the evaluation (set as zero).
 {p_end}
 
 {p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
@@ -127,12 +129,13 @@ Each number {it:a} in the {it:numlist} corresponds to one boundary of a one-side
 
 {p 4 8} {opt testshape2(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
 Each number {it:a} in the {it:numlist} corresponds to one boundary of a two-sided hypothesis test of the
-form H0: {it:sup_x |mu(x)-a|=0}.
+form H0: {it:sup_x |mu(x)-a|=0} or .
 {p_end}
 
 {dlgtab:Metric for Hypothesis Testing}
 
-{p 4 8} {opt lp(metric)} specifies a Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is {cmd:lp(inf)}, which corresponds to the sup-norm. Other options are Lp(q) for a positive integer q.
+{p 4 8} {opt lp(metric)} specifies an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is {cmd:lp(inf)}, which corresponds to the sup-norm. Other options are
+{cmd:Lp(q)} for a positive integer {cmd:q}.
 {p_end}
  
 {dlgtab:Partitioning/Binning Selection}
@@ -163,12 +166,12 @@ If not specified, the data-driven ROT selector is used instead.
 
 {dlgtab:Simulation}
 
-{p 4 8} {opt nsims(#)} specifies the number of random draws for constructing confidence bands and hypothesis testing.
+{p 4 8} {opt nsims(#)} specifies the number of random draws for hypothesis testing.
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
 {p_end}
 
-{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (or infimum) operation needed to construct confidence bands and hypothesis testing procedures.
-The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum (or infimum) operator.
+{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (infimum or Lp metric) operation needed for hypothesis testing procedures.
+The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
 {p_end}
 
 {p 4 8} {opt simsseed(#)} sets the seed for simulations.
@@ -192,14 +195,14 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Other Options}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress},
-{help logit##options:logit} or {help qreg##qreg_options:qreg}. The default is {cmd:vce(robust)}.
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress}, {help logit##options:logit}, {help probit##options:probit},
+{help qreg##qreg_options:qreg} or {cmd:reghdfe}. The default is {cmd:vce(robust)}.
 {p_end}
 
 {p 4 8} {opt asyvar(on/off)} specifies the method used to compute standard errors.
 If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the
-uncertainty related to other control variables {it:covars} is omitted. Default is {cmd:asyvar(off)},
-that is, the uncertainty related to {it:covars} is taken into account.
+uncertainty related to other control variables {it:othercovs} is omitted. Default is {cmd:asyvar(off)},
+that is, the uncertainty related to {it:othercovs} is taken into account.
 {p_end}
 
 {p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
@@ -228,15 +231,15 @@ Default is {cmd:usegtools(off)}.
 {synoptset 17 tabbed}{...}
 {p2col 5 17 21 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations{p_end}
-{synopt:{cmd:e(Ndist)}}number of distince values{p_end}
+{synopt:{cmd:e(Ndist)}}number of distinct values{p_end}
 {synopt:{cmd:e(Nclust)}}number of clusters{p_end}
 {synopt:{cmd:e(nbins)}}number of bins{p_end}
 {synopt:{cmd:e(p)}}degree of polynomial for bin selection{p_end}
 {synopt:{cmd:e(s)}}smoothness of polynomial for bin selection{p_end}
-{synopt:{cmd:e(testshape_p)}}degree of polynomial for testing shape{p_end}
-{synopt:{cmd:e(testshape_s)}}smoothnes of polynomial for testing shape{p_end}
-{synopt:{cmd:e(testmodel_p)}}degree of polynomial for testing models{p_end}
-{synopt:{cmd:e(testmodel_s)}}smoothness of polynomial for testing models{p_end}
+{synopt:{cmd:e(testshape_p)}}degree of polynomial for testing shape restrictions{p_end}
+{synopt:{cmd:e(testshape_s)}}smoothness of polynomial for testing shape restrictions{p_end}
+{synopt:{cmd:e(testmodel_p)}}degree of polynomial for testing model specifications{p_end}
+{synopt:{cmd:e(testmodel_s)}}smoothness of polynomial for testing model specifications{p_end}
 {synopt:{cmd:e(testpolyp)}}degree of polynomial regression model{p_end}
 {synopt:{cmd:e(stat_poly)}}statistic for testing global polynomial model{p_end}
 {synopt:{cmd:e(pval_poly)}}p value for testing global polynomial model{p_end}

@@ -1,6 +1,6 @@
 /*******************************************************************************
 BINSCATTER  
-Date: 17-JUL-2021 
+Date: 23-JUL-2021 
 Authors: Matias Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
 *******************************************************************************/
 ** hlp2winpdf, cdn(binsreg) replace
@@ -84,7 +84,7 @@ restore
 binsreg y x w i.t, at(`evalcovar')
 sjlog close, replace
 
-* Setting quantile-spaced bins to J=20, add a linear fit
+* Setting quantile-spaced bins to J=20, adding a linear fit
 sjlog using output/binsreg_out4, replace
 binsreg y x w, nbins(20) polyreg(1)
 sjlog close, replace
@@ -106,7 +106,7 @@ graph export output/binsreg_fig2c.pdf, replace
 binsreg y x w, nbins(20) dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4)
 graph export output/binsreg_fig2d.pdf, replace
 
-* VCE option, factor vars, twoway options, graph data saving  
+* VCE option, factor variables, twoway options, graph data saving  
 sjlog using output/binsreg_out6, replace
 binsreg y x w i.t, dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4) ///
                    vce(cluster id) savedata(output/graphdat) replace ///
@@ -119,7 +119,7 @@ binsreg y x w i.t, dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4) ///
                    vce(cluster id) asyvar(on) title("Binned Scatter Plot") 
 sjlog close, replace
 
-* Comparision by groups
+* Comparison by groups
 sjlog using output/binsreg_out8, replace
 binsreg y x w, by(t) dots(0,0) line(3,3) cb(3,3) ///
                bycolors(blue red) bysymbols(O T) 
@@ -127,7 +127,7 @@ sjlog close, replace
 graph export output/binsreg_fig3.pdf, replace
 
 * Use reghdfe command to add fixed effects instead of using "i."
-* note: need to install reghdfe first
+* note: need to install Reghdfe first
 sjlog using output/binsreg_out9, replace
 binsreg y x w, absorb(t) dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4)
 sjlog close, replace
@@ -187,7 +187,7 @@ sjlog using output/binsreg_out15, replace
 binslogit d x w
 sjlog close, replace
 
-* Plot the function in the inverse link (logistic) function rather than the 
+* Plot the function within the inverse link (logistic) function rather than the 
 * conditional probability
 sjlog using output/binsreg_out16, replace
 binslogit d x w, nolink
@@ -204,7 +204,7 @@ sjlog using output/binsreg_out17, replace
 binstest y x w, testmodelpoly(1)
 sjlog close, replace
 
-* Alternative: save parametric fit in another file, and/or use lp metric rather than sup
+* Alternative: save parametric fit in another file, and/or use Lp metric rather than supremum
 * If not available, first create empty file with grid points using binsregselect
 sjlog using output/binsreg_out18, replace
 qui binsregselect y x w, simsgrid(30) savegrid(output/parfitval) replace

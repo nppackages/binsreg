@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.2 17-JUL-2021}{...}
+{* *! version 0.4.3 23-JUL-2021}{...}
 {viewerjumpto "Syntax" "binslogit##syntax"}{...}
 {viewerjumpto "Description" "binslogit##description"}{...}
 {viewerjumpto "Options" "binslogit##options"}{...}
@@ -18,7 +18,7 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 14} {cmdab:binslogit} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [ {cmd:,} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
+{p 4 14} {cmdab:binslogit} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [ {cmd:,} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 14 14} {opt dots(p s)} {opt dotsgrid(dotsgridoption)} {opt dotsplotopt(dotsoption)}{p_end}
 {p 14 14} {opt line(p s)} {opt linegrid(#)} {opt lineplotopt(lineoption)}{p_end}
 {p 14 14} {opt ci(p s)} {opt cigrid(cigridoption)} {opt ciplotopt(rcapoption)}{p_end}
@@ -32,7 +32,7 @@
 {p 14 14} {opt level(level)} {opt usegtools(on/off)} {opt noplot} {opt savedata(filename)} {opt replace}{p_end}
 {p 14 14} {opt plotxrange(min max)} {opt plotyrange(min max)} {it:{help twoway_options}} ]{p_end}
 
-{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
+{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
 {p 4 8} p, s and v are integers satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
@@ -45,8 +45,11 @@
 {browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
 Binscatter provides a flexible way of describing the mean relationship between two variables, after possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
 The main purpose of this command is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and uniform confidence band.
-If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter in a data-driven (optimal) way.
-Hypothesis testing about the regression function can be conducted via the companion command {help binstest:binstest}. Hypothesis testing about pairwise group comparison can be conducted via the companion command {help binspwc: binspwc}. Binscatter estimation based on the least squares method can be conducted via the command {help binsreg: binsreg}.
+If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter
+in a data-driven way.
+Hypothesis testing for parametric specifications of and shape restrictions on the regression function can be conducted via the
+companion command {help binstest:binstest}. Hypothesis testing for pairwise group comparisons can be conducted via the
+companion command {help binspwc: binspwc}. Binscatter estimation based on the least squares method can be conducted via the command {help binsreg: binsreg}.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
@@ -54,7 +57,7 @@ Hypothesis testing about the regression function can be conducted via the compan
 A companion R package with the same capabilities is available (see website below).
 {p_end}
 
-{p 4 8} Companion commands: {help binstest:binstest} for hypothesis testing, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
+{p 4 8} Companion commands: {help binstest:binstest} for hypothesis testing for parametric specifications and shape restrictions, {help binspwc:binspwc} for hypothesis testing for pairwise group comparisons, and {help binsregselect:binsregselect} data-driven binning selection.{p_end}
 
 {p 4 8} Related Stata and R packages are available in the following website:{p_end}
 
@@ -70,12 +73,12 @@ A companion R package with the same capabilities is available (see website below
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
 {p_end}
 
-{p 4 8} {opt at(position)} specifies the values of {it:covars} at which the estimated function is evaluated for plotting.
-The default is {cmd:at(mean)}, which corresponds to the mean of {it:covars}. Other options are: {cmd:at(median)} for the median of {it:covars},
-{cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:covars} saved in another file.
+{p 4 8} {opt at(position)} specifies the values of {it:othercovs} at which the estimated function is evaluated for plotting.
+The default is {cmd:at(mean)}, which corresponds to the mean of {it:othercovs}. Other options are: {cmd:at(median)} for the median of {it:othercovs},
+{cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:othercovs} saved in another file.
 {p_end}
 
-{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:covars} (if specified) are excluded from the evaluation.
+{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified) are excluded from the evaluation (set as zero).
 {p_end}
 
 {p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function.
@@ -149,7 +152,7 @@ The default is {cmd:cbgrid(20)}, which corresponds to 20 evenly-spaced evaluatio
 
 {p 4 8} {opt polyreg(p)} sets the degree {it:p} of a global polynomial regression model for plotting.
 By default, this fit is not included in the plot unless explicitly specified.
-Recommended specification is {cmd:polyreg(3)}, which adds a fourth order global polynomial fit of the regression function of interest to the binned scatter plot. 
+Recommended specification is {cmd:polyreg(3)}, which adds a cubic polynomial fit of the regression function of interest to the binned scatter plot. 
 {p_end}
 
 {p 4 8} {opt polyreggrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point estimate set by the {cmd:polyreg(p)} option.
@@ -166,7 +169,7 @@ The default is {cmd:polyregcigrid(0)}, which corresponds to not plotting confide
 {dlgtab:Subgroup Analysis}
 
 {p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis; both numeric and string variables are supported.
-When {opt by(varname)} is specified, {cmdab:binslogit} implements estimation and inference by each subgroup separately, but produces a common binned scatter plot.
+When {opt by(varname)} is specified, {cmdab:binslogit} implements estimation and inference for each subgroup separately, but produces a common binned scatter plot.
 By default, the binning structure is selected for each subgroup separately, but see the option {cmd:samebinsby} below for imposing a common binning structure across subgroups.
 {p_end}
 
@@ -209,12 +212,12 @@ If {cmd:nbins()} is not specified, then the number of bins is selected via the c
 
 {dlgtab:Simulation}
 
-{p 4 8} {opt nsims(#)} specifies the number of random draws for constructing confidence bands and hypothesis testing.
+{p 4 8} {opt nsims(#)} specifies the number of random draws for constructing confidence bands.
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
 {p_end}
 
-{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (or infimum) operation needed to construct confidence bands and hypothesis testing procedures.
-The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum (or infimum) operator.
+{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum operation needed to construct confidence bands.
+The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum operator.
 {p_end}
 
 {p 4 8} {opt simsseed(#)} sets the seed for simulations.
@@ -243,8 +246,8 @@ The default is {cmd:vce(robust)}.
 {p_end}
 
 {p 4 8} {opt asyvar(on/off)} specifies the method used to compute standard errors.
-If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the uncertainty related to other control variables {it:covars} is omitted.
-Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:covars} is taken into account.
+If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the uncertainty related to other control variables {it:othercovs} is omitted.
+Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:othercovs} is taken into account.
 {p_end}
 
 {dlgtab:Other Options}

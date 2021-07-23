@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.2 17-JUL-2021}{...}
+{* *! version 0.4.3 23-JUL-2021}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}
@@ -18,14 +18,14 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 18} {cmdab:binsregselect} {depvar} {it:indvar} [{it:covars}] {ifin} {weight} [{cmd:,} {opt deriv(v)}{p_end}
+{p 4 18} {cmdab:binsregselect} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [{cmd:,} {opt deriv(v)}{p_end}
 {p 18 18} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
 {p 18 18} {opt bins(p s)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)}{p_end}
 {p 18 18} {opt simsgrid(#)} {opt savegrid(filename)} {opt replace}{p_end}
 {p 18 18} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
 {p 18 18} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt usegtools(on/off)} {opt useeffn(#)} {opt randcut(#)} ]{p_end}
 
-{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:covars} are other covariates to be controlled for.{p_end}
+{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
 {p 4 8} p, s and v are integers satisfying 0 <= s,v <= p.{p_end}
 
@@ -48,7 +48,7 @@ The default is {cmd:deriv(0)}, which corresponds to the function itself.{p_end}
 
 {dlgtab:Reghdfe}
 
-{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each absvar. When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}. When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
 {p_end}
 
 {p 4 8} {opt reghdfeopt(reghdfe_option)} options to be passed on to {cmd:reghdfe}. Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this option.
@@ -78,14 +78,14 @@ If not specified, the data-driven ROT selector is used instead.
 
 {dlgtab:Evaluation Points Grid Generation}
 
-{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (or infimum) operation needed to construct confidence bands and hypothesis testing procedures.
+{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (infimum or Lp metric) operation needed to construct confidence bands and hypothesis testing procedures.
 The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum (or infimum) operator.
 {p_end}
 
 {p 4 8} {opt savegrid(filename)} specifies a filename for storing the simulation grid of evaluation points.
 It contains the following variables:
 {it:indvar}, which is a sequence of evaluation points used in approximation;
-all control variables in {it:covars}, which take values of zero for prediction purpose;
+all control variables in {it:othercovs}, which take values of zero for prediction purpose;
 {it:binsreg_isknot}, indicating  whether the evaluation point is an inner knot;
 and {it:binsreg_bin}, indicating which bin the evaluation point belongs to.
 {p_end}
@@ -111,7 +111,7 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Other Options}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the command {help regress##options:regress}.
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the command {help regress##options:regress} (or {cmd:reghdfe} if {cmd:absorb()} is specified).
 The default is {cmd:vce(robust)}.
 {p_end}
 
@@ -143,7 +143,7 @@ Default is {cmd:usegtools(off)}.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations{p_end}
-{synopt:{cmd:e(Ndist)}}number of distince values{p_end}
+{synopt:{cmd:e(Ndist)}}number of distinct values{p_end}
 {synopt:{cmd:e(Nclust)}}number of clusters{p_end}
 {synopt:{cmd:e(p)}}degree of piecewise polynomial{p_end}
 {synopt:{cmd:e(s)}}smoothness of piecewise polynomial{p_end}
