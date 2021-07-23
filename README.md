@@ -48,7 +48,7 @@ remotes::install_url('https://raw.githubusercontent.com/nppackages/binsreg/maste
 ### Software and Implementation
 
 - Cattaneo, Crump, Farrell and Feng (2021): [Binscatter Regressions](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf).<br>
-Working paper, prepared for _Stata Journal_.<br>
+Working paper, prepared for _Stata Journal_.
 
 ### Technical and Methodological
 
