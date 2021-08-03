@@ -56,10 +56,9 @@ Working paper, prepared for _Stata Journal_.
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2021): On Binscatter.<br>
+- Cattaneo, Crump, Farrell and Feng (2021): [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf).<br>
 Working paper.<br>
-Supplemental Appendix.<br>
-2021 upgraded version with many new features (see above) coming soon.<br>
+[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter--Supplemental.pdf)<br>
 2019 version: [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf) -- [Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter--Supplemental.pdf).
 
 <br><br>
