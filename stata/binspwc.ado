@@ -1,4 +1,4 @@
-*! version 0.4.3 23-JUL-2021 
+*! version 0.5 05-AUG-2021  
 
 capture program drop binspwc
 program define binspwc, eclass
@@ -120,7 +120,7 @@ program define binspwc, eclass
 	 tokenize `bins'
 	 local binsp "`1'"
 	 local binss "`2'"
-	 if ("`binsp'"=="") local binsp=0
+	 if ("`binsp'"=="") local binsp=2
 	 if ("`binss'"=="") local binss=`binsp'
 	 
 	 if ("`bynbins'"!="") local binselectmethod "User-specified"
@@ -207,7 +207,7 @@ program define binspwc, eclass
 		 exit
 	 }
 	 if (`tsha_p'<=`binsp') {
-	     di as text in gr "warning: p for testing > p for bins() suggested."
+	     di as text in gr "warning: p for testing <= p for bins() not suggested."
 	 }
 	 if (`tsha_p'<`deriv') {
 	    di as error "p for test cannot be smaller than deriv."
@@ -444,7 +444,7 @@ program define binspwc, eclass
 		       mat `fullkmat'=(nullmat(`fullkmat') \ `=`xmin'+`stepsize'*(`i'-1)')
 		    }
 	     }
-	     else {
+	     else if ("`binspos'"=="QS") {
 			 if (`nbins_all'==1)  mat `kmat'=(`xmin' \ `xmax')
 		     else {		
 	           binsreg_pctile `x_var' `wt', nq(`nbins_all') `usegtools'
@@ -967,15 +967,15 @@ program define binspwc, eclass
 	 ereturn scalar s=`binss'
 	 ereturn scalar pwc_p=`tsha_p'
 	 ereturn scalar pwc_s=`tsha_s'
-	 * by group:
-	 ereturn matrix N_by=`Nmat'    
-	 ereturn matrix Ndist_by=`Ndistlist'
-	 ereturn matrix Nclust_by=`Nclustlist'
-	 ereturn matrix nbins_by=`nbinslist'
 	 
 	 * by pair
-	 ereturn matrix stat=`teststat'
 	 ereturn matrix pval=`pvalue'
+	 ereturn matrix stat=`teststat'
+	 * by group:
+	 ereturn matrix nbins_by=`nbinslist'
+	 ereturn matrix Nclust_by=`Nclustlist'    
+	 ereturn matrix Ndist_by=`Ndistlist'
+	 ereturn matrix N_by=`Nmat'
 	 
 	 * local: corresponding by-values
 	 ereturn local byvalue `byvalnamelist'

@@ -1,0 +1,30 @@
+{com}. binsreg y x w i.t, dots(0,0) line(3,3) ci(3,3) cb(3,3) polyreg(4) ///
+>                    vce(cluster id) asyvar(on) title("Binned Scatter Plot") 
+{txt}Sorting dataset on x...
+Note: This step is omitted if dataset already sorted by x.
+{res}
+{txt}Binscatter plot
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+
+{hline 30}{c TT}{hline 15}
+{lalign 1:# of observations}{col 30} {c |} {col 32}{res}   1000
+{txt}{lalign 1:# of distinct values}{col 30} {c |} {col 32}{res}   1000
+{txt}{lalign 1:# of clusters}{col 30} {c |} {col 32}{res}    500
+{txt}{hline 30}{c +}{hline 15}
+{lalign 1:Bin selection:}{col 30} {c |} 
+{ralign 29:Degree of polynomial}{col 30} {c |} {col 32}{res}      0
+{txt}{ralign 29:# of smoothness constraints}{col 30} {c |} {col 32}{res}      0
+{txt}{ralign 29:# of bins}{col 30} {c |} {col 32}{res}     20
+{txt}{hline 30}{c BT}{hline 15}
+
+{hline 9}{c TT}{hline 30}
+{col 10}{c |}{col 17}p{col 25}s{col 33}df
+{hline 9}{c +}{hline 30}
+{lalign 1: dots}{col 10}{c |}{col 17}0{col 25}0{col 33}20
+{lalign 1: line}{col 10}{c |}{col 17}3{col 25}3{col 33}23
+{lalign 1: CI}{col 10}{c |}{col 17}3{col 25}3{col 33}23
+{lalign 1: CB}{col 10}{c |}{col 17}3{col 25}3{col 33}23
+{lalign 1: polyreg}{col 10}{c |}{col 17}4{col 25}NA{col 33}5
+{hline 9}{c BT}{hline 30}

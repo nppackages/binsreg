@@ -1,4 +1,4 @@
-*! version 0.4.3 23-JUL-2021 
+*! version 0.5 05-AUG-2021 
 
 capture program drop binstest
 program define binstest, eclass
@@ -114,7 +114,7 @@ program define binstest, eclass
 	 tokenize `bins'
 	 local binsp "`1'"
 	 local binss "`2'"
-	 if ("`binsp'"=="") local binsp=0
+	 if ("`binsp'"=="") local binsp=2
 	 if ("`binss'"=="") local binss=`binsp'
 	 if (`nbins'!=0) local binselectmethod "User-specified"
 	 if ("`binspos'"=="es") local binspos "ES"
@@ -217,7 +217,7 @@ program define binstest, eclass
 		 exit
 	 }
 	 if (`tsha_p'<=`binsp'|`tmod_p'<=`binsp') {
-	     di as text in gr "warning: p for testing > p for bins() suggested."
+	     di as text in gr "warning: p for testing <= p for bins() not suggested."
 	 }
 	 if (`tsha_p'<`deriv'|`tmod_p'<`deriv') {
 	    di as error "p for test cannot be smaller than deriv."

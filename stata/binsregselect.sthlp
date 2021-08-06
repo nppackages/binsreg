@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.3 23-JUL-2021}{...}
+{* *! version 0.5 05-AUG-2021}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}
@@ -34,7 +34,8 @@
 {marker description}{...}
 {title:Description}
 
-{p 4 8} {cmd:binsregselect} implements data-driven procedures for selecting the number of bins for binscatter estimation. The selected number is optimal in minimizing the (asymptotic) integrated mean squared error (IMSE).
+{p 4 8} {cmd:binsregselect} implements data-driven procedures for selecting the number of bins for binscatter estimation.
+The selected number is optimal in minimizing the (asymptotic) integrated mean squared error (IMSE).
 {p_end}
 
 
@@ -48,7 +49,9 @@ The default is {cmd:deriv(0)}, which corresponds to the function itself.{p_end}
 
 {dlgtab:Reghdfe}
 
-{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}. When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed.
+This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}. When {cmd:absorb()} is specified,
+the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
 {p_end}
 
 {p 4 8} {opt reghdfeopt(reghdfe_option)} options to be passed on to {cmd:reghdfe}. Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this option.
@@ -59,7 +62,8 @@ The default is {cmd:deriv(0)}, which corresponds to the function itself.{p_end}
 
 {dlgtab:Partitioning/Binning Selection}
 
-{p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
+{p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for
+data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
 The default is {cmd:bins(0 0)}, which corresponds to piecewise constant (canonical binscatter).
 
 {p 4 8} {opt binspos(position)} specifies the position of binning knots.
@@ -78,8 +82,10 @@ If not specified, the data-driven ROT selector is used instead.
 
 {dlgtab:Evaluation Points Grid Generation}
 
-{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (infimum or Lp metric) operation needed to construct confidence bands and hypothesis testing procedures.
-The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum (or infimum) operator.
+{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used
+for evaluation of the supremum (infimum or Lp metric) operation needed to construct confidence bands and hypothesis testing procedures.
+The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for
+approximating the supremum (or infimum) operator.
 {p_end}
 
 {p 4 8} {opt savegrid(filename)} specifies a filename for storing the simulation grid of evaluation points.
@@ -95,7 +101,9 @@ and {it:binsreg_bin}, indicating which bin the evaluation point belongs to.
 
 {dlgtab:Mass Points and Degrees of Freedom}
 
-{p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
+{p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks,
+which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points),
+number of clusters, and degrees of freedom of the different statistical models considered.
 The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
@@ -111,21 +119,25 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Other Options}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the command {help regress##options:regress} (or {cmd:reghdfe} if {cmd:absorb()} is specified).
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation
+used by the command {help regress##options:regress} (or {cmd:reghdfe} if {cmd:absorb()} is specified).
 The default is {cmd:vce(robust)}.
 {p_end}
 
-{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
+{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools}
+to speed the computation up, if {it:on} is specified.
 Default is {cmd:usegtools(off)}.
 {p_end}
 
 {p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
 {p_end}
 
-{p 4 8} {opt useeffn(#)} specifies the effective sample size {it:#} to be used when computing the (IMSE-optimal) number of bins. This option is useful for extrapolating the optimal number of bins to larger (or smaller) datasets than the one used to compute it.
+{p 4 8} {opt useeffn(#)} specifies the effective sample size {it:#} to be used when computing the (IMSE-optimal) number of bins.
+This option is useful for extrapolating the optimal number of bins to larger (or smaller) datasets than the one used to compute it.
 {p_end}
 
-{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection. Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
     
 {marker examples}{...}
 {title:Examples}
@@ -165,12 +177,12 @@ Default is {cmd:usegtools(off)}.
 {title:References}
 
 {p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
 {p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 

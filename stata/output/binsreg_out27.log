@@ -1,0 +1,27 @@
+. binsregselect y x w, simsgrid(30) savegrid(output/parfitval) replace
+
+
+Bin selection for binscatter estimates
+Method: IMSE-optimal: plug-in choice
+Position: Quantile-spaced
+Output file: output/parfitval.dta
+
+---------------------------------------
+          # of observations |    1000
+       # of distince values |    1000
+              # of clusters |       .
+           eff. sample size |    1000
+----------------------------+----------
+       Degree of polynomial |       0
+ # of smoothness constraint |       0
+---------------------------------------
+
+--------------------------------------------------------------------
+    method    |  # of bins |     df   | imse, bias^2 |  imse, var.  
+--------------+------------+----------+--------------+--------------
+   ROT-POLY   |      18    |     18   |    3.295     |    1.212
+   ROT-REGUL  |      18    |     18   |        .     |        .
+   ROT-UKNOT  |      18    |     18   |        .     |        .
+      DPI     |      21    |     21   |    5.420     |    1.192
+   DPI-UKNOT  |      21    |     21   |        .     |        .
+--------------------------------------------------------------------

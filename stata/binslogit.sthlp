@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.3 23-JUL-2021}{...}
+{* *! version 0.5 05-AUG-2021}{...}
 {viewerjumpto "Syntax" "binslogit##syntax"}{...}
 {viewerjumpto "Description" "binslogit##description"}{...}
 {viewerjumpto "Options" "binslogit##options"}{...}
@@ -42,7 +42,7 @@
 {title:Description}
 
 {p 4 8} {cmd:binslogit} implements binscatter logit estimation with robust inference procedures and plots, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
 Binscatter provides a flexible way of describing the mean relationship between two variables, after possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
 The main purpose of this command is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and uniform confidence band.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter
@@ -53,13 +53,16 @@ companion command {help binspwc: binspwc}. Binscatter estimation based on the le
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
-A companion R package with the same capabilities is available (see website below).
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
+Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
-{p 4 8} Companion commands: {help binstest:binstest} for hypothesis testing for parametric specifications and shape restrictions, {help binspwc:binspwc} for hypothesis testing for pairwise group comparisons, and {help binsregselect:binsregselect} data-driven binning selection.{p_end}
+{p 4 8} Companion commands: {help binstest:binstest} for hypothesis testing of parametric specifications and shape restrictions,
+{help binspwc:binspwc} for hypothesis testing for pairwise group comparisons,
+and {help binsregselect:binsregselect} for data-driven binning selection.
+{p_end}
 
-{p 4 8} Related Stata and R packages are available in the following website:{p_end}
+{p 4 8} Related Stata, R and Python packages are available in the following website:{p_end}
 
 {p 8 8} {browse "https://nppackages.github.io/":https://nppackages.github.io/}{p_end}
 
@@ -94,7 +97,8 @@ The default is {cmd:dots(0 0)}, which corresponds to piecewise constant (canonic
 Two options are available: {it:mean} and a {it:numeric} non-negative integer.
 The option {opt dotsgrid(mean)} adds the sample average of {it:indvar} within each bin to the grid of evaluation points.
 The option {opt dotsgrid(#)} adds {it:#} number of evenly-spaced points to the grid of evaluation points for each bin.
-Both options can be used simultaneously: for example, {opt dotsgrid(mean 5)} generates six evaluation points within each bin containing the sample mean of {it:indvar} within each bin and five evenly-spaced points.
+Both options can be used simultaneously: for example, {opt dotsgrid(mean 5)} generates six evaluation points
+within each bin containing the sample mean of {it:indvar} within each bin and five evenly-spaced points.
 Given this choice, the dots are point estimates evaluated over the selected grid within each bin.
 The default is {opt dotsgrid(mean)}, which corresponds to one dot per bin evaluated at the sample average of {it:indvar} within each bin (canonical binscatter).
 {p_end}
@@ -109,21 +113,25 @@ By default, the line is not included in the plot unless explicitly specified.
 Recommended specification is {cmd:line(3 3)}, which adds a cubic B-spline estimate of the regression function of interest to the binned scatter plot. 
 {p_end}
 
-{p 4 8} {opt linegrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point estimate set by the {cmd:line(p s)} option.
+{p 4 8} {opt linegrid(#)} specifies the number of evaluation points of an evenly-spaced grid within
+each bin used for evaluation of the point estimate set by the {cmd:line(p s)} option.
 The default is {cmd:linegrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for fitting/plotting the line.
 {p_end}
 
-{p 4 8} {opt lineplotopt(lineoption)} standard graphs options to be passed on to the {help twoway:twoway} command to modify the appearance of the plotted line.
+{p 4 8} {opt lineplotopt(lineoption)} standard graphs options to be passed on to
+the {help twoway:twoway} command to modify the appearance of the plotted line.
 {p_end}
 
 {dlgtab:Confidence Intervals}
 
-{p 4 8} {opt ci(p s)} specifies the piecewise polynomial of degree {it:p} with {it:s} smoothness constraints used for constructing confidence intervals.
+{p 4 8} {opt ci(p s)} specifies the piecewise polynomial of degree {it:p} with {it:s} smoothness constraints
+used for constructing confidence intervals.
 By default, the confidence intervals are not included in the plot unless explicitly specified.
 Recommended specification is {cmd:ci(3 3)}, which adds confidence intervals based on a cubic B-spline estimate of the regression function of interest to the binned scatter plot.
 {p_end}
 
-{p 4 8} {opt cigrid(cigridoption)} specifies the number and location of evaluation points in the grid used to construct the confidence intervals set by the {opt ci(p s)} option.
+{p 4 8} {opt cigrid(cigridoption)} specifies the number and location of evaluation points in the grid
+used to construct the confidence intervals set by the {opt ci(p s)} option.
 Two options are available: {it:mean} and a {it:numeric} non-negative integer.
 The option {opt cigrid(mean)} adds the sample average of {it:indvar} within each bin to the grid of evaluation points.
 The option {opt cigrid(#)} adds {it:#} number of evenly-spaced points to the grid of evaluation points for each bin.
@@ -136,16 +144,20 @@ The default is {opt cigrid(mean)}, which corresponds to one evaluation point set
 
 {dlgtab:Confidence Band}
 
-{p 4 8} {opt cb(p s)} specifies the piecewise polynomial of degree {it:p} with {it:s} smoothness constraints used for constructing the confidence band.
+{p 4 8} {opt cb(p s)} specifies the piecewise polynomial of degree {it:p} with {it:s} smoothness constraints
+used for constructing the confidence band.
 By default, the confidence band is not included in the plot unless explicitly specified.
-Recommended specification is {cmd:cb(3 3)}, which adds a confidence band based on a cubic B-spline estimate of the regression function of interest to the binned scatter plot.
+Recommended specification is {cmd:cb(3 3)}, which adds a confidence band based on a cubic B-spline estimate
+of the regression function of interest to the binned scatter plot.
 {p_end}
 
-{p 4 8} {opt cbgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point estimate set by the {cmd:cb(p s)} option.
+{p 4 8} {opt cbgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin
+used for evaluation of the point estimate set by the {cmd:cb(p s)} option.
 The default is {cmd:cbgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for confidence band construction.
 {p_end}
 
-{p 4 8} {opt cbplotopt(rareaoption)} standard graphs options to be passed on to the {help twoway:twoway} command to modify the appearance of the confidence band.
+{p 4 8} {opt cbplotopt(rareaoption)} standard graphs options to be passed on to
+the {help twoway:twoway} command to modify the appearance of the confidence band.
 {p_end}
 
 {dlgtab:Global Polynomial Regression}
@@ -155,7 +167,8 @@ By default, this fit is not included in the plot unless explicitly specified.
 Recommended specification is {cmd:polyreg(3)}, which adds a cubic polynomial fit of the regression function of interest to the binned scatter plot. 
 {p_end}
 
-{p 4 8} {opt polyreggrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point estimate set by the {cmd:polyreg(p)} option.
+{p 4 8} {opt polyreggrid(#)} specifies the number of evaluation points of an evenly-spaced grid
+within each bin used for evaluation of the point estimate set by the {cmd:polyreg(p)} option.
 The default is {cmd:polyreggrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for confidence interval construction.
 {p_end}
 
@@ -168,29 +181,37 @@ The default is {cmd:polyregcigrid(0)}, which corresponds to not plotting confide
 
 {dlgtab:Subgroup Analysis}
 
-{p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis; both numeric and string variables are supported.
-When {opt by(varname)} is specified, {cmdab:binslogit} implements estimation and inference for each subgroup separately, but produces a common binned scatter plot.
-By default, the binning structure is selected for each subgroup separately, but see the option {cmd:samebinsby} below for imposing a common binning structure across subgroups.
+{p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis;
+both numeric and string variables are supported.
+When {opt by(varname)} is specified, {cmdab:binslogit} implements estimation and inference for each subgroup separately,
+but produces a common binned scatter plot.
+By default, the binning structure is selected for each subgroup separately,
+but see the option {cmd:samebinsby} below for imposing a common binning structure across subgroups.
 {p_end}
 
-{p 4 8} {cmd:bycolors(}{it:{help colorstyle}list}{cmd:)} specifies an ordered list of colors for plotting each subgroup series defined by the option {opt by()}.
+{p 4 8} {cmd:bycolors(}{it:{help colorstyle}list}{cmd:)} specifies an ordered list of colors
+for plotting each subgroup series defined by the option {opt by()}.
 {p_end}
 
-{p 4 8} {cmd:bysymbols(}{it:{help symbolstyle}list}{cmd:)} specifies an ordered list of symbols for plotting each subgroup series defined by the option {opt by()}.
+{p 4 8} {cmd:bysymbols(}{it:{help symbolstyle}list}{cmd:)} specifies an ordered list of symbols
+for plotting each subgroup series defined by the option {opt by()}.
 {p_end}
 
-{p 4 8} {cmd:bylpatterns(}{it:{help linepatternstyle}list}{cmd:)} specifies an ordered list of line patterns for plotting each subgroup series defined by the option {opt by()}.
+{p 4 8} {cmd:bylpatterns(}{it:{help linepatternstyle}list}{cmd:)} specifies an ordered list of line patterns
+for plotting each subgroup series defined by the option {opt by()}.
 {p_end}
 
 {dlgtab:Partitioning/Binning Selection}
 
 {p 4 8} {opt nbins(#)} sets the number of bins for partitioning/binning of {it:indvar}.
-If not specified, the number of bins is selected via the companion command {help binsregselect:binsregselect} in a data-driven, optimal way whenever possible.
+If not specified, the number of bins is selected via the companion command
+{help binsregselect:binsregselect} in a data-driven, optimal way whenever possible.
 {p_end}
 
 {p 4 8} {opt binspos(position)} specifies the position of binning knots.
 The default is {cmd:binspos(qs)}, which corresponds to quantile-spaced binning (canonical binscatter).
-Other options are: {cmd:es} for evenly-spaced binning, or a {help numlist} for manual specification of the positions of inner knots (which must be within the range of {it:indvar}).
+Other options are: {cmd:es} for evenly-spaced binning, or a {help numlist} for manual specification of
+the positions of inner knots (which must be within the range of {it:indvar}).
 {p_end}
 
 {p 4 8} {opt binsmethod(method)} specifies the method for data-driven selection of the number of bins via the companion command {help binsregselect:binsregselect}.
@@ -216,7 +237,8 @@ If {cmd:nbins()} is not specified, then the number of bins is selected via the c
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
 {p_end}
 
-{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum operation needed to construct confidence bands.
+{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid
+within each bin used for evaluation of the supremum operation needed to construct confidence bands.
 The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum operator.
 {p_end}
 
@@ -225,7 +247,9 @@ The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluat
 
 {dlgtab:Mass Points and Degrees of Freedom}
 
-{p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
+{p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks,
+which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points),
+number of clusters, and degrees of freedom of the different statistical models considered.
 The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
@@ -241,7 +265,8 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Standard Error}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the command {help logit##options:logit}.
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by
+the command {help logit##options:logit}.
 The default is {cmd:vce(robust)}.
 {p_end}
 
@@ -259,7 +284,7 @@ Default is {cmd:usegtools(off)}.
 {p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
 {p_end}
 
-{p 4 8} {opt level(#)} sets the nominal confidence level for confidence interval and confidence band estimation.
+{p 4 8} {opt level(#)} sets the nominal confidence level for confidence interval and confidence band estimation. Default is {cmd:level(95)}.
 {p_end}
 
 {p 4 8} {opt noplot} omits binscatter plotting.
@@ -289,7 +314,7 @@ Default is {cmd:usegtools(off)}.
 {p 8 8} . {stata binslogit foreign weight mpg}{p_end}
 
 {p 4 8} Add confidence intervals and confidence band{p_end}
-{p 8 8} . {stata binslogit foreign weight mpg, ci(1 1)}{p_end}
+{p 8 8} . {stata binslogit foreign weight mpg, ci(1 1) nbins(5)}{p_end}
 
 
 {marker stored_results}{...}
@@ -319,12 +344,12 @@ Default is {cmd:usegtools(off)}.
 {title:References}
 
 {p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
 {p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 

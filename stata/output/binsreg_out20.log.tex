@@ -1,0 +1,44 @@
+. binstest y x w, nbins(20) testshaper(-2 0) testshapel(4) testmodelpoly(1) ///
+>                    nsims(1000) simsgrid(30)
+{\smallskip}
+Hypothesis tests based on binscatter estimates
+Estimation method: reg
+Bin selection method: IMSE-optimal plug-in choice
+Placement: Quantile-spaced
+Derivative: 0
+{\smallskip}
+\HLI{30}{\TOPT}\HLI{15}
+\# of observations             {\VBAR}    1000
+\# of distinct values          {\VBAR}    1000
+\# of clusters                 {\VBAR}       .
+\HLI{30}{\PLUS}\HLI{15}
+Bin selection:                {\VBAR} 
+         Degree of polynomial {\VBAR}       2
+  \# of smoothness constraints {\VBAR}       2
+                    \# of bins {\VBAR}      20
+\HLI{30}{\BOTT}\HLI{15}
+{\smallskip}
+Shape Restriction Tests:
+Degree: 3     \# of smoothness constraints: 3
+{\smallskip}
+\HLI{19}{\TOPT}\HLI{30}
+H0: sup mu <=      {\VBAR} sup T             p value
+\HLI{19}{\PLUS}\HLI{30}
+         4         {\VBAR}  -1.660             1.000
+\HLI{19}{\BOTT}\HLI{30}
+{\smallskip}
+\HLI{19}{\TOPT}\HLI{30}
+H0: inf mu >=      {\VBAR} inf T             p value
+\HLI{19}{\PLUS}\HLI{30}
+         -2        {\VBAR}   1.514             1.000
+         0         {\VBAR}  -9.622             0.000
+\HLI{19}{\BOTT}\HLI{30}
+{\smallskip}
+Model specification Tests:
+Degree: 3     \# of smoothness constraints: 3
+{\smallskip}
+\HLI{19}{\TOPT}\HLI{30}
+H0: mu =           {\VBAR} sup |T|           p value
+\HLI{19}{\PLUS}\HLI{30}
+poly. degree  1    {\VBAR}   6.108             0.000
+\HLI{19}{\BOTT}\HLI{30}

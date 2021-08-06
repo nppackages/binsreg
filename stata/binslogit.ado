@@ -1,4 +1,4 @@
-*! version 0.4.3 23-JUL-2021 
+*! version 0.5 05-AUG-2021
 
 capture program drop binslogit
 program define binslogit, eclass
@@ -518,7 +518,7 @@ program define binslogit, eclass
 		       mat `fullkmat'=(nullmat(`fullkmat') \ `=`xmin'+`stepsize'*(`i'-1)')
 		    }
 	     }
-	     else {
+	     else if ("`binspos'"=="QS") {
 			 if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
 		     else {		
 	           binsreg_pctile `x_var' `wt', nq(`nbins') `usegtools'
@@ -1748,13 +1748,6 @@ program define binslogit, eclass
 	 ereturn clear
 	 * # of observations
 	 ereturn scalar N=`Ntotal'
-	 * by group:
-	 ereturn matrix N_by=`Nlist'    
-	 ereturn matrix Ndist_by=`Ndistlist'
-	 ereturn matrix Nclust_by=`Nclustlist'
-	 ereturn matrix nbins_by=`nbinslist'
-	 *ereturn matrix knot=`kmat'
-	 ereturn matrix cval_by=`cvallist'
 	 * Options
 	 ereturn scalar level=`level'
 	 ereturn scalar dots_p=`dots_p'
@@ -1765,6 +1758,13 @@ program define binslogit, eclass
 	 ereturn scalar ci_s=`ci_s'
 	 ereturn scalar cb_p=`cb_p'
 	 ereturn scalar cb_s=`cb_s'
+	 * by group:
+	 *ereturn matrix knot=`kmat'
+	 ereturn matrix cval_by=`cvallist'
+	 ereturn matrix nbins_by=`nbinslist'
+	 ereturn matrix Nclust_by=`Nclustlist'
+	 ereturn matrix Ndist_by=`Ndistlist'
+	 ereturn matrix N_by=`Nlist'
 
 end
 

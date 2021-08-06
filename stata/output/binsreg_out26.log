@@ -1,0 +1,26 @@
+. binsregselect y x w, nbinsrot(20) binspos(es)
+
+
+Bin selection for binscatter estimates
+Method: IMSE-optimal: plug-in choice
+Position: Evenly-spaced
+
+---------------------------------------
+          # of observations |    1000
+       # of distince values |    1000
+              # of clusters |       .
+           eff. sample size |    1000
+----------------------------+----------
+       Degree of polynomial |       0
+ # of smoothness constraint |       0
+---------------------------------------
+
+--------------------------------------------------------------------
+    method    |  # of bins |     df   | imse, bias^2 |  imse, var.  
+--------------+------------+----------+--------------+--------------
+   ROT-POLY   |       .    |      .   |        .     |        .
+   ROT-REGUL  |      20    |     20   |        .     |        .
+   ROT-UKNOT  |      20    |     20   |        .     |        .
+      DPI     |      22    |     22   |    5.793     |    1.194
+   DPI-UKNOT  |      22    |     22   |        .     |        .
+--------------------------------------------------------------------

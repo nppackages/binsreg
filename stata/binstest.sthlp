@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.3 23-JUL-2021}{...}
+{* *! version 0.5 05-AUG-2021}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -12,7 +12,7 @@
 
 {title:Title}
 
-othercovs{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.{p_end}
+{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.{p_end}
 
 
 {marker syntax}{...}
@@ -28,7 +28,8 @@ othercovs{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restrict
 {p 13 13} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
 {p 13 13} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt usegtools(on/off)} ]{p_end}
 
-{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
+{p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs}
+are other covariates to be controlled for.{p_end}
 
 {p 4 8} p, s and v are integers satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
@@ -41,22 +42,27 @@ othercovs{p 4 8}{hi:binstest} {hline 2} Data-Driven Nonparametric Shape Restrict
 {marker description}{...}
 {title:Description}
 
-{p 4 8} {cmd:binstest} implements binscatter-based hypothesis testing procedures for parametric functional forms and nonparametric shape restrictions on of the regression function  estimators, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
-If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter in a data-driven (optimal) way and inference procedures are based on robust bias correction.
-Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg}, {help binsqreg: binsqreg}, {help binslogit:binslogit} and {help binsprobit:binsprobit}.
+{p 4 8} {cmd:binstest} implements binscatter-based hypothesis testing procedures for parametric functional forms of
+and nonparametric shape restrictions on the regression function estimators, following the results in
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
+If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used
+to implement binscatter in a data-driven (optimal) way and inference procedures are based on robust bias correction.
+Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg},
+{help binsqreg: binsqreg}, {help binslogit:binslogit} and {help binsprobit:binsprobit}.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
-A companion R package with the same capabilities is available (see website below).
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
+Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
-{p 4 8} Companion commands: {help binsreg:binsreg} for binscatter regression with robust inference procedures and plots, {help binsqreg:binsqreg} for binscatter quantile regression with robust inference procedures and plots,
+{p 4 8} Companion commands: {help binsreg:binsreg} for binscatter regression with robust inference procedures and plots,
+{help binsqreg:binsqreg} for binscatter quantile regression with robust inference procedures and plots,
 {help binslogit:binslogit} for binscatter logit estimation with robust inference procedures and plots,
-{help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots, and {help binsregselect:binsregselect} data-driven (optimal) binning selection.{p_end}
+{help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots,
+and {help binsregselect:binsregselect} for data-driven (optimal) binning selection.{p_end}
 
-{p 4 8} Related Stata and R packages are available in the following website:{p_end}
+{p 4 8} Related Stata, R and Python packages are available in the following website:{p_end}
 
 {p 8 8} {browse "https://nppackages.github.io/":https://nppackages.github.io/}{p_end}
 
@@ -81,15 +87,18 @@ The default is {cmd:at(mean)}, which corresponds to the mean of {it:othercovs}. 
 {cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:othercovs} saved in another file.
 {p_end}
 
-{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified) are excluded from the evaluation (set as zero).
+{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified)
+are excluded from the evaluation (set as zero).
 {p_end}
 
-{p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
+{p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of
+the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
 {p_end}
 
 {dlgtab:Reghdfe}
 
-{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed. This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}.
+{p 4 8} {opt absorb(absvars)} specifies categorical variables (or interactions) representing the fixed effects to be absorbed.
+This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}.
 When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe} instead of the command {cmd:regress} is used.
 {p_end}
 
@@ -102,11 +111,13 @@ Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this op
 {dlgtab:Parametric Model Specification Testing}
 
 {p 4 8} {opt testmodel(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for parametric model specification testing.
-The default is {cmd:testmodel(3 3)}, which corresponds to a cubic B-spline estimate of the regression function of interest for testing against the fitting from a parametric model specification.
+The default is {cmd:testmodel(3 3)}, which corresponds to a cubic B-spline estimate of the regression function of interest for
+testing against the fitting from a parametric model specification.
 {p_end}
 
 {p 4 8} {opt testmodelparfit(filename)} specifies a dataset which contains the evaluation grid and fitted values of the model(s) to be tested against.
-The file must have a variable with the same name as {it:indvar}, which contains a series of evaluation points at which the binscatter model and the parametric model of interest are compared with each other.
+The file must have a variable with the same name as {it:indvar}, which contains a series of evaluation points at which
+the binscatter model and the parametric model of interest are compared with each other.
 Each parametric model is represented by a variable named as {it:binsreg_fit*}, which must contain the fitted values at the corresponding evaluation points.
 {p_end}
 
@@ -115,8 +126,10 @@ Each parametric model is represented by a variable named as {it:binsreg_fit*}, w
  
 {dlgtab:Nonparametric Shape Restriction Testing}
 
-{p 4 8} {opt testshape(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for nonparametric shape restriction testing.
-The default is {cmd:testmodel(3 3)}, which corresponds to a cubic B-spline estimate of the regression function of interest for one-sided or two-sided testing.
+{p 4 8} {opt testshape(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints
+for nonparametric shape restriction testing.
+The default is {cmd:testshape(3 3)}, which corresponds to a cubic B-spline estimate of the regression function
+of interest for one-sided or two-sided testing.
 {p_end}
 
 {p 4 8} {opt testshapel(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
@@ -129,30 +142,35 @@ Each number {it:a} in the {it:numlist} corresponds to one boundary of a one-side
 
 {p 4 8} {opt testshape2(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
 Each number {it:a} in the {it:numlist} corresponds to one boundary of a two-sided hypothesis test of the
-form H0: {it:sup_x |mu(x)-a|=0} or .
+form H0: {it:sup_x |mu(x)-a|=0}.
 {p_end}
 
 {dlgtab:Metric for Hypothesis Testing}
 
-{p 4 8} {opt lp(metric)} specifies an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is {cmd:lp(inf)}, which corresponds to the sup-norm. Other options are
-{cmd:Lp(q)} for a positive integer {cmd:q}.
+{p 4 8} {opt lp(metric)} specifies an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing.
+The default is {cmd:lp(inf)},
+which corresponds to the sup-norm. Other options are {cmd:lp(q)} for a positive integer {cmd:q}.
 {p_end}
  
 {dlgtab:Partitioning/Binning Selection}
 
-{p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
-The default is {cmd:bins(0 0)}, which corresponds to piecewise constant (canonical binscatter).
+{p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for
+data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
+The default is {cmd:bins(2 2)}, which corresponds to a quadratic spline estimate.
 
 {p 4 8} {opt nbins(#)} sets the number of bins for partitioning/binning of {it:indvar}.
-If not specified, the number of bins is selected via the companion command {help binsregselect:binsregselect} in a data-driven, optimal way whenever possible.
+If not specified, the number of bins is selected via the companion command {help binsregselect:binsregselect}
+in a data-driven, optimal way whenever possible.
 {p_end}
 
 {p 4 8} {opt binspos(position)} specifies the position of binning knots.
 The default is {cmd:binspos(qs)}, which corresponds to quantile-spaced binning (canonical binscatter).
-Other options are: {cmd:es} for evenly-spaced binning, or a {help numlist} for manual specification of the positions of inner knots (which must be within the range of {it:indvar}).
+Other options are: {cmd:es} for evenly-spaced binning, or a {help numlist} for manual specification of the positions
+of inner knots (which must be within the range of {it:indvar}).
 {p_end}
 
-{p 4 8} {opt binsmethod(method)} specifies the method for data-driven selection of the number of bins via the companion command {help binsregselect:binsregselect}.
+{p 4 8} {opt binsmethod(method)} specifies the method for data-driven selection of the number of bins via
+the companion command {help binsregselect:binsregselect}.
 The default is {cmd:binsmethod(dpi)}, which corresponds to the IMSE-optimal direct plug-in rule.
 The other option is: {cmd:rot} for rule of thumb implementation.
 {p_end}
@@ -161,7 +179,8 @@ The other option is: {cmd:rot} for rule of thumb implementation.
 If not specified, the data-driven ROT selector is used instead.
 {p_end}
 
-{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection. Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
 {p_end}
 
 {dlgtab:Simulation}
@@ -170,8 +189,10 @@ If not specified, the data-driven ROT selector is used instead.
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
 {p_end}
 
-{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the supremum (infimum or Lp metric) operation needed for hypothesis testing procedures.
-The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+{p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used
+for evaluation of the supremum (infimum or Lp metric) operation needed for hypothesis testing procedures.
+The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within
+each bin for approximating the supremum (infimum or Lp metric) operator.
 {p_end}
 
 {p 4 8} {opt simsseed(#)} sets the seed for simulations.
@@ -179,7 +200,8 @@ The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluat
 
 {dlgtab:Mass Points and Degrees of Freedom}
 
-{p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
+{p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar}
+(i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
 The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
 {p_end}
 
@@ -195,7 +217,8 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {dlgtab:Other Options}
 
-{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress}, {help logit##options:logit}, {help probit##options:probit},
+{p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by the commands {help regress##options:regress},
+{help logit##options:logit}, {help probit##options:probit},
 {help qreg##qreg_options:qreg} or {cmd:reghdfe}. The default is {cmd:vce(robust)}.
 {p_end}
 
@@ -205,7 +228,8 @@ uncertainty related to other control variables {it:othercovs} is omitted. Defaul
 that is, the uncertainty related to {it:othercovs} is taken into account.
 {p_end}
 
-{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
+{p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools}
+to speed the computation up, if {it:on} is specified.
 Default is {cmd:usegtools(off)}.
 {p_end}
 
@@ -216,7 +240,7 @@ Default is {cmd:usegtools(off)}.
 {title:Examples}
 
 {p 4 8} Setup{p_end}
-{p 8 8} . {stata sys use auto}
+{p 8 8} . {stata sysuse auto}
 
 {p 4 8} Test for linearity{p_end}
 {p 8 8} . {stata binstest mpg weight foreign, testmodelpoly(1)}{p_end}
@@ -243,32 +267,31 @@ Default is {cmd:usegtools(off)}.
 {synopt:{cmd:e(testpolyp)}}degree of polynomial regression model{p_end}
 {synopt:{cmd:e(stat_poly)}}statistic for testing global polynomial model{p_end}
 {synopt:{cmd:e(pval_poly)}}p value for testing global polynomial model{p_end}
-{p2col 5 17 21 2: Locals}{p_end}
-{synopt:{cmd:e(testvalueL)}}values in {cmd:testshapel()}{p_end}
-{synopt:{cmd:e(testvalueR)}}values in {cmd:testshaper()}  {p_end}
-{synopt:{cmd:e(testvalue2)}}values in {cmd:testshape2()}  {p_end}
+{p2col 5 17 21 2: Macros}{p_end}
 {synopt:{cmd:e(testvarlist)}}varlist found in {cmd:testmodel()}{p_end}
+{synopt:{cmd:e(testvalue2)}}values in {cmd:testshape2()}{p_end}
+{synopt:{cmd:e(testvalueR)}}values in {cmd:testshaper()}{p_end}
+{synopt:{cmd:e(testvalueL)}}values in {cmd:testshapel()}{p_end}
 {p2col 5 17 21 2: Matrices}{p_end}
-{synopt:{cmd:e(stat_shapeL)}}statistics for {cmd:testshapel()}{p_end}
-{synopt:{cmd:e(pval_shapeL)}}p values for {cmd:testshapel()}{p_end}
-{synopt:{cmd:e(stat_shapeR)}}statistics for {cmd:testshaper()}{p_end}
-{synopt:{cmd:e(pval_shapeR)}}p values for {cmd:testshaper()}{p_end}
-{synopt:{cmd:e(stat_shape2)}}statistics for {cmd:testshape2()}{p_end}
-{synopt:{cmd:e(pval_shape2)}}p values for {cmd:testshape2()}{p_end}
-{synopt:{cmd:e(stat_model)}}statistics for {cmd:testmodel()}{p_end}
 {synopt:{cmd:e(pval_model)}}p values for {cmd:testmodel()}{p_end}
-
+{synopt:{cmd:e(stat_model)}}statistics for {cmd:testmodel()}{p_end}
+{synopt:{cmd:e(pval_shape2)}}p values for {cmd:testshape2()}{p_end}
+{synopt:{cmd:e(stat_shape2)}}statistics for {cmd:testshape2()}{p_end}
+{synopt:{cmd:e(pval_shapeR)}}p values for {cmd:testshaper()}{p_end}
+{synopt:{cmd:e(stat_shapeR)}}statistics for {cmd:testshaper()}{p_end}
+{synopt:{cmd:e(pval_shapeL)}}p values for {cmd:testshapel()}{p_end}
+{synopt:{cmd:e(stat_shapeL)}}statistics for {cmd:testshapel()}{p_end}
 
 {marker references}{...}
 {title:References}
 
 {p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Binscatter.pdf":On Binscatter}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
 {p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2019_Stata.pdf":Binscatter Regressions}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 
