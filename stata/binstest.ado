@@ -1,4 +1,4 @@
-*! version 0.5 05-AUG-2021 
+*! version 0.6 07-AUG-2021 
 
 capture program drop binstest
 program define binstest, eclass
