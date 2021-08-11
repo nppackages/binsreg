@@ -43,7 +43,7 @@ net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/m
 
 - Help: [binsreg](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsreg.pdf), [binslogit](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binslogit.pdf), [binsprobit](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsprobit.pdf), [binsqreg](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsqreg.pdf), [binstest](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binstest.pdf), [binspwc](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binspwc.pdf), [binsregselect](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsregselect.pdf).
 
-- Replication files: [do-file](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsreg_illustration.do), [data](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsreg_simdata.dta), [speed test](https://raw.githubusercontent.com/nppackages/binsreg/blob/master/stata/binsreg_speedcomparison.do).
+- Replication files: [do-file](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsreg_illustration.do), [data](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsreg_simdata.dta), [speed test](https://raw.githubusercontent.com/nppackages/binsreg/master/stata/binsreg_speedcomparison.do).
 
 
 ## References
