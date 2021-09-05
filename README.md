@@ -28,7 +28,7 @@ pip install -i https://test.pypi.org/simple/ binsreg
 
 - Help: [PyPI repository](https://test.pypi.org/project/binsreg/).
 
-- Replication: [py-script](Python/binsreg_illustration.py), [data](Python/binsreg_senate.csv).
+- Replication: [py-script](Python/binsreg_illustration.py), [data](Python/binsreg_sim.csv).
 
 ## R Implementation
 
