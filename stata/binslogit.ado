@@ -622,7 +622,7 @@ program define binslogit, eclass
 		    else {
 			   local byvalname `: label `bylabel' `byval''
 			}
-			local byvalnamelist `byvalnamelist' `byvalname'
+			local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		}
 		if (`bynum'>1) {
 		   mata: `byindex'=`byvec':==`byval'

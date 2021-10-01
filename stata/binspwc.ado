@@ -547,7 +547,7 @@ program define binspwc, eclass
 		else {
 		   local byvalname `: label `bylabel' `byval''
 		}
-		local byvalnamelist `byvalnamelist' `byvalname'
+		local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		
 		mata: `byindex'=`byvec':==`byval'
 		mata: `xsub'=select(`xvec',`byindex'); `ysub'=select(`yvec', `byindex')

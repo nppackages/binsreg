@@ -631,7 +631,7 @@ program define binsreg, eclass
 		    else {
 			   local byvalname `: label `bylabel' `byval''
 			}
-			local byvalnamelist `byvalnamelist' `byvalname'
+			local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		}
 		
 		
