@@ -1,7 +1,7 @@
 ################################################################################
 # Binsreg: illustration file
 # Authors: M. D. Cattaneo, R. Crump, M. Farrell and Y. Feng
-# Last update: 08/05/2021
+# Last update: 10/09/2021
 rm(list=ls(all=TRUE))
 library(binsreg); library(ggplot2)
 
@@ -12,7 +12,6 @@ library(binsreg); library(ggplot2)
 #######################################
 
 data <- read.csv("binsreg_sim.csv", sep=",")
-y <- data$y; x <- data$x; w <- data$w; t <- data$t; id <- data$id; d <- data$d
 summary(data)
 
 ####################################
@@ -50,14 +49,14 @@ est <- binsreg(y, x, w, data=data, nbins=20, line=c(3,3), ci=c(3,3), cb=c(3,3), 
 est$bins_plot
 
 # Specify y, x, w variables directly (without specifying a data frame), VCE option, ggplot object modification
-est <- binsreg(y, x, cbind(w, t), dots=c(0,0), line=c(3,3), ci=c(3,3),
+est <- binsreg(data$y, data$x, cbind(data$w, data$t), dots=c(0,0), line=c(3,3), ci=c(3,3),
                cb=c(3,3), polyreg=4, vce="HC1", cluster=data$id)
 # Modify other ggplot features
 est$bins_plot + ggtitle("Binned Scatter Plot") +
                 theme(plot.title=element_text(hjust=0.5, vjust=0.5, face='bold'))
 
 # CI and CB: alternative formula for standard errors (nonparametric component only)
-est <- binsreg(y, x, cbind(w, t), dots=c(0,0), line=c(3,3), ci=c(3,3),
+est <- binsreg(y, x, w=~w+t, data=data, dots=c(0,0), line=c(3,3), ci=c(3,3),
                cb=c(3,3), polyreg=4, vce="HC1", cluster=data$id, asyvar=T)
 est$bins_plot
 
@@ -80,13 +79,13 @@ binsqreg(y, x, w, data=data, quantile=0.25)
 binsqreg(y, x, w, data=data, quantile=0.25, ci=c(3,3), vce="boot", R=100)
 
 # Estimate 0.25 and 0.75 quantiles and combine them with the results from binsreg
-est.25   <- binsqreg(y, x, quantile=0.25, line=c(3, 3))
+est.25   <- binsqreg(y, x, data=data, quantile=0.25, line=c(3, 3))
 dat.25   <- est.25$data.plot$`Group Full Sample`$data.line
 dat.25["id"] <- "0.25 quantile"
-est.75   <- binsqreg(y, x, quantile=0.75, line=c(3, 3))
+est.75   <- binsqreg(y, x, data=data, quantile=0.75, line=c(3, 3))
 dat.75   <- est.75$data.plot$`Group Full Sample`$data.line
 dat.75["id"] <- "0.75 quantile"
-est.mean <- binsreg(y, x, line=c(3, 3), cb=c(3, 3))
+est.mean <- binsreg(y, x, data=data, line=c(3, 3), cb=c(3, 3))
 dat.mean.dots <- est.mean$data.plot$`Group Full Sample`$data.dots
 dat.mean.line <- est.mean$data.plot$`Group Full Sample`$data.line
 dat.mean.cb   <- est.mean$data.plot$`Group Full Sample`$data.cb
@@ -176,13 +175,13 @@ bins <- binsregselect(y,x,w, data=data, nbinsrot=20, binspos="es")
 summary(bins)
 
 # Save grid for prediction purpose
-bins <- binsregselect(y,x,w, simsgrid=30, savegrid = T)
+bins <- binsregselect(y, x, w, data=data, simsgrid=30, savegrid = T)
 grid <- bins$data.grid
 
 # Extrapolating the optimal number of bins to the full sample
-bins <- binsregselect(y,x,w, useeffn=1000, subset=(t==0))
+bins <- binsregselect(y, x, w, data=data, useeffn=1000, subset=(data$t==0))
 summary(bins)
 
 # Use a random subsample to select the number of bins for the full sample
-bins <- binsregselect(y,x,w, randcut=0.3)
+bins <- binsregselect(y, x, w, data=data, randcut=0.3)
 summary(bins)

@@ -1,4 +1,4 @@
-*! version 0.6 07-AUG-2021
+*! version 0.7 09-Oct-2021
 
 capture program drop binsqreg
 program define binsqreg, eclass
@@ -644,7 +644,7 @@ program define binsqreg, eclass
 		    else {
 			   local byvalname `: label `bylabel' `byval''
 			}
-			local byvalnamelist `byvalnamelist' `byvalname'
+			local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		}
 		
 		if (`bynum'>1) {

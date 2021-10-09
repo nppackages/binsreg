@@ -1,4 +1,4 @@
-*! version 0.6 07-AUG-2021 
+*! version 0.7 09-Oct-2021 
 
 capture program drop binsreg
 program define binsreg, eclass
@@ -631,7 +631,7 @@ program define binsreg, eclass
 		    else {
 			   local byvalname `: label `bylabel' `byval''
 			}
-			local byvalnamelist `byvalnamelist' `byvalname'
+			local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		}
 		
 		
@@ -1883,10 +1883,16 @@ program define binsreg_fit, eclass
 		   if ("`absorb'"=="") capture reg `y_var' ibn.`xcat' `w_var' `wt', nocon `vce'
 		   else                capture reghdfe `y_var' ibn.`xcat' `w_var' `wt', absorb(`absorb') `vce' `reghdfeopt'
 		   
-		   matrix `temp_b'=e(b)
-		   matrix `temp_V'=e(V)
-		   if ("`absorb'"=="") mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins')
-           else                mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins', "T")
+		   if (_rc==0) {
+		      matrix `temp_b'=e(b)
+		      matrix `temp_V'=e(V)
+		      if ("`absorb'"=="") mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins')
+              else                mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins', "T")
+		   }
+		   else {
+	          error  _rc
+	   	      exit _rc
+           }
 		}
 		else {
 	       local nseries=(`p'-`s'+1)*(`nbins'-1)+`p'+1

@@ -1,4 +1,4 @@
-*! version 0.6 07-AUG-2021 
+*! version 0.7 09-Oct-2021
 
 capture program drop binsregselect
 program define binsregselect, eclass
@@ -302,10 +302,19 @@ program define binsregselect, eclass
 	    qui gen `y_var_2'=`y_var'^2
 		if ("`absorb'"=="") {
 		   capture reg `y_var_2' `series_rot' `w_var' `wt'
+		   if (_rc) {
+		      error _rc
+			  exit _rc
+		   }
 	       predict `pred_y2', xb
 		}
 		else {
 		   capture reghdfe `y_var_2' `series_rot' `w_var' `wt', absorb(`absorb') resid(`resid2')
+		   if (_rc) {
+		      error _rc
+			  exit _rc
+		   }
+
 		   predict `pred_y2', xbd
 		}
 		

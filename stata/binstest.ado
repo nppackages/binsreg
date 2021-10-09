@@ -1,4 +1,4 @@
-*! version 0.6 07-AUG-2021 
+*! version 0.7 09-Oct-2021
 
 capture program drop binstest
 program define binstest, eclass
@@ -362,7 +362,7 @@ program define binstest, eclass
 	 if (`nbins'==0) {
 		 * Check effective sample size
 		 if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`binsp'+1+`qrot')) {
-		    * ROT inavailable, exit
+		    * ROT unavailable, exit
 			di as error "too few observations for bin selection."
 	        exit
 	     }

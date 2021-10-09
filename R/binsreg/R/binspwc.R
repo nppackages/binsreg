@@ -1,0 +1,837 @@
+########################################################################################
+#'@title  Data-Driven Pairwise Group Comparison using Binscatter Methods
+#'@description \code{binspwc} implements hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the
+#'             results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+#'             If the binning scheme is not set by the user, the companion function
+#'             \code{\link{binsregselect}} is used to implement binscatter in a data-driven way. Binned scatter plots based on different methods
+#'             can be constructed using the companion functions \code{\link{binsreg}}, \code{\link{binsqreg}} or \code{\link{binsglm}}.
+#'             Hypothesis testing for parametric functional forms of and shape restrictions on the regression function of interest can
+#'             be conducted via the companion function \code{\link{binstest}}.
+#'@param  y outcome variable. A vector.
+#'@param  x independent variable of interest. A vector.
+#'@param  w control variables. A matrix, a vector or a \code{\link{formula}}.
+#'@param  data an optional data frame containing variables used in the model.
+#'@param  estmethod estimation method. The default is \code{estmethod="reg"} for tests based on binscatter least squares regression. Other options are \code{"qreg"} for quantile regression and \code{"glm"} for generalized linear regression. If \code{estmethod="glm"}, the option \code{family} must be specified.
+#'@param  family a description of the error distribution and link function to be used in the generalized linear model when \code{estmethod="glm"}. (See \code{\link{family}} for details of family functions.)
+#'@param  quantile the quantile to be estimated. A number strictly between 0 and 1.
+#'@param  deriv  derivative order of the regression function for estimation, testing and plotting.
+#'               The default is \code{deriv=0}, which corresponds to the function itself.
+#'@param  at value of \code{w} at which the estimated function is evaluated.  The default is \code{at="mean"}, which corresponds to
+#'           the mean of \code{w}. Other options are: \code{at="median"} for the median of \code{w}, \code{at="zero"} for a vector of zeros.
+#'           \code{at} can also be a vector of the same length as the number of columns of \code{w} (if \code{w} is a matrix) or a data frame containing the same variables as specified in \code{w} (when
+#'           \code{data} is specified). Note that when \code{at="mean"} or \code{at="median"}, all factor variables (if specified) are excluded from the evaluation (set as zero).
+#'@param  nolink if true, the function within the inverse link function is reported instead of the conditional mean function for the outcome.
+#'@param  by a vector containing the group indicator for subgroup analysis; both numeric and string variables
+#'           are supported. When \code{by} is specified, \code{binsreg} implements estimation and inference for each subgroup
+#'           separately, but produces a common binned scatter plot. By default, the binning structure is selected for each
+#'           subgroup separately, but see the option \code{samebinsby} below for imposing a common binning structure across subgroups.
+#'@param  pwc a vector. \code{pwc=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s}
+#'                  smoothness constraints for testing the difference between groups. The default is
+#'                  \code{pwc=c(3,3)}, which corresponds to a cubic B-spline estimate of the function of interest for each group.
+#'@param  testtype type of pairwise comparison test. The default is \code{testtype="two-sided"}, which corresponds to a two-sided test of the form \code{H0: mu_1(x)=mu_2(x)}.
+#'                 Other options are: \code{testtype="left"} for the one-sided test form \code{H0: mu_1(x)<=mu_2(x)} and \code{testtype="right"} for the one-sided test of the form \code{H0: mu_1(x)>=mu_2(x)}.
+#'@param  lp an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
+#'           corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive integer \code{q}.
+#'@param  bins A vector. Degree and smoothness for bin selection. The default is \code{bins=c(2,2)}, which corresponds to a quadratic spline estimate.
+#'@param  bynbins a vector of the number of bins for partitioning/binning of \code{x}, which is applied to the binscatter estimation for each group.
+#'                If not specified, the number of bins is selected via the companion function \code{binsregselect} in a data-driven way whenever possible.
+#'@param  binspos position of binning knots. The default is \code{binspos="qs"}, which corresponds to quantile-spaced
+#'                binning (canonical binscatter).  The other options are \code{"es"} for evenly-spaced binning, or
+#'                a vector for manual specification of the positions of inner knots (which must be within the range of
+#'                \code{x}).
+#'@param  binsmethod method for data-driven selection of the number of bins. The default is \code{binsmethod="dpi"},
+#'                   which corresponds to the IMSE-optimal direct plug-in rule.  The other option is: \code{"rot"}
+#'                   for rule of thumb implementation.
+#'@param  nbinsrot initial number of bins value used to construct the DPI number of bins selector.
+#'                 If not specified, the data-driven ROT selector is used instead.
+#'@param  samebinsby if true, a common partitioning/binning structure across all subgroups specified by the option \code{by} is forced.
+#'                   The knots positions are selected according to the option \code{binspos} and using the full sample. If \code{nbins}
+#'                   is not specified, then the number of bins is selected via the companion command \code{\link{binsregselect}} and
+#'                   using the full sample.
+#'@param  randcut upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+#'                Observations for which \code{runif()<=#} are used. # must be between 0 and 1.
+#'@param  nsims number of random draws for hypothesis testing. The default is
+#'              \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
+#'              \code{[(p+1)*J - (J-1)*s]}.
+#'@param  simsgrid number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
+#'                 the supremum (infimum or Lp metric) operation needed to construct hypothesis testing
+#'                 procedures. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
+#'                 evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+#'@param  simsseed  seed for simulation.
+#'@param  vce procedure to compute the variance-covariance matrix estimator. For least squares regression and generalized linear regression, the allowed options are the same as that for \code{\link{binsreg}} or \code{\link{binsqreg}}.
+#'            For quantile regression, the allowed options are the same as that for \code{\link{binsqreg}}.
+#'@param  cluster cluster ID. Used for compute cluster-robust standard errors.
+#'@param  asyvar  If true, the standard error of the nonparametric component is computed and the uncertainty related to control
+#'                variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.
+#'@param  dfcheck adjustments for minimum effective sample size checks, which take into account number of unique
+#'                values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
+#'                the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
+#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+#'@param  masspoints how mass points in \code{x} are handled. Available options:
+#'                   \itemize{
+#'                   \item \code{"on"} all mass point and degrees of freedom checks are implemented. Default.
+#'                   \item \code{"noadjust"} mass point checks and the corresponding effective sample size adjustments are omitted.
+#'                   \item \code{"nolocalcheck"} within-bin mass point and degrees of freedom checks are omitted.
+#'                   \item \code{"off"} "noadjust" and "nolocalcheck" are set simultaneously.
+#'                   \item \code{"veryfew"} forces the function to proceed as if \code{x} has only a few number of mass points (i.e., distinct values).
+#'                                          In other words, forces the function to proceed as if the mass point and degrees of freedom checks were failed.
+#'                   }
+#'@param  weights an optional vector of weights to be used in the fitting process. Should be \code{NULL} or
+#'                a numeric vector. For more details, see \code{\link{lm}}.
+#'@param  subset  optional rule specifying a subset of observations to be used.
+#'@param  numdist  Number of distinct for selection. Used to speed up computation.
+#'@param  numclust Number of clusters for selection. Used to speed up computation.
+#'@param  ...     optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link{boot.rq}}.
+#'@return \item{\code{stat}}{A matrix. Each row corresponds to the comparison between two groups. The first column is the test statistic. The second and third columns give the corresponding group numbers.
+#'                           The null hypothesis is \code{mu_i(x)<=mu_j(x)}, \code{mu_i(x)=mu_j(x)}, or \code{mu_i(x)>=mu_j(x)} for group i (given in the second column) and group j (given in the third column).
+#'                           The group number corresponds to the list of group names given by \code{opt$byvals}.}
+#'        \item{\code{pval}}{A vector of p-values for all pairwise group comparisons.}
+#'        \item{\code{opt}}{ A list containing options passed to the function, as well as \code{N.by} (total sample size for each group),
+#'                           \code{Ndist.by} (number of distinct values in \code{x} for each group), \code{Nclust.by} (number of clusters for each group),
+#'                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
+#'
+#'@author
+#' Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+#'
+#' Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+#'
+#' Max H. Farrell, University of Chicago, Chicago, IL. \email{max.farrell@chicagobooth.edu}.
+#'
+#' Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+#'
+#'@references
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+#'
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+#'
+#'@seealso  \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}, \code{\link{binstest}}.
+#'
+#'@examples
+#'  x <- runif(500); y <- sin(x)+rnorm(500); t <- 1*(runif(500)>0.5)
+#'  ## Binned scatterplot
+#'  binspwc(y,x, by=t)
+#'@export
+
+binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
+                    quantile=NULL, deriv=0, at=NULL, nolink=F, by=NULL,
+                    pwc=c(3,3), testtype="two-sided", lp=Inf,
+                    bins=c(2,2), bynbins=NULL, binspos="qs",
+                    binsmethod="dpi", nbinsrot=NULL, samebinsby=FALSE, randcut=NULL,
+                    nsims=500, simsgrid=20, simsseed=NULL,
+                    vce=NULL, cluster=NULL, asyvar=F,
+                    dfcheck=c(20,30), masspoints="on", weights=NULL, subset=NULL,
+                    numdist=NULL, numclust=NULL, ...) {
+
+  # param for internal use
+  qrot <- 2
+
+  ####################
+  ### prepare data ###
+  ####################
+
+  # variable name
+  xname <- deparse(substitute(x))
+  yname <- deparse(substitute(y))
+  byname <- deparse(substitute(by))
+  if (byname == "NULL") {
+    print("by variable is required.")
+    stop()
+  }
+  weightsname <- deparse(substitute(weights))
+  subsetname  <- deparse(substitute(subset))
+  clustername <- deparse(substitute(cluster))
+
+  # extract y, x, w, weights, subset, if needed (w as a matrix, others as vectors)
+  # generate design matrix for covariates W
+  w.factor <- NULL
+  if (is.null(data)) {
+    if (is.data.frame(y)) y <- y[,1]
+    if (is.data.frame(x)) x <- x[,1]
+    if (!is.null(w)) {
+      if (is.vector(w)) {
+        w <- as.matrix(w)
+        if (is.character(w)) {
+          w <- model.matrix(~w)[,-1,drop=F]
+          w.factor <- rep(T, ncol(w))
+        }
+      } else if (is.formula(w)) {
+        w.model <- binsreg.model.mat(w)
+        w <- w.model$design
+        w.factor <- w.model$factor.colnum
+      }
+    }
+  } else {
+    if (xname %in% names(data)) x <- data[,xname]
+    if (yname %in% names(data)) y <- data[,yname]
+    if (byname != "NULL") if (byname %in% names(data)) {
+      by <- data[,byname]
+    }
+    if (weightsname != "NULL") if (weightsname %in% names(data)) {
+      weights <- data[,weightsname]
+    }
+    if (subsetname != "NULL") if (subsetname %in% names(data))  {
+      subset  <- data[,subsetname]
+    }
+    if (clustername != "NULL") if (clustername %in% names(data)) {
+      cluster <- data[,clustername]
+    }
+    if (deparse(substitute(w))!="NULL") {
+      if (is.formula(w)) {
+        if (is.data.frame(at)) {
+          if (ncol(data)!=ncol(at)) {
+            data[setdiff(names(at), names(data))] <- NA
+            at[setdiff(names(data), names(at))] <- NA
+          }
+          data <- rbind(data, at)
+        }
+        w.model <- binsreg.model.mat(w, data=data)
+        w <- w.model$design
+        w.factor <- w.model$factor.colnum
+        if (is.data.frame(at)) {
+          eval.w <- w[nrow(w),]
+          w <- w[-nrow(w),, drop=F]
+        }
+      } else {
+        if (deparse(substitute(w)) %in% names(data)) w <- data[,deparse(substitute(w))]
+        w <- as.matrix(w)
+        if (is.character(w)) {
+          w <- model.matrix(~w)[,-1,drop=F]
+          w.factor <- rep(T, ncol(w))
+        }
+      }
+    }
+  }
+
+  if (!is.null(w)) nwvar <- ncol(w)
+  else             nwvar <- 0
+
+  # extract subset
+  if (!is.null(subset)) {
+    y <- y[subset]
+    x <- x[subset]
+    w <- w[subset, , drop = F]
+    by <- by[subset]
+    if (!is.null(cluster)) cluster <- cluster[subset]
+    if (!is.null(weights)) weights <- weights[subset]
+  }
+
+  na.ok <- complete.cases(x) & complete.cases(y)
+  if (!is.null(w))  na.ok <- na.ok & complete.cases(w)
+  if (!is.null(by)) na.ok <- na.ok & complete.cases(by)
+  if (!is.null(weights)) na.ok <- na.ok & complete.cases(weights)
+  if (!is.null(cluster)) na.ok <- na.ok & complete.cases(cluster)
+
+  y  <- y[na.ok]
+  x  <- x[na.ok]
+  w  <- w[na.ok, , drop = F]
+  by <- by[na.ok]
+  weights <- weights[na.ok]
+  cluster <- cluster[na.ok]
+
+  xmin <- min(x); xmax <- max(x)
+
+  # evaluation point of w
+  if (is.null(at))  at <- "mean"
+
+  # change method name if needed
+  if (!is.null(family)) if (family$family!="gaussian" | family$link!="identity") {
+    estmethod <- "glm"
+  }
+
+  # extract family obj
+  if (estmethod=="glm") {
+    familyname <- family$family
+    linkinv    <- family$linkinv
+    linkinv.1  <- family$mu.eta           # 1st deriv of inverse link
+    # 2nd derivative
+    if (family$link=="logit") {
+      linkinv.2 <- function(z) linkinv.1(z)*(1-2*linkinv(z))
+    } else if (family$link=="probit") {
+      linkinv.2 <- function(z) (-z)*linkinv.1(z)
+    } else if (family$link=="identity") {
+      linkinv.2 <- function(z) 0
+    } else if (family$link=="log") {
+      linkinv.2 <- function(z) linkinv(z)
+    } else if (family$link=="inverse") {
+      linkinv.2 <- function(z) 2*z^(-3)
+    } else if (family$link=="1/mu^2") {
+      linkinv.2 <- function(z) 0.75*z^(-2.5)
+    } else  if (family$link=="sqrt") {
+      linkinv.2 <- function(z) 2
+    } else  {
+      print("The specified link not allowed for computing polynomial-based CIs.")
+      stop()
+    }
+  }
+
+  # define the estimation method
+  if (estmethod=="reg") {
+    estmethod.name <- "least squares regression"
+    if (is.null(vce)) vce <- "HC1"
+    vce.select <- vce
+  } else if (estmethod=="qreg") {
+    estmethod.name <- "quantile regression"
+    if (is.null(vce)) vce <- "nid"
+    if (vce=="iid") {
+      vce.select <- "const"
+    } else {
+      vce.select <- "HC1"
+    }
+    if (is.null(quantile)) quantile <- 0.5
+  } else if (estmethod=="glm") {
+    estmethod.name <- "generalized linear model"
+    if (is.null(vce)) vce <- "HC1"
+    vce.select <- vce
+  } else {
+    print("estmethod incorrectly specified.")
+    stop()
+  }
+
+  ##################################Error Checking
+  exit <- 0
+  if (!is.character(binspos)) {
+    if (min(binspos)<=xmin|max(binspos)>=xmax) {
+      print("knots out of allowed range")
+      exit <- 1
+    }
+  } else {
+    if (binspos!="es" & binspos!="qs") {
+      print("binspos incorrectly specified.")
+      exit <- 1
+    }
+  }
+  if (length(bins)==2) if (bins[1]<bins[2]) {
+    print("p<s not allowed.")
+    exit <- 1
+  }
+  if (length(pwc)==2) if (pwc[1]<pwc[2]) {
+    print("p<s not allowed.")
+    exit <- 1
+  }
+  if (length(pwc)>=1) if (pwc[1]<deriv) {
+    print("p for test cannot be smaller than deriv.")
+    exit <- 1
+  }
+  if ((length(pwc)>=1)&(length(bins)>=1)) if (pwc[1]<=bins[1]) {
+    warning("p for testing > p for bin selection is suggested.")
+  }
+  if (exit>0) stop()
+
+  ##################################################
+  # Prepare options
+  bins.p <- bins[1]; bins.s <- bins[2]
+  tsha.p <- pwc[1]; tsha.s <- pwc[2]
+
+  #########################################
+  if (binsmethod=="dpi") {
+    selectmethod <- "IMSE direct plug-in"
+  } else {
+    selectmethod <- "IMSE rule-of-thumb"
+  }
+  nbins_all <- NULL
+  if (length(bynbins)==1) nbins_all <- bynbins         # "nbins" is reserved for use within loop
+  if (!is.null(bynbins)) {
+    selectmethod <- "User-specified"
+  }
+
+  ###############################################
+  localcheck <- massadj <- T; fewmasspoints <- F
+  if (masspoints=="on") {
+    localcheck <- T; massadj <- T
+  } else if (masspoints=="off") {
+    localcheck <- F; massadj <- F
+  } else if (masspoints=="noadjust") {
+    localcheck <- T; massadj <- F
+  } else if (masspoints=="nolocalcheck") {
+    localcheck <- F; massadj <- T
+  } else if (masspoints=="veryfew") {
+    print("veryfew not allowed for testing.")
+    stop()
+  }
+
+  #############################
+  # Extract byvals in by ######
+  byvals <- sort(unique(by))
+  ngroup <- length(byvals)
+
+  # extract the range for each group
+  xrange <- sapply(byvals, function(byv) range(x[by == byv]))
+  xminmat <- xrange[1,]; xmaxmat <- xrange[2,]
+
+  knot <- NULL
+  knotlistON <- F
+  if (!is.character(binspos)) {
+    nbins_all <- length(binspos)+1
+    knot <- c(xmin, sort(binspos), xmax)
+    position <- "User-specified"
+    es <- F
+    selectmethod <- "User-specified"
+    knotlistON <- T
+  } else {
+    if (binspos == "es") {
+      es <- T
+      position <- "Evenly-spaced"
+    } else {
+      es <- F
+      position <- "Quantile-spaced"
+    }
+  }
+  Ndist <- Nclust <- NA
+
+  ################################################
+  ### Bin selection using full sample if needed ##
+  selectfullON <- F
+  if (is.null(nbins_all) & samebinsby) selectfullON <- T
+  if (selectfullON) {
+    # effective size
+    eN <- N <- length(x)
+
+    if (massadj) {
+      Ndist <- length(unique(x))
+      eN <- min(eN, Ndist)
+    }
+
+    if (!is.null(cluster)) {
+      Nclust <- length(unique(cluster))
+      eN <- min(eN, Nclust)
+    }
+
+    # check if rot can be implemented
+    if (is.null(nbinsrot)) {
+      if (eN <= dfcheck[1]+bins.p+1+qrot) {
+        warning("too small effective sample size for bin selection.")
+        stop()
+      }
+    }
+
+    if (is.na(Ndist))  {
+      Ndist.sel <- NULL
+    } else {
+      Ndist.sel <- Ndist
+    }
+    if (is.na(Nclust)) {
+      Nclust.sel <- NULL
+    } else {
+      Nclust.sel <- Nclust
+    }
+    binselect <- binsregselect(y, x, w, deriv=deriv,
+                               bins=bins, binspos=binspos,
+                               binsmethod=binsmethod, nbinsrot=nbinsrot,
+                               vce=vce.select, cluster=cluster, randcut=randcut,
+                               dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                               numdist=Ndist.sel, numclust=Nclust.sel)
+    if (is.na(binselect$nbinsrot.regul)) {
+      print("bin selection fails.")
+      stop()
+    }
+    if (binsmethod == "rot") {
+      nbins_all <- binselect$nbinsrot.regul
+    } else if (binsmethod == "dpi") {
+      nbins_all <- binselect$nbinsdpi
+      if (is.na(nbins_all)) {
+        warning("DPI selection fails. ROT choice used.")
+        nbins_all <- binselect$nbinsrot.regul
+      }
+    }
+  }
+
+  # Generate knot using the full sample if needed
+  if ((selectfullON | (!is.null(nbins_all) & samebinsby)) & is.null(knot)) {
+    knotlistON <- T
+    if (es) {
+      knot <- genKnot.es(xmin, xmax, nbins_all)
+    } else {
+      knot <- genKnot.qs(x, nbins_all)
+    }
+  }
+
+  knot_all <- NULL
+  if (knotlistON) {
+     knot_all <- knot    # universal knot sequence
+  }
+
+  ##########################################
+  if (!is.null(simsseed)) set.seed(simsseed)
+  # common grid
+  uni_grid <- seq(max(xminmat), min(xmaxmat), length=simsgrid+2)[-c(1,simsgrid+2)]
+
+  # adjust w variables
+  if (!is.null(w)) {
+    if (is.character(at)) {
+      if (at=="mean") {
+        eval.w <- colWeightedMeans(x=w, w=weights)
+        if (!is.null(w.factor)) eval.w[w.factor] <- 0
+      } else if (at=="median") {
+        eval.w <- colWeightedMedians(x=w, w=weights)
+        if (!is.null(w.factor)) eval.w[w.factor] <- 0
+      } else if  (at=="zero") {
+        eval.w <- rep(0, nwvar)
+      }
+    } else if (is.vector(at)) {
+      eval.w <- at
+    } else if (is.data.frame(at)) {
+      eval.w <- eval.w
+    }
+  } else {
+    eval.w <- NULL
+  }
+
+  ##################################################################
+  N.by <- Ndist.by <- Nclust.by <- nbins.by <- cval.by <- NULL   # save results
+  fit.sha <- se.sha <- nummat <- denom <- list()
+  tstat <- matrix(NA, ngroup*(ngroup-1)/2, 3); pval <- matrix(NA, ngroup*(ngroup-1)/2, 1)
+  counter <- 1
+
+  ##################################################################
+  ##################### ENTER the loop #############################
+  ##################################################################
+  for (i in 1:ngroup) {
+    # Take subsample
+    sub <- (by == byvals[i])
+    y.sub <- y[sub]; x.sub <- x[sub]; w.sub <- w[sub, , drop = F]
+    cluster.sub <- cluster[sub]; weights.sub <- weights[sub]
+
+    # Effective size
+    xmin <- min(x.sub); xmax <- max(x.sub)
+    eN <- N <- length(x.sub)
+    N.by <- c(N.by, N)
+
+    Ndist <- NA
+    if (massadj) {
+      Ndist <- length(unique(x.sub))
+      eN <- min(eN, Ndist)
+    }
+    Ndist.by <- c(Ndist.by, Ndist)
+
+    Nclust <- NA
+    if (!is.null(cluster.sub)) {
+      Nclust <- length(unique(cluster.sub))
+      eN <- min(eN, Nclust)
+    }
+    Nclust.by <- c(Nclust.by, Nclust)
+
+    #########################################################
+    ############### Bin selection within loop ###############
+    nbins <- NULL; knot <- NULL                       # initialize again
+    if (!is.null(nbins_all)) nbins <- nbins_all
+    if (length(bynbins)>1)   nbins <- bynbins[i]
+
+    if (is.null(nbins) & !knotlistON) {
+      # check if rot can be implemented
+      if (is.null(nbinsrot)) if (eN <= dfcheck[1]+bins.p+1+qrot) {
+          warning("too small effective sample size for bin selection.")
+          stop()
+      }
+
+      if (is.na(Ndist))  {
+        Ndist.sel <- NULL
+      } else {
+        Ndist.sel <- Ndist
+      }
+      if (is.na(Nclust)) {
+        Nclust.sel <- NULL
+      } else {
+        Nclust.sel <- Nclust
+      }
+      binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+                                 bins=bins, binspos=binspos,
+                                 binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                 vce=vce.select, cluster=cluster.sub, randcut=randcut,
+                                 dfcheck=dfcheck, masspoints=masspoints, weights=weights.sub,
+                                 numdist=Ndist.sel, numclust=Nclust.sel)
+      if (is.na(binselect$nbinsrot.regul)) {
+        print("bin selection fails.")
+        stop()
+      }
+      if (binsmethod == "rot") {
+        nbins <- binselect$nbinsrot.regul
+      } else if (binsmethod == "dpi") {
+        nbins <- binselect$nbinsdpi
+        if (is.na(nbins)) {
+          warning("DPI selection fails. ROT choice used.")
+          nbins <- binselect$nbinsrot.regul
+        }
+      }
+    }
+
+    if (knotlistON) {
+      nbins <- length(knot_all)-1
+      knot  <- knot_all
+    }
+
+    ###########################################
+    # Checking for each case
+    if ((nbins-1)*(tsha.p-tsha.s+1)+tsha.p+1+dfcheck[2]>=eN) {
+      warning("too small effective sample size for testing shape.")
+    }
+
+    ####################################
+    ########### Generate knot ##########
+    ####################################
+    if (is.null(knot)) {
+      if (es) knot <- genKnot.es(xmin, xmax, nbins)
+      else    knot <- genKnot.qs(x.sub, nbins)
+    }
+
+    # knot for few mass points
+    knot <- c(knot[1], unique(knot[-1]))
+    if (nbins!=length(knot)-1) {
+      warning("repeated knots. Some bins dropped.")
+      nbins <- length(knot)-1
+    }
+
+    # NOW, save nbins
+    nbins.by <- c(nbins.by, nbins)
+
+    # check local mass points
+    if (localcheck) {
+      uniqmin <- binsreg.checklocalmass(x.sub, nbins, es, knot=knot) # mimic STATA
+      if (uniqmin < tsha.p+1) {
+        warning("some bins have too few distinct values of x for testing.")
+      }
+    }
+
+    #######################################
+    ###### Estimation #####################
+    #######################################
+    B    <- binsreg.spdes(eval=x.sub, p=tsha.p, s=tsha.s, knot=knot, deriv=0)
+    k    <- ncol(B)
+    P    <- cbind(B, w.sub)
+    if (estmethod=="reg") {
+      model <- lm(y.sub ~ P-1, weights=weights.sub)
+    } else if (estmethod=="qreg") {
+      model <- rq(y.sub ~ P-1, tau=quantile, weights=weights.sub)
+    } else if (estmethod=="glm") {
+      model <- glm(y.sub ~ P-1, family=family, weights=weights.sub)
+    }
+    beta <- model$coeff[1:k]
+    basis.sha <- binsreg.spdes(eval=uni_grid, p=tsha.p, s=tsha.s, knot=knot, deriv=deriv)
+
+    if (estmethod=="glm" & (!nolink)) {
+      pred.sha <- binsreg.pred(X=basis.sha, model=model, type="all",
+                               vce=vce, cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar)
+      basis.0     <- binsreg.spdes(eval=uni_grid, p=tsha.p, s=tsha.s, knot=knot, deriv=0)
+      fit.0       <- binsreg.pred(basis.0, model, type = "xb", vce=vce, cluster=cluster.sub, deriv=0, wvec=eval.w)$fit
+      pred.sha.0  <- linkinv.1(fit.0)
+
+      if (asyvar | deriv==0) {
+        pred.sha$se  <- pred.sha.0 * pred.sha$se
+        if (deriv == 0) pred.sha$fit <- linkinv(pred.sha$fit)
+        if (deriv == 1) pred.sha$fit <- pred.sha.0 * pred.sha$fit
+      } else {
+        basis.sha.1 <- basis.sha
+        if (!is.null(eval.w)) {
+          basis.sha.0 <- cbind(basis.0, outer(rep(1, nrow(basis.0)), eval.w))
+          basis.sha.1 <- cbind(basis.sha.1, outer(rep(1, nrow(basis.sha.1)), rep(0, nwvar)))
+        }
+        basis.all <- linkinv.2(fit.0)*pred.sha$fit*basis.sha.0 + pred.sha.0*basis.sha.1
+        pred.sha$fit <- pred.sha.0 * pred.sha$fit
+        pred.sha$se  <- binsreg.pred(basis.all, model=model, type="se",
+                                     vce=vce, cluster=cluster.sub, avar=T)$se
+      }
+    } else {
+      if (estmethod=="qreg") {
+        pred.sha  <- binsreg.pred(basis.sha, model, type = "all", vce=vce,
+                                  cluster=cluster.sub, deriv=deriv, wvec=eval.w,
+                                  is.qreg=TRUE, avar=asyvar, ...)
+      } else {
+        pred.sha  <- binsreg.pred(basis.sha, model, type = "all", vce=vce,
+                                  cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar)
+      }
+    }
+    fit.sha[[i]] <- pred.sha$fit
+    se.sha[[i]]  <- pred.sha$se
+
+    pos   <- !is.na(beta)
+    k.new <- sum(pos)
+    if (estmethod=="qreg") vcv.sha <- binsreg.vcov(model, type=vce, cluster=cluster.sub, is.qreg=TRUE, ...)[1:k.new, 1:k.new]
+    else                   vcv.sha <- binsreg.vcov(model, type=vce, cluster=cluster.sub)[1:k.new, 1:k.new]
+    Sigma.root <- lssqrtm(vcv.sha)
+    nummat[[i]] <- basis.sha[,pos,drop=F] %*% Sigma.root
+    denom[[i]]  <- sqrt(rowSums((basis.sha[, pos, drop=F] %*% vcv.sha) * basis.sha[, pos, drop=F]))
+
+    # second loop over 1:(i-1)
+    if (i>1) {
+      for (j in 1:(i-1)) {
+        if (testtype=="left") {
+          tstat[counter,] <- c(max((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2)), i, j)
+        } else if (testtype=="right") {
+          tstat[counter,] <- c(min((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2)), i, j)
+        } else {
+          if (is.infinite(lp)) {
+            tstat[counter,] <- c(max(abs((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2))), i, j)
+          } else {
+            tstat[counter,] <- c(mean(((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2))^lp)^(1/lp), i, j)
+          }
+        }
+
+        pval[counter,1] <- binspwc.pval(nummat[[i]], nummat[[j]], denom[[i]], denom[[j]], nsims, tstat=tstat[counter,1], testtype=testtype, lp=lp)
+        counter <- counter+1
+      }
+    }
+  }
+
+
+  ######################################
+  ########### Output ###################
+  ######################################
+  out <- list(tstat=tstat, pval=pval,
+              opt=list(bins.p=bins.p, bins.s=bins.s, deriv=deriv,
+                       pwc.p=tsha.p, pwc.s=tsha.s, byname=byname, testtype=testtype,
+                       binspos=position, binsmethod=selectmethod,
+                       N.by=N.by, Ndist.by=Ndist.by, Nclust.by=Nclust.by,
+                       nbins.by=nbins.by, byvals=byvals, lp=lp,
+                       estmethod=estmethod.name, quantile=quantile, family=family))
+  out$call <- match.call()
+  class(out) <- "CCFFbinspwc"
+  return(out)
+}
+
+
+##########################################################################
+#' Internal function.
+#'
+#' @param x Class \code{CCFFbinspwc} objects.
+#'
+#' @keywords internal
+#' @export
+#'
+
+print.CCFFbinspwc <- function(x, ...) {
+  cat("Call: binspwc\n\n")
+
+  cat("Pairwise Group Comparison\n")
+  cat(paste("Group Variable                     =  ", x$opt$byname,    "\n", sep=""))
+  cat(paste("Estimation Method (estmethod)      =  ", x$opt$estmethod, "\n", sep=""))
+  cat(paste("degree (p)                         =  ", x$opt$pwc.p,     "\n", sep=""))
+  cat(paste("smooth (s)                         =  ", x$opt$pwc.s,     "\n", sep=""))
+  cat(paste("Derivative (deriv)                 =  ", x$opt$deriv,     "\n", sep=""))
+  cat(paste("Bin selection:", "\n"))
+  cat(paste("  Method (binsmethod)              =  ", x$opt$binsmethod,"\n", sep=""))
+  cat(paste("  Placement (binspos)              =  ", x$opt$binspos,   "\n", sep=""))
+  cat(paste("  degree (p)                       =  ", x$opt$bins.p,     "\n", sep=""))
+  cat(paste("  smooth (s)                       =  ", x$opt$bins.s,     "\n", sep=""))
+  cat("\n")
+  for (i in 1:length(x$opt$byvals)) {
+    cat(paste("Group (by)                         =  ", x$opt$byvals[i],    "\n", sep=""))
+    cat(paste("Sample size (n)                    =  ", x$opt$N.by[i],      "\n", sep=""))
+    cat(paste("# of distinct values (Ndist)       =  ", x$opt$Ndist.by[i],  "\n", sep=""))
+    cat(paste("# of clusters (Nclust)             =  ", x$opt$Nclust.by[i], "\n", sep=""))
+    cat(paste("# of bins (nbins)                  =  ", x$opt$nbins.by[i],  "\n", sep=""))
+    cat("\n")
+  }
+}
+
+################################################################################
+#' Internal function.
+#'
+#' @param object Class \code{CCFFbinspwc} objects.
+#'
+#' @keywords internal
+#' @export
+summary.CCFFbinspwc <- function(object, ...) {
+  x <- object
+  args <- list(...)
+
+  cat("Call: binspwc\n\n")
+
+  cat("Pairwise Group Comparison\n")
+  cat(paste("Group Variable                     =  ", x$opt$byname,    "\n", sep=""))
+  cat(paste("Estimation Method (estmethod)      =  ", x$opt$estmethod, "\n", sep=""))
+  cat(paste("degree (p)                         =  ", x$opt$pwc.p,     "\n", sep=""))
+  cat(paste("smooth (s)                         =  ", x$opt$pwc.s,     "\n", sep=""))
+  cat(paste("Derivative (deriv)                 =  ", x$opt$deriv,     "\n", sep=""))
+  cat(paste("Bin selection:", "\n"))
+  cat(paste("  Method (binsmethod)              =  ", x$opt$binsmethod,"\n", sep=""))
+  cat(paste("  Placement (binspos)              =  ", x$opt$binspos,   "\n", sep=""))
+  cat(paste("  degree (p)                       =  ", x$opt$bins.p,    "\n", sep=""))
+  cat(paste("  smooth (s)                       =  ", x$opt$bins.s,    "\n", sep=""))
+  cat("\n")
+
+  for (i in 1:nrow(x$tstat)) {
+    g1 <- x$tstat[i,2]; g2 <- x$tstat[i,3]
+    group1 <- x$opt$byvals[g1]; group2 <- x$opt$byvals[g2]
+    cat(paste("Group", group1, " vs. Group", group2)); cat("\n")
+    cat(paste(rep("=", 22 + 12 + 12), collapse=""));  cat("\n")
+    cat(format(paste("Group ", x$opt$byname, " =", sep=""), width = 22, justify = "left"))
+    cat(format(group1,          width = 12, justify = "right"))
+    cat(format(group2,          width = 12, justify = "right"))
+    cat("\n")
+    cat(paste(rep("-", 22 + 12 + 12), collapse="")); cat("\n")
+    cat("\n")
+    cat(format("Sample size",     width=22, justify="left"))
+    cat(format(x$opt$N.by[g1],    width=12, justify="right"))
+    cat(format(x$opt$N.by[g2],    width=12, justify="right"))
+    cat("\n")
+    cat(format("# of distinct values", width=22, justify="left"))
+    cat(format(x$opt$Ndist.by[g1],     width=12, justify="right"))
+    cat(format(x$opt$Ndist.by[g2],     width=12, justify="right"))
+    cat("\n")
+    cat(format("# of clusters",    width=22, justify="left"))
+    cat(format(x$opt$Nclust.by[g1], width=12, justify="right"))
+    cat(format(x$opt$Nclust.by[g2], width=12, justify="right"))
+    cat("\n")
+    cat(format("# of bins",        width=22, justify="left"))
+    cat(format(x$opt$nbins.by[g1], width=12, justify="right"))
+    cat(format(x$opt$nbins.by[g2], width=12, justify="right"))
+    cat("\n")
+    cat(paste(rep("-", 22 + 12 + 12), collapse="")); cat("\n")
+    cat("\n")
+
+    cat(paste("diff = Group", group1, "- Group", group2, sep=" ")); cat("\n")
+    cat(paste(rep("=", 15 + 12 + 12), collapse="")); cat("\n")
+    if (x$opt$testtype=="left") {
+      cat(format("H0:",     width = 15, justify = "left"))
+      cat(format("sup T",   width = 12, justify = "right"))
+      cat(format("p value", width = 12, justify = "right"))
+      cat("\n")
+      cat(paste(rep("-", 15 + 12 + 12), collapse="")); cat("\n")
+      cat(format("diff<=0", width = 15, justify = "left"))
+      cat(format(sprintf("%3.3f", x$tstat[i,1]), width = 12, justify = "right"))
+      cat(format(sprintf("%3.3f", x$pval[i,1]),  width = 12, justify = "right"))
+      cat("\n")
+      cat(paste(rep("-", 15 + 12 + 12), collapse=""))
+      cat("\n")
+    } else if (x$opt$testtype=="right") {
+      cat(format("H0:",     width = 15, justify = "left"))
+      cat(format("inf T",   width = 12, justify = "right"))
+      cat(format("p value", width = 12, justify = "right"))
+      cat("\n")
+      cat(paste(rep("-", 15 + 12 + 12), collapse="")); cat("\n")
+      cat(format("diff>=0", width = 15, justify = "left"))
+      cat(format(sprintf("%3.3f", x$tstat[i,1]), width = 12, justify = "right"))
+      cat(format(sprintf("%3.3f", x$pval[i,1]),  width = 12, justify = "right"))
+      cat("\n")
+      cat(paste(rep("-", 15 + 12 + 12), collapse=""))
+      cat("\n")
+    } else {
+      if (is.infinite(x$opt$lp)) {
+        cat(format("H0:",     width = 15, justify = "left"))
+        cat(format("sup |T|", width = 12, justify = "right"))
+        cat(format("p value", width = 12, justify = "right"))
+        cat("\n")
+        cat(paste(rep("-", 15 + 12 + 12), collapse="")); cat("\n")
+        cat(format("diff=0", width = 15, justify = "left"))
+        cat(format(sprintf("%3.3f", x$tstat[i,1]), width = 12, justify = "right"))
+        cat(format(sprintf("%3.3f", x$pval[i,1]),  width = 12, justify = "right"))
+        cat("\n")
+        cat(paste(rep("-", 15 + 12 + 12), collapse=""))
+        cat("\n")
+      } else {
+        cat(format("H0:",     width = 15, justify = "left"))
+        cat(format(paste("L", x$opt$lp, " of T", sep=""), width = 12, justify = "right"))
+        cat(format("p value", width = 12, justify = "right"))
+        cat("\n")
+        cat(paste(rep("-", 15 + 12 + 12), collapse="")); cat("\n")
+        cat(format("diff=0", width = 15, justify = "left"))
+        cat(format(sprintf("%3.3f", x$tstat[i,1]), width = 12, justify = "right"))
+        cat(format(sprintf("%3.3f", x$pval[i,1]),  width = 12, justify = "right"))
+        cat("\n")
+        cat(paste(rep("-", 15 + 12 + 12), collapse=""))
+        cat("\n")
+      }
+    }
+    cat("\n"); cat("\n")
+  }
+  cat("\n")
+}

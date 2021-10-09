@@ -1,4 +1,4 @@
-*! version 0.6 07-AUG-2021  
+*! version 0.7 09-Oct-2021  
 
 capture program drop binspwc
 program define binspwc, eclass
@@ -547,7 +547,7 @@ program define binspwc, eclass
 		else {
 		   local byvalname `: label `bylabel' `byval''
 		}
-		local byvalnamelist `byvalnamelist' `byvalname'
+		local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		
 		mata: `byindex'=`byvec':==`byval'
 		mata: `xsub'=select(`xvec',`byindex'); `ysub'=select(`yvec', `byindex')

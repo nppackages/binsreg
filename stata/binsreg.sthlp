@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.6 07-AUG-2021}{...}
+{* *! version 0.7 09-OCT-2021}{...}
 {viewerjumpto "Syntax" "binsreg##syntax"}{...}
 {viewerjumpto "Description" "binsreg##description"}{...}
 {viewerjumpto "Options" "binsreg##options"}{...}
@@ -97,7 +97,7 @@ When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe
 
 {p 4 8} {it:Important:} 
 
-{p 6 9} 1. Fixed effects added via {cmd:absorb()} are not used in the evaluation of the estimated function,
+{p 6 9} 1. Fixed effects added via {cmd:absorb()} are included in the estimation procedure but excluded from the evaluation of the estimated function (set as zero),
 regardless of the option specified within {cmd:at()}.
 To plot the binscatter function for a particular category of interest, save the values of {it:othercovs}
 at which the function is evaluated in another file, say,
