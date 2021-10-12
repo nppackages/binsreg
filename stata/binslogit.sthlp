@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.7 09-OCT-2021}{...}
+{* *! version 0.8 12-OCT-2021}{...}
 {viewerjumpto "Syntax" "binslogit##syntax"}{...}
 {viewerjumpto "Description" "binslogit##description"}{...}
 {viewerjumpto "Options" "binslogit##options"}{...}

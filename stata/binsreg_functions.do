@@ -1,4 +1,4 @@
-* version 0.7, 09-OCT-2021
+* version 0.8, 12-OCT-2021
 *****************************************************************
 ****** This file contains necessary mata functions used in ******
 ******************** BINSREG Package ****************************

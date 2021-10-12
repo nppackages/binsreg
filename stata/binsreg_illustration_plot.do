@@ -1,7 +1,7 @@
 /*******************************************************************************
 Binsreg: illustration file for plot
 # Authors: M. D. Cattaneo, R. Crump, M. Farrell, Y. Feng and Ricardo Masini
-# Last update: Oct 9, 2021
+# Last update: Oct 12, 2021
 *******************************************************************************/
 *******************************************************************************/
 ** net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/master/stata) replace

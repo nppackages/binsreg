@@ -1,4 +1,4 @@
-*! version 0.7 09-Oct-2021 
+*! version 0.8 12-Oct-2021 
 
 capture program drop binsprobit
 program define binsprobit, eclass
@@ -517,7 +517,7 @@ program define binsprobit, eclass
 		    }
 	     }
 	     else if ("`binspos'"=="QS") {
-			 if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
+			 if (`nbins'==1)  mat `fullkmat'=(`xmin' \ `xmax')
 		     else {		
 	           binsreg_pctile `x_var' `wt', nq(`nbins') `usegtools'
 		       mat `fullkmat'=(`xmin' \ r(Q) \ `xmax')
