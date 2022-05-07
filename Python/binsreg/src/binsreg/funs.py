@@ -912,10 +912,12 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
 
     est = binsreg_fit(y, P, weights = weights)
     beta = est.params
-    est = est.fittedvalues
+    # est = est.fittedvalues
+    est = est.fittedvalues.reshape(-1,1)
 
     # variance constant
-    s2 =  binsreg_fit(y**2, P, weights = weights).fittedvalues - est**2
+    #s2 =  binsreg_fit(y**2, P, weights = weights).fittedvalues - est**2
+    s2 =  binsreg_fit(y**2, P, weights = weights).fittedvalues.reshape(-1,1) - est**2
     if norotnorm: fz = 1
     else:
         mu, sig = binsreg_summ(x, w=weights, std=True)
