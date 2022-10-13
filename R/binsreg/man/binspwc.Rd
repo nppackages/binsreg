@@ -6,13 +6,14 @@
 \usage{
 binspwc(y, x, w = NULL, data = NULL, estmethod = "reg",
   family = gaussian(), quantile = NULL, deriv = 0, at = NULL,
-  nolink = F, by = NULL, pwc = c(3, 3), testtype = "two-sided",
-  lp = Inf, bins = c(2, 2), bynbins = NULL, binspos = "qs",
-  binsmethod = "dpi", nbinsrot = NULL, samebinsby = FALSE,
-  randcut = NULL, nsims = 500, simsgrid = 20, simsseed = NULL,
-  vce = NULL, cluster = NULL, asyvar = F, dfcheck = c(20, 30),
-  masspoints = "on", weights = NULL, subset = NULL, numdist = NULL,
-  numclust = NULL, ...)
+  nolink = F, by = NULL, pwc = NULL, testtype = "two-sided",
+  lp = Inf, bins = NULL, bynbins = NULL, binspos = "qs",
+  pselect = NULL, sselect = NULL, binsmethod = "dpi", nbinsrot = NULL,
+  samebinsby = FALSE, randcut = NULL, nsims = 500, simsgrid = 20,
+  simsseed = NULL, vce = NULL, cluster = NULL, asyvar = F,
+  dfcheck = c(20, 30), masspoints = "on", weights = NULL,
+  subset = NULL, numdist = NULL, numclust = NULL, estmethodopt = NULL,
+  ...)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -44,9 +45,10 @@ are supported. When \code{by} is specified, \code{binsreg} implements estimation
 separately, but produces a common binned scatter plot. By default, the binning structure is selected for each
 subgroup separately, but see the option \code{samebinsby} below for imposing a common binning structure across subgroups.}
 
-\item{pwc}{a vector. \code{pwc=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s}
-smoothness constraints for testing the difference between groups. The default is
-\code{pwc=c(3,3)}, which corresponds to a cubic B-spline estimate of the function of interest for each group.}
+\item{pwc}{a vector or a logical value. If \code{pwc=c(p,s)}, a piecewise polynomial of degree \code{p} with \code{s}
+smoothness constraints is used for testing the difference between groups.
+If \code{pwc=T} or \code{pwc=NULL} (default) is specified, \code{pwc=c(1,1)} is used unless the degree \code{p} and smoothness \code{s} selection
+is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).}
 
 \item{testtype}{type of pairwise comparison test. The default is \code{testtype="two-sided"}, which corresponds to a two-sided test of the form \code{H0: mu_1(x)=mu_2(x)}.
 Other options are: \code{testtype="left"} for the one-sided test form \code{H0: mu_1(x)<=mu_2(x)} and \code{testtype="right"} for the one-sided test of the form \code{H0: mu_1(x)>=mu_2(x)}.}
@@ -54,15 +56,30 @@ Other options are: \code{testtype="left"} for the one-sided test form \code{H0: 
 \item{lp}{an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
 corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive integer \code{q}.}
 
-\item{bins}{A vector. Degree and smoothness for bin selection. The default is \code{bins=c(2,2)}, which corresponds to a quadratic spline estimate.}
+\item{bins}{A vector. If \code{bins=c(p,s)}, it sets the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
+for data-driven (IMSE-optimal) selection of the partitioning/binning scheme. The default is \code{bins=c(0,0)}, which corresponds to the piecewise constant.}
 
 \item{bynbins}{a vector of the number of bins for partitioning/binning of \code{x}, which is applied to the binscatter estimation for each group.
-If not specified, the number of bins is selected via the companion function \code{binsregselect} in a data-driven way whenever possible.}
+If a single number is specified, it is applied to the estimation for all groups.
+If \code{bynbins=T} or \code{bynbins=NULL} (default), the number of bins is selected via the companion function \code{\link{binsregselect}}
+in a data-driven way whenever possible.
+\emph{Note:} If a vector with more than one number is supplied, it is understood as the number of bins applied to binscatter estimation
+for each subgroup rather than the range for selecting the number of bins.}
 
 \item{binspos}{position of binning knots. The default is \code{binspos="qs"}, which corresponds to quantile-spaced
 binning (canonical binscatter).  The other options are \code{"es"} for evenly-spaced binning, or
-a vector for manual specification of the positions of inner knots (which must be within the range of
-\code{x}).}
+a vector for manual specification of the positions of inner knots (which must be within the range of \code{x}).}
+
+\item{pselect}{vector of numbers within which the degree of polynomial \code{p} for point estimation is selected.
+If the selected optimal degree is \code{p}, then piecewise polynomials of degree \code{p+1} are used to
+conduct pairwise group comparison. \emph{Note:} To implement the degree or smoothness selection, in addition to \code{pselect} or \code{sselect},
+\code{bynbins=#} must be specified.}
+
+\item{sselect}{vector of numbers within which the number of smoothness constraints \code{s} for point estimation is selected.
+ If the selected optimal smoothness is \code{s}, then piecewise polynomials with \code{s+1} smoothness constraints
+ are used to conduct pairwise group comparison.
+If not specified, for each value \code{p} supplied in the option \code{pselect}, only the
+piecewise polynomial with the maximum smoothness is considered, i.e., \code{s=p}.}
 
 \item{binsmethod}{method for data-driven selection of the number of bins. The default is \code{binsmethod="dpi"},
 which corresponds to the IMSE-optimal direct plug-in rule.  The other option is: \code{"rot"}
@@ -76,17 +93,19 @@ The knots positions are selected according to the option \code{binspos} and usin
 is not specified, then the number of bins is selected via the companion command \code{\link{binsregselect}} and
 using the full sample.}
 
-\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-Observations for which \code{runif()<=#} are used. # must be between 0 and 1.}
+\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
+Observations for which \code{runif()<=#} are used. # must be between 0 and 1. By default, \code{max(5,000, 0.01n)} observations
+are used if the samples size \code{n>5,000}.}
 
 \item{nsims}{number of random draws for hypothesis testing. The default is
 \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
-\code{[(p+1)*J - (J-1)*s]}.}
+\code{[(p+1)*J - (J-1)*s]}. A larger number of draws is recommended to obtain the final results.}
 
 \item{simsgrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 the supremum (infimum or Lp metric) operation needed to construct hypothesis testing
 procedures. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
-evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.}
+evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+A larger number of evaluation points is recommended to obtain the final results.}
 
 \item{simsseed}{seed for simulation.}
 
@@ -95,13 +114,13 @@ For quantile regression, the allowed options are the same as that for \code{\lin
 
 \item{cluster}{cluster ID. Used for compute cluster-robust standard errors.}
 
-\item{asyvar}{If true, the standard error of the nonparametric component is computed and the uncertainty related to control
+\item{asyvar}{if true, the standard error of the nonparametric component is computed and the uncertainty related to control
 variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.}
 
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -118,9 +137,11 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 
 \item{subset}{optional rule specifying a subset of observations to be used.}
 
-\item{numdist}{Number of distinct for selection. Used to speed up computation.}
+\item{numdist}{number of distinct for selection. Used to speed up computation.}
 
-\item{numclust}{Number of clusters for selection. Used to speed up computation.}
+\item{numclust}{number of clusters for selection. Used to speed up computation.}
+
+\item{estmethodopt}{a list of optional arguments used by \code{\link{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).}
 
 \item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link{boot.rq}}.}
 }
@@ -129,13 +150,17 @@ a numeric vector. For more details, see \code{\link{lm}}.}
                           The null hypothesis is \code{mu_i(x)<=mu_j(x)}, \code{mu_i(x)=mu_j(x)}, or \code{mu_i(x)>=mu_j(x)} for group i (given in the second column) and group j (given in the third column).
                           The group number corresponds to the list of group names given by \code{opt$byvals}.}
        \item{\code{pval}}{A vector of p-values for all pairwise group comparisons.}
+       \item{\code{imse.var.rot}}{Variance constant in IMSE expansion, ROT selection.}
+       \item{\code{imse.bsq.rot}}{Bias constant in IMSE expansion, ROT selection.}
+       \item{\code{imse.var.dpi}}{Variance constant in IMSE expansion, DPI selection.}
+       \item{\code{imse.bsq.dpi}}{Bias constant in IMSE expansion, DPI selection.}
        \item{\code{opt}}{ A list containing options passed to the function, as well as \code{N.by} (total sample size for each group),
                           \code{Ndist.by} (number of distinct values in \code{x} for each group), \code{Nclust.by} (number of clusters for each group),
                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
 }
 \description{
 \code{binspwc} implements hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the
-            results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+            results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
             If the binning scheme is not set by the user, the companion function
             \code{\link{binsregselect}} is used to implement binscatter in a data-driven way. Binned scatter plots based on different methods
             can be constructed using the companion functions \code{\link{binsreg}}, \code{\link{binsqreg}} or \code{\link{binsglm}}.
@@ -148,9 +173,9 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  binspwc(y,x, by=t)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}, \code{\link{binstest}}.

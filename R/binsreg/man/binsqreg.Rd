@@ -5,16 +5,17 @@
 \title{Data-Driven Binscatter Quantile Regression with Robust Inference Procedures and Plots}
 \usage{
 binsqreg(y, x, w = NULL, data = NULL, at = NULL, quantile = 0.5,
-  deriv = 0, dots = c(0, 0), dotsgrid = 0, dotsgridmean = T,
+  deriv = 0, dots = NULL, dotsgrid = 0, dotsgridmean = T,
   line = NULL, linegrid = 20, ci = NULL, cigrid = 0, cigridmean = T,
   cb = NULL, cbgrid = 20, polyreg = NULL, polyreggrid = 20,
   polyregcigrid = 0, by = NULL, bycolors = NULL, bysymbols = NULL,
   bylpatterns = NULL, legendTitle = NULL, legendoff = F, nbins = NULL,
-  binspos = "qs", binsmethod = "dpi", nbinsrot = NULL, samebinsby = F,
-  randcut = NULL, nsims = 500, simsgrid = 20, simsseed = NULL,
-  vce = "nid", cluster = NULL, asyvar = F, level = 95, noplot = F,
-  dfcheck = c(20, 30), masspoints = "on", weights = NULL,
-  subset = NULL, plotxrange = NULL, plotyrange = NULL, ...)
+  binspos = "qs", binsmethod = "dpi", nbinsrot = NULL, pselect = NULL,
+  sselect = NULL, samebinsby = F, randcut = NULL, nsims = 500,
+  simsgrid = 20, simsseed = NULL, vce = "nid", cluster = NULL,
+  asyvar = F, level = 95, noplot = F, dfcheck = c(20, 30),
+  masspoints = "on", weights = NULL, subset = NULL, plotxrange = NULL,
+  plotyrange = NULL, qregopt = NULL, ...)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -35,9 +36,12 @@ the mean of \code{w}. Other options are: \code{at="median"} for the median of \c
 \item{deriv}{derivative order of the regression function for estimation, testing and plotting.
 The default is \code{deriv=0}, which corresponds to the function itself.}
 
-\item{dots}{a vector. \code{dots=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints for
-point estimation and plotting as "dots". The default is \code{dots=c(0,0)}, which corresponds to
-piecewise constant (canonical binscatter)}
+\item{dots}{a vector or a logical value. If \code{dots=c(p,s)}, a piecewise polynomial of degree \code{p} with
+\code{s} smoothness constraints is used for point estimation and plotting as "dots".
+The default is \code{dots=c(0,0)}, which corresponds to piecewise constant (canonical binscatter).
+If \code{dots=T}, the default \code{dots=c(0,0)} is used unless the degree \code{p} and smoothness \code{s} selection
+is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+If \code{dots=F} is specified, the dots are not included in the plot.}
 
 \item{dotsgrid}{number of dots within each bin to be plotted. Given the choice, these dots are point estimates
 evaluated over an evenly-spaced grid within each bin. The default is \code{dotsgrid=0}, and only
@@ -46,19 +50,19 @@ the point estimates at the mean of \code{x} within each bin are presented.}
 \item{dotsgridmean}{If true, the dots corresponding to the point estimates evaluated at the mean of \code{x} within each bin
 are presented. By default, they are presented, i.e., \code{dotsgridmean=T}.}
 
-\item{line}{a vector. \code{line=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
-for plotting as a "line".  By default, the line is not included in the plot unless explicitly
-specified.  Recommended specification is \code{line=c(3,3)}, which adds a cubic B-spline estimate
-of the regression function of interest to the binned scatter plot.}
+\item{line}{a vector or a logical value. If \code{line=c(p,s)}, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
+is used for plotting as a "line". If \code{line=T} is specified, \code{line=c(0,0)} is used unless the degree \code{p} and smoothness \code{s}
+selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+If \code{line=F} or \code{line=NULL} is specified, the line is not included in the plot.  The default is \code{line=NULL}.}
 
 \item{linegrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 the point estimate set by the \code{line=c(p,s)} option. The default is \code{linegrid=20},
 which corresponds to 20 evenly-spaced evaluation points within each bin for fitting/plotting the line.}
 
-\item{ci}{a vector. \code{ci=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints used for
-constructing confidence intervals. By default, the confidence intervals are not included in the plot
-unless explicitly specified.  Recommended specification is \code{ci=c(3,3)}, which adds confidence
-intervals based on cubic B-spline estimate of the regression function of interest to the binned scatter plot.}
+\item{ci}{a vector or a logical value. If \code{ci=c(p,s)} a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used for
+constructing confidence intervals. If \code{ci=T} is specified, \code{ci=c(1,1)} is used unless the degree \code{p} and smoothness \code{s}
+selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+If \code{ci=F} or \code{ci=NULL} is specified, the confidence intervals are not included in the plot.  The default is \code{ci=NULL}.}
 
 \item{cigrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
 estimate set by the \code{ci=c(p,s)} option. The default is \code{cigrid=1}, which corresponds to 1
@@ -67,10 +71,10 @@ evenly-spaced evaluation point within each bin for confidence interval construct
 \item{cigridmean}{If true, the confidence intervals corresponding to the point estimates evaluated at the mean of \code{x} within each bin
 are presented. The default is \code{cigridmean=T}.}
 
-\item{cb}{a vector. \code{cb=c(p,s)} sets a the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints used for
-constructing the confidence band. By default, the confidence band is not included in the plot unless
-explicitly specified.  Recommended specification is \code{cb=c(3,3)}, which adds a confidence band
-based on cubic B-spline estimate of the regression function of interest to the binned scatter plot.}
+\item{cb}{a vector or a logical value. If \code{cb=c(p,s)}, a the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used for
+constructing the confidence band. If the option \code{cb=T} is specified, \code{cb=c(1,1)} is used unless the degree \code{p} and smoothness \code{s}
+selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+If \code{cb=F} or \code{cb=NULL} is specified, the confidence band is not included in the plot. The default is \code{cb=NULL}.}
 
 \item{cbgrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
 estimate set by the \code{cb=c(p,s)} option. The default is \code{cbgrid=20}, which corresponds
@@ -105,8 +109,9 @@ subgroup separately, but see the option \code{samebinsby} below for imposing a c
 
 \item{legendoff}{If true, no legend is added.}
 
-\item{nbins}{number of bins for partitioning/binning of \code{x}.  If not specified, the number of bins is
-selected via the companion function \code{binsregselect} in a data-driven, optimal way whenever possible.}
+\item{nbins}{number of bins for partitioning/binning of \code{x}.  If \code{nbins=T} or \code{nbins=NULL} (default) is specified, the number
+of bins is selected via the companion command \code{\link{binsregselect}} in a data-driven, optimal way whenever possible.
+If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command \code{\link{binsregselect}}.}
 
 \item{binspos}{position of binning knots. The default is \code{binspos="qs"}, which corresponds to quantile-spaced
 binning (canonical binscatter).  The other options are \code{"es"} for evenly-spaced binning, or
@@ -120,22 +125,39 @@ for rule of thumb implementation.}
 \item{nbinsrot}{initial number of bins value used to construct the DPI number of bins selector.
 If not specified, the data-driven ROT selector is used instead.}
 
+\item{pselect}{vector of numbers within which the degree of polynomial \code{p} for point estimation is selected.
+ Piecewise polynomials of the selected optimal degree \code{p} are used to construct dots or line
+ if \code{dots=T} or \code{line=T} is specified,
+ whereas piecewise polynomials of degree \code{p+1} are used to construct confidence intervals
+ or confidence band if \code{ci=T} or \code{cb=T} is specified.
+ \emph{Note:} To implement the degree or smoothness selection, in addition to \code{pselect} or \code{sselect},
+\code{nbins=#} must be specified.}
+
+\item{sselect}{vector of numbers within which the number of smoothness constraints \code{s} for point estimation is selected.
+Piecewise polynomials with the selected optimal \code{s} smoothness constraints are used to construct dots or line
+ if \code{dots=T} or \code{line=T} is specified,
+whereas piecewise polynomials with \code{s+1} constraints are used to construct
+confidence intervals or confidence band if \code{ci=T} or \code{cb=T} is
+specified.  If not specified, for each value \code{p} supplied in the option \code{pselect}, only the piecewise polynomial
+with the maximum smoothness is considered, i.e., \code{s=p}.}
+
 \item{samebinsby}{if true, a common partitioning/binning structure across all subgroups specified by the option \code{by} is forced.
 The knots positions are selected according to the option \code{binspos} and using the full sample. If \code{nbins}
 is not specified, then the number of bins is selected via the companion command \code{\link{binsregselect}} and
 using the full sample.}
 
-\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-Observations for which \code{runif()<=#} are used. # must be between 0 and 1.}
+\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
+Observations for which \code{runif()<=#} are used. # must be between 0 and 1.  By default, \code{max(5,000, 0.01n)} observations
+are used if the samples size \code{n>5,000}.}
 
 \item{nsims}{number of random draws for constructing confidence bands. The default is
 \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
-\code{[(p+1)*J - (J-1)*s]}.}
+\code{[(p+1)*J - (J-1)*s]}. A larger number of draws is recommended to obtain the final results.}
 
 \item{simsgrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
-the supremum operation needed to construct confidence bands.
-The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
-evaluation points within each bin for approximating the supremum operator.}
+the supremum operation needed to construct confidence bands. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
+evaluation points within each bin for approximating the supremum operator.
+A larger number of evaluation points is recommended to obtain the final results.}
 
 \item{simsseed}{seed for simulation.}
 
@@ -149,17 +171,17 @@ evaluation points within each bin for approximating the supremum operator.}
 
 \item{cluster}{cluster ID. Used for compute cluster-robust standard errors.}
 
-\item{asyvar}{If true, the standard error of the nonparametric component is computed and the uncertainty related to control
+\item{asyvar}{if true, the standard error of the nonparametric component is computed and the uncertainty related to control
 variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.}
 
 \item{level}{nominal confidence level for confidence interval and confidence band estimation. Default is \code{level=95}.}
 
-\item{noplot}{If true, no plot produced.}
+\item{noplot}{if true, no plot produced.}
 
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different statistical models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -179,6 +201,8 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 \item{plotxrange}{a vector. \code{plotxrange=c(min, max)} specifies a range of the x-axis for plotting. Observations outside the range are dropped in the plot.}
 
 \item{plotyrange}{a vector. \code{plotyrange=c(min, max)} specifies a range of the y-axis for plotting. Observations outside the range are dropped in the plot.}
+
+\item{qregopt}{a list of optional arguments used by \code{\link{rq}}.}
 
 \item{...}{optional arguments to control bootstrapping. See \code{\link{boot.rq}}.}
 }
@@ -204,14 +228,20 @@ a numeric vector. For more details, see \code{\link{lm}}.}
                                \code{bin}, the indicator of bins;
                                \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin;
                                \code{polyci.l} and \code{polyci.r}, left and right boundaries of each confidence intervals.}}
+       \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
+       \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
+       \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
+       \item{\code{imse.bsq.dpi}}{Bias constant in IMSE, DPI selection.}
        \item{\code{cval.by}}{A vector of critical values for constructing confidence band for each group.}
        \item{\code{opt}}{ A list containing options passed to the function, as well as \code{N.by} (total sample size for each group),
                           \code{Ndist.by} (number of distinct values in \code{x} for each group), \code{Nclust.by} (number of clusters for each group),
-                          and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
+                          and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).
+                          The degree and smoothness of polynomials for dots, line, confidence intervals and confidence band for each group are saved
+                          in \code{dots}, \code{line}, \code{ci}, and \code{cb}.}
 }
 \description{
 \code{binsqreg} implements binscatter quantile regression with robust inference procedures and plots, following the
-            results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+            results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
             Binscatter provides a flexible way to describe the quantile relationship between two variables, after
             possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
             The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -225,9 +255,9 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  binsqreg(y,x)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsregselect}}, \code{\link{binstest}}.

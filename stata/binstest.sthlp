@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.8 12-OCT-2021}{...}
+{* *! version 1.2 09-OCT-2022}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -21,17 +21,19 @@
 {p 4 13} {cmdab:binstest} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [ {cmd:,} {p_end}
 {p 13 13} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 13 13} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
-{p 13 13} {opt testmodel(p s)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
-{p 13 13} {opt testshape(p s)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)} {opt lp(metric)}{p_end}
-{p 13 13} {opt bins(p s)} {opt nbins(#)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt randcut(#)}{p_end}
+{p 13 13} {opt testmodel(testmodelopt)} {opt testmodelparfit(filename)} {opt testmodelpoly(p)}{p_end}
+{p 13 13} {opt testshape(testshapeopt)} {opt testshapel(numlist)} {opt testshaper(numlist)} {opt testshape2(numlist)} {opt lp(metric)}{p_end}
+{p 13 13} {opt bins(p s)} {opt nbins(nbinsopt)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt randcut(#)}{p_end}
+{p 13 13} {cmd:pselect(}{it:{help numlist}}{cmd:)} {cmd:sselect(}{it:{help numlist}}{cmd:)}{p_end}
 {p 13 13} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 13 13} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 13 13} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt usegtools(on/off)} ]{p_end}
+{p 13 13} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt estmethodopt(cmd_option)} {opt usegtools(on/off)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs}
 are other covariates to be controlled for.{p_end}
 
-{p 4 8} p, s and v are integers satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
+{p 4 8} The degree of the piecewise polynomial p, the number of smoothness constraints s, and the derivative order v are integers 
+satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
 {p 4 8} At least one test has to be specified via {opt testmodelparfit()}, {opt testmodelpoly()}, {opt testshapel()},
 {opt testshaper()} and/or {opt testshape2()}.
@@ -44,7 +46,7 @@ are other covariates to be controlled for.{p_end}
 
 {p 4 8} {cmd:binstest} implements binscatter-based hypothesis testing procedures for parametric functional forms of
 and nonparametric shape restrictions on the regression function estimators, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2022a)}.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used
 to implement binscatter in a data-driven (optimal) way and inference procedures are based on robust bias correction.
 Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg},
@@ -52,7 +54,7 @@ Binned scatter plots based on different models can be constructed using the comp
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2022b)}.
 Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
@@ -87,7 +89,7 @@ The default is {cmd:at(mean)}, which corresponds to the mean of {it:othercovs}. 
 {cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:othercovs} saved in another file.
 {p_end}
 
-{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified)
+{p 4 8} Note: When {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified)
 are excluded from the evaluation (set as zero).
 {p_end}
 
@@ -110,9 +112,12 @@ Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this op
 
 {dlgtab:Parametric Model Specification Testing}
 
-{p 4 8} {opt testmodel(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for parametric model specification testing.
-The default is {cmd:testmodel(3 3)}, which corresponds to a cubic B-spline estimate of the regression function of interest for
-testing against the fitting from a parametric model specification.
+{p 4 8} {opt testmodel(testmodelopt)} sets the degree of polynomial and the number of smoothness constraints for parametric model specification testing. 
+If {cmd:testmodel(p s)} is specified, a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints is used.
+If {cmd:testmodel(T)} or {cmd:testmodel()} is specified, 
+{cmd:testmodel(1 1)} is used unless the degree {it:p} and smoothness {it:s} selection
+is requested via the option {cmd:pselect()} (see more details in the explanation of {cmd:pselect()}). 
+The default is {cmd:testmodel()}.
 {p_end}
 
 {p 4 8} {opt testmodelparfit(filename)} specifies a dataset which contains the evaluation grid and fitted values of the model(s) to be tested against.
@@ -126,10 +131,13 @@ Each parametric model is represented by a variable named as {it:binsreg_fit*}, w
  
 {dlgtab:Nonparametric Shape Restriction Testing}
 
-{p 4 8} {opt testshape(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints
-for nonparametric shape restriction testing.
-The default is {cmd:testshape(3 3)}, which corresponds to a cubic B-spline estimate of the regression function
-of interest for one-sided or two-sided testing.
+{p 4 8} {opt testshape(testshapeopt)} sets the degree of polynomial and the number of smoothness constraints
+for nonparametric shape restriction testing. If {cmd:testshape(p s)} is specified, 
+a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints is used. 
+If {cmd:testshape(T)} or {cmd:testshape()} is specified, 
+{cmd:testshape(1 1)} is used unless the degree {it:p} and smoothness {it:s} selection
+is requested via the option {cmd:pselect()} (see more details in the explanation of {cmd:pselect()}). 
+The default is {cmd:testshape()}.
 {p_end}
 
 {p 4 8} {opt testshapel(numlist)} specifies a {help numlist} of null boundary values for hypothesis testing.
@@ -152,15 +160,16 @@ The default is {cmd:lp(inf)},
 which corresponds to the sup-norm. Other options are {cmd:lp(q)} for a positive integer {cmd:q}.
 {p_end}
  
-{dlgtab:Partitioning/Binning Selection}
+{dlgtab:Binning/Degree/Smoothness Selection}
 
 {p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for
 data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
-The default is {cmd:bins(2 2)}, which corresponds to a quadratic spline estimate.
+The default is {cmd:bins(0 0)}, which corresponds to the piecewise constant.
 
-{p 4 8} {opt nbins(#)} sets the number of bins for partitioning/binning of {it:indvar}.
-If not specified, the number of bins is selected via the companion command {help binsregselect:binsregselect}
-in a data-driven, optimal way whenever possible.
+{p 4 8} {opt nbins(nbinsopt)} sets the number of bins for partitioning/binning of {it:indvar}. 
+If {cmd:nbins(T)} or {cmd:nbins()} (default) is specified, the number of bins is selected via the companion command {help binsregselect:binsregselect} 
+in a data-driven, optimal way whenever possible. If a {help numlist:numlist} with more than one number is specified, 
+the number of bins is selected within this list via the companion command {help binsregselect:binsregselect}.
 {p_end}
 
 {p 4 8} {opt binspos(position)} specifies the position of binning knots.
@@ -179,20 +188,42 @@ The other option is: {cmd:rot} for rule of thumb implementation.
 If not specified, the data-driven ROT selector is used instead.
 {p_end}
 
-{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample 
+for bins/degree/smoothness selection.
+Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1. 
+By default, max(5,000, 0.01n) observations are used if the samples size n>5,000.
+{p_end}
+
+{p 4 8} {opt pselect(numlist)} specifies a list of numbers within which the degree of polynomial {it:p} for 
+point estimation is selected. If the selected optimal degree is {it:p}, then piecewise polynomials 
+of degree {it:p+1} are used to conduct testing 
+for nonparametric shape restrictions or parametric model specifications.
+{p_end}
+
+{p 4 8} {opt sselect(numlist)} specifies a list of numbers within which the number of smoothness constraints {it:s}
+for point estimation.  If the selected optimal smoothness is {it:s}, 
+then piecewise polynomials with {it:s+1} smoothness constraints are used to conduct testing 
+for nonparametric shape restrictions or parametric model specifications.
+If not specified, for each value {it:p} supplied in the 
+option {cmd:pselect()}, only the piecewise polynomial with the maximum smoothness is considered, i.e., {it:s=p}. 
+{p_end}
+
+{p 4 8} Note: To implement the degree or smoothness selection, in addition to {cmd:pselect()} 
+or {cmd:sselect()}, {cmd:nbins(#)} must be specified.
 {p_end}
 
 {dlgtab:Simulation}
 
 {p 4 8} {opt nsims(#)} specifies the number of random draws for hypothesis testing.
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
+A large number of random draws is recommended to obtain the final results.
 {p_end}
 
 {p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used
 for evaluation of the supremum (infimum or Lp metric) operation needed for hypothesis testing procedures.
 The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within
 each bin for approximating the supremum (infimum or Lp metric) operator.
+A large number of evaluation points is recommended to obtain the final results.
 {p_end}
 
 {p 4 8} {opt simsseed(#)} sets the seed for simulations.
@@ -202,7 +233,7 @@ each bin for approximating the supremum (infimum or Lp metric) operator.
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar}
 (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2022b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -226,6 +257,10 @@ In other words, forces the command to proceed as if the mass point and degrees o
 If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the
 uncertainty related to other control variables {it:othercovs} is omitted. Default is {cmd:asyvar(off)},
 that is, the uncertainty related to {it:othercovs} is taken into account.
+{p_end}
+
+{p 4 8} {opt estmethodopt(cmd_option)} options to be passed on to the estimation command specified in {cmd:estmethod()}.
+For example, options that control for the optimization process can be added here.
 {p_end}
 
 {p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools}
@@ -267,6 +302,10 @@ Default is {cmd:usegtools(off)}.
 {synopt:{cmd:e(testpolyp)}}degree of polynomial regression model{p_end}
 {synopt:{cmd:e(stat_poly)}}statistic for testing global polynomial model{p_end}
 {synopt:{cmd:e(pval_poly)}}p value for testing global polynomial model{p_end}
+{synopt:{cmd:e(imse_var_rot)}}variance constant in IMSE, ROT selection{p_end}
+{synopt:{cmd:e(imse_bsq_rot)}}bias constant in IMSE, ROT selection{p_end}
+{synopt:{cmd:e(imse_var_dpi)}}variance constant in IMSE, DPI selection{p_end}
+{synopt:{cmd:e(imse_bsq_dpi)}}bias constant in IMSE, DPI selection{p_end}
 {p2col 5 17 21 2: Macros}{p_end}
 {synopt:{cmd:e(testvarlist)}}varlist found in {cmd:testmodel()}{p_end}
 {synopt:{cmd:e(testvalue2)}}values in {cmd:testshape2()}{p_end}
@@ -285,13 +324,13 @@ Default is {cmd:usegtools(off)}.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 

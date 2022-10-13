@@ -1,4 +1,4 @@
-# 10/09/2021
+# 10/04/2022
 # binsreg package, supporting functions
 # p: degree of polynomial
 # s: number of cts (deriv) constraints
@@ -274,7 +274,6 @@ binsregselect.rot <- function(y, x, w, p, s, deriv, es=F, eN, norotnorm=F, qrot=
   x.p <- matrix(NA, N, p+qrot+1)
   for (j in 1:(p+qrot+1))  x.p[,j] <- x^(j-1)
   P <- cbind(x.p, w)
-
   est <- lm(y~P-1, weights=weights)
   beta <- est$coefficients; est <- est$fitted.values
 

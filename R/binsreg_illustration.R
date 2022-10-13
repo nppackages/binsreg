@@ -1,7 +1,7 @@
 ################################################################################
 # Binsreg: illustration file
 # Authors: M. D. Cattaneo, R. Crump, M. Farrell and Y. Feng
-# Last update: 10/09/2021
+# Last update: 10/13/2022
 rm(list=ls(all=TRUE))
 library(binsreg); library(ggplot2)
 
@@ -67,6 +67,11 @@ est <- binsreg(y, x, w, data=data, by=t, line=c(3,3), cb=c(3,3),
 # Shut down all mass point checks to speed computation
 est <- binsreg(y, x, w, data=data, masspoints="off")
 
+# Select the degree p and smoothness given the number of bins J
+# Note: The selected p and s are used for point estimation;
+#       p+1 and s+1 are used for confidence intervals/bands
+est <- binsreg(y, x, w, data=data, pselect=1:4, nbins=20)
+
 
 ########################################
 ############# BINSQREG #################
@@ -102,6 +107,9 @@ fig <- ggplot() + geom_point(data=dat.mean.dots, aes(x=x, y=fit, colour=id), siz
                                      linetype=rep("solid", 3), shape=c(NA, NA, 19))))
 fig
 
+# Change the algorithmic method to compute the fit
+binsqreg(y, x, w, data=data, quantile=0.25, qregopt=list(method="fn"))
+
 ########################################
 ############# BINSGLM ##################
 ########################################
@@ -114,12 +122,20 @@ est$bins_plot
 est <- binsglm(d, x, w, data=data, family = binomial(), nolink = T)
 est$bins_plot
 
+# Control for the fitting process, e.g., the maximum number of iterations
+est <- binsglm(d, x, w, data=data, family = binomial(), maxit=100)
+est$bins_plot
+
 
 ########################################
 ############# BINSTEST ##############
 ########################################
 # basic syntax: linearity? (default method: least squares regression)
 bstest <- binstest(y, x, w, data=data, testmodelpoly=1)
+summary(bstest)
+
+# Recommended strategy: test if 1st deriv=const
+bstest <- binstest(y, x, w, data=data, testmodelpoly=1, deriv=1)
 summary(bstest)
 
 # Alternative: save parametric fit in another data frame or matrix; use L2 metric rather than sup
@@ -129,7 +145,7 @@ grid <- bins$data.grid
 colnames(grid)[4] <- "w"
 ols <- lm(y~x+w, data=data)
 ols.pred <- predict(ols, newdata=grid)
-bstest <- binstest(y, x, w, data=data, testmodelparfit=cbind(grid[1], ols.pred), lp=2)
+bstest <- binstest(y, x, w, data=data, testmodelparfit=cbind(grid[1], ols.pred), lp=2, deriv=1)
 summary(bstest)
 
 # Shape restriction test: increasing?
@@ -184,4 +200,8 @@ summary(bins)
 
 # Use a random subsample to select the number of bins for the full sample
 bins <- binsregselect(y, x, w, data=data, randcut=0.3)
+summary(bins)
+
+# Select the degree p and smoothness s
+bins <- binsregselect(y, x, w, data=data, nbins=20, pselect=1:4)
 summary(bins)

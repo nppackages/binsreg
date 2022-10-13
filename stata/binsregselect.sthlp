@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.8 12-OCT-2021}{...}
+{* *! version 1.2 09-OCT-2022}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}
@@ -20,14 +20,16 @@
 
 {p 4 18} {cmdab:binsregselect} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [{cmd:,} {opt deriv(v)}{p_end}
 {p 18 18} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
-{p 18 18} {opt bins(p s)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)}{p_end}
+{p 18 18} {opt bins(p s)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt nbins(nbinsopt)}{p_end}
+{p 18 18} {cmd:pselect(}{it:{help numlist}}{cmd:)} {cmd:sselect(}{it:{help numlist}}{cmd:)}{p_end}
 {p 18 18} {opt simsgrid(#)} {opt savegrid(filename)} {opt replace}{p_end}
 {p 18 18} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
 {p 18 18} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt usegtools(on/off)} {opt useeffn(#)} {opt randcut(#)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
-{p 4 8} p, s and v are integers satisfying 0 <= s,v <= p.{p_end}
+{p 4 8} The degree of the piecewise polynomial p, the number of smoothness constraints s, and the derivative order v are integers 
+satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
 {p 4 8} {opt fweight}s, {opt aweight}s and {opt pweight}s are allowed; see {help weight}.{p_end}
 
@@ -60,7 +62,7 @@ the community-contributed command {cmd:reghdfe} instead of the command {cmd:regr
 {p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
 {p_end}
 
-{dlgtab:Partitioning/Binning Selection}
+{dlgtab:Binning/Degree/Smoothness Selection}
 
 {p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for
 data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
@@ -78,6 +80,26 @@ The other option is: {cmd:rot} for rule of thumb implementation.
 
 {p 4 8} {opt nbinsrot(#)} specifies an initial number of bins value used to construct the DPI number of bins selector.
 If not specified, the data-driven ROT selector is used instead.
+{p_end}
+
+{p 4 8} {opt nbins(nbinsopt)} sets the number of bins for degree/smoothness selection. 
+If {cmd:nbins(T)} is specified, the command selects the number of bins instead, 
+given the specified degree and smoothness. 
+If a {help numlist:numlist} with more than one number is specified, 
+the command selects the number of bins within this list.
+{p_end}
+
+{p 4 8} {opt pselect(numlist)} specifies a list of numbers within which the degree of polynomial {it:p} for 
+point estimation is selected.
+{p_end}
+
+{p 4 8} {opt sselect(numlist)} specifies a list of numbers within which the number of smoothness constraints {it:s}
+for point estimation is selected. If not specified, for each value {it:p} supplied in the 
+option {cmd:pselect()}, only the piecewise polynomial with the maximum smoothness is considered, i.e., {it:s=p}.  
+{p_end}
+
+{p 4 8} Note: To implement the degree or smoothness selection, in addition to {cmd:pselect()} 
+or {cmd:sselect()}, {cmd:nbins(#)} must be specified.
 {p_end}
 
 {dlgtab:Evaluation Points Grid Generation}
@@ -104,7 +126,7 @@ and {it:binsreg_bin}, indicating which bin the evaluation point belongs to.
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks,
 which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points),
 number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2022b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -157,8 +179,6 @@ Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
 {synopt:{cmd:e(N)}}number of observations{p_end}
 {synopt:{cmd:e(Ndist)}}number of distinct values{p_end}
 {synopt:{cmd:e(Nclust)}}number of clusters{p_end}
-{synopt:{cmd:e(p)}}degree of piecewise polynomial{p_end}
-{synopt:{cmd:e(s)}}smoothness of piecewise polynomial{p_end}
 {synopt:{cmd:e(deriv)}}order of derivative{p_end}
 {synopt:{cmd:e(imse_bsq_rot)}}bias constant in IMSE, ROT selection{p_end}
 {synopt:{cmd:e(imse_var_rot)}}variance constant in IMSE, ROT selection{p_end}
@@ -169,20 +189,40 @@ Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
 {synopt:{cmd:e(nbinsrot_uknot)}}ROT number of bins, unique knots{p_end}
 {synopt:{cmd:e(nbinsdpi)}}DPI number of bins{p_end}
 {synopt:{cmd:e(nbinsdpi_uknot)}}DPI number of bins, unique knots{p_end}
+{synopt:{cmd:e(prot_poly)}}ROT degree of polynomial, unregularized{p_end}
+{synopt:{cmd:e(prot_regul)}}ROT degree of polynomial, regularized or user-specified{p_end}
+{synopt:{cmd:e(prot_uknot)}}ROT degree of polynomial, unique knots{p_end}
+{synopt:{cmd:e(pdpi)}}DPI degree of polynomial{p_end}
+{synopt:{cmd:e(pdpi_uknot)}}DPI degree of polynomial, unique knots{p_end}
+{synopt:{cmd:e(srot_poly)}}ROT number of smoothness constraints, unregularized{p_end}
+{synopt:{cmd:e(srot_regul)}}ROT number of smoothness constraints, regularized or user-specified{p_end}
+{synopt:{cmd:e(srot_uknot)}}ROT number of smoothness constraints, unique knots{p_end}
+{synopt:{cmd:e(sdpi)}}DPI number of smoothness constraints{p_end}
+{synopt:{cmd:e(sdpi_uknot)}}DPI number of smoothness constraints, unique knots{p_end}
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(knot)}}numlist of knots{p_end}
-
+{synopt:{cmd:e(m_p)}}vector of degrees of polynomial{p_end}
+{synopt:{cmd:e(m_s)}}vector of number of smoothness constraints{p_end}
+{synopt:{cmd:e(m_nbinsrot_poly)}}ROT number of bins, unregularized, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_nbinsrot_regul)}}ROT number of bins, regularized or user-specified, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_nbinsrot_uknot)}}ROT number of bins, unique knots, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_nbinsdpi)}}DPI number of bins, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_nbinsdpi_uknot)}}DPI number of bins, unique knots, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_imse_bsq_rot)}}bias constant in IMSE, ROT selection, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_imse_var_rot)}}variance constant in IMSE, ROT selection, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_imse_bsq_dpi)}}bias constant in IMSE, DPI selection, for each pair of degree and smoothness{p_end}
+{synopt:{cmd:e(m_imse_var_dpi)}}variance constant in IMSE, DPI selection, for each pair of degree and smoothness{p_end}
 
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 

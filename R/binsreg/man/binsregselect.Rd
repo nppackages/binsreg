@@ -4,12 +4,12 @@
 \alias{binsregselect}
 \title{Data-Driven IMSE-Optimal Partitioning/Binning Selection for Binscatter}
 \usage{
-binsregselect(y, x, w = NULL, data = NULL, deriv = 0, bins = c(0, 0),
-  binspos = "qs", binsmethod = "dpi", nbinsrot = NULL, simsgrid = 20,
-  savegrid = F, vce = "HC1", useeffn = NULL, randcut = NULL,
-  cluster = NULL, dfcheck = c(20, 30), masspoints = "on",
-  weights = NULL, subset = NULL, norotnorm = F, numdist = NULL,
-  numclust = NULL)
+binsregselect(y, x, w = NULL, data = NULL, deriv = 0, bins = NULL,
+  pselect = NULL, sselect = NULL, binspos = "qs", nbins = NULL,
+  binsmethod = "dpi", nbinsrot = NULL, simsgrid = 20, savegrid = F,
+  vce = "HC1", useeffn = NULL, randcut = NULL, cluster = NULL,
+  dfcheck = c(20, 30), masspoints = "on", weights = NULL,
+  subset = NULL, norotnorm = F, numdist = NULL, numclust = NULL)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -24,11 +24,23 @@ binsregselect(y, x, w = NULL, data = NULL, deriv = 0, bins = c(0, 0),
 The default is \code{deriv=0}, which corresponds to the function itself.}
 
 \item{bins}{a vector. \code{bins=c(p,s)} set a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
-for data-driven (IMSE-optimal) selection of the partitioning/binning scheme. The default is
-\code{bins=c(0, 0)}, which corresponds to piecewise constant (canonical binscatter).}
+for data-driven (IMSE-optimal) selection of the partitioning/binning scheme. By default, the function sets
+\code{bins=c(0,0)}, which corresponds to piecewise constant (canonical binscatter).}
+
+\item{pselect}{vector of numbers within which the degree of polynomial \code{p} for point estimation is selected.
+\emph{Note:} To implement the degree or smoothness selection, in addition to \code{pselect} or \code{sselect},
+\code{nbins=#} must be specified.}
+
+\item{sselect}{vector of numbers within which the number of smoothness constraints \code{s} for point estimation is selected.
+If not specified, for each value \code{p} supplied in the option \code{pselect}, only the
+piecewise polynomial with the maximum smoothness is considered, i.e., \code{s=p}.}
 
 \item{binspos}{position of binning knots.  The default is \code{binspos="qs"}, which corresponds to quantile-spaced
-binning (canonical binscatter).  The other options is \code{"es"} for evenly-spaced binning.}
+binning (canonical binscatter).  The other option is \code{binspos="es"} for evenly-spaced binning.}
+
+\item{nbins}{number of bins for degree/smoothness selection. If \code{nbins=T} or \code{nbins=NULL} (default) is specified,
+the function selects the number of bins instead, given the specified degree and smoothness.
+If a vector with more than one number is specified, the command selects the number of bins within this vector.}
 
 \item{binsmethod}{method for data-driven selection of the number of bins. The default is \code{binsmethod="dpi"},
 which corresponds to the IMSE-optimal direct plug-in rule.  The other option is: \code{"rot"}
@@ -42,7 +54,7 @@ the supremum (infimum or Lp metric) operation needed to construct confidence ban
 procedures. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
 evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.}
 
-\item{savegrid}{If true, a data frame produced containing grid.}
+\item{savegrid}{if true, a data frame produced containing grid.}
 
 \item{vce}{procedure to compute the variance-covariance matrix estimator. Options are
 \itemize{
@@ -61,7 +73,7 @@ evaluation points within each bin for approximating the supremum (infimum or Lp 
 is useful for extrapolating the optimal number of bins to larger (or smaller) datasets than
 the one used to compute it.}
 
-\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
 Observations for which \code{runif()<=#} are used. # must be between 0 and 1.}
 
 \item{cluster}{cluster ID. Used for compute cluster-robust standard errors.}
@@ -69,7 +81,7 @@ Observations for which \code{runif()<=#} are used. # must be between 0 and 1.}
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different statistical models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://arxiv.org/abs/1902.09615}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.}
+See \href{https://arxiv.org/abs/1902.09615}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -98,10 +110,27 @@ a numeric vector. For more details, see \code{\link{lm}}.}
        \item{\code{nbinsrot.uknot}}{ROT number of bins, unique knots.}
        \item{\code{nbinsdpi}}{DPI number of bins.}
        \item{\code{nbinsdpi.uknot}}{DPI number of bins, unique knots.}
-       \item{\code{imse.v.rot}}{variance constant in IMSE expansion, ROT selection.}
-       \item{\code{imse.b.rot}}{bias constant in IMSE expansion, ROT selection.}
-       \item{\code{imse.v.dpi}}{variance constant in IMSE expansion, DPI selection.}
-       \item{\code{imse.b.dpi}}{bias constant in IMSE expansion, DPI selection.}
+       \item{\code{prot.poly}}{ROT degree of polynomials, unregularized.}
+       \item{\code{prot.regul}}{ROT degree of polynomials, regularized.}
+       \item{\code{prot.uknot}}{ROT degree of polynomials, unique knots.}
+       \item{\code{pdpi}}{DPI degree of polynomials.}
+       \item{\code{pdpi.uknot}}{DPI degree of polynomials, unique knots.}
+       \item{\code{srot.poly}}{ROT number of smoothness constraints, unregularized.}
+       \item{\code{srot.regul}}{ROT number of smoothness constraints, regularized.}
+       \item{\code{srot.uknot}}{ROT number of smoothness constraints, unique knots.}
+       \item{\code{sdpi}}{DPI number of smoothness constraints.}
+       \item{\code{sdpi.uknot}}{DPI number of smoothness constraints, unique knots.}
+       \item{\code{imse.var.rot}}{Variance constant in IMSE expansion, ROT selection.}
+       \item{\code{imse.bsq.rot}}{Bias constant in IMSE expansion, ROT selection.}
+       \item{\code{imse.var.dpi}}{Variance constant in IMSE expansion, DPI selection.}
+       \item{\code{imse.bsq.dpi}}{Bias constant in IMSE expansion, DPI selection.}
+       \item{\code{int.result}}{Intermediate results, including a matrix of degree and smoothness (\code{deg_mat}),
+                                the selected numbers of bins (\code{vec.nbinsrot.poly},\code{vec.nbinsrot.regul},
+                                \code{vec.nbinsrot.uknot}, \code{vec.nbinsdpi}, \code{vec.nbinsdpi.uknot}),
+                                and the bias and variance constants in IMSE (\code{vec.imse.b.rot},
+                                \code{vec.imse.v.rot}, \code{vec.imse.b.dpi}, \code{vec.imse.v.dpi})
+                                under each rule (ROT or DPI), corresponding to each pair of degree and smoothness
+                                (each row in \code{deg_mat}).}
        \item{\code{opt}}{ A list containing options passed to the function, as well as total sample size \code{n},
                           number of distinct values \code{Ndist} in \code{x}, and number of clusters \code{Nclust}.}
        \item{\code{data.grid}}{A data frame containing grid.}
@@ -116,9 +145,9 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  summary(est)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binstest}}.

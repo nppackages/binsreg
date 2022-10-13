@@ -1,17 +1,19 @@
-*! version 0.8 12-Oct-2021
+*! version 1.2 09-Oct-2022 
 
 capture program drop binslogit
 program define binslogit, eclass
      version 13
 	 
 	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw pw] [, deriv(integer 0) at(string asis) nolink ///
-	        dots(numlist integer max=2 >=0) dotsgrid(string) dotsplotopt(string asis) ///
-			line(numlist integer max=2 >=0) linegrid(integer 20) lineplotopt(string asis) ///
-			ci(numlist integer max=2 >=0) cigrid(string) ciplotopt(string asis) /// 
-			cb(numlist integer max=2 >=0) cbgrid(integer 20) cbplotopt(string asis) ///
+	        logitopt(string asis) ///
+	        dots(string) dotsgrid(string) dotsplotopt(string asis) ///
+			line(string) linegrid(integer 20) lineplotopt(string asis) ///
+			ci(string) cigrid(string) ciplotopt(string asis) /// 
+			cb(string) cbgrid(integer 20) cbplotopt(string asis) ///
 			polyreg(string) polyreggrid(integer 20) polyregcigrid(integer 0) polyregplotopt(string asis) ///
 			by(varname) bycolors(string asis) bysymbols(string asis) bylpatterns(string asis) ///
-			nbins(integer 0) binspos(string) binsmethod(string) nbinsrot(string) ///
+			nbins(string) binspos(string) binsmethod(string) nbinsrot(string) ///
+			pselect(numlist integer >=0) sselect(numlist integer >=0) ///
 			samebinsby randcut(numlist max=1 >=0 <=1) ///
 			nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
 			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
@@ -51,14 +53,165 @@ program define binslogit, eclass
 	 else                                         local vce_select "`vce'"
 	 
 	 if ("`asyvar'"=="") local asyvar "off"
+	 if ("`binsmethod'"=="rot") local binsmethod "ROT"
+	 if ("`binsmethod'"=="dpi") local binsmethod "DPI"
+	 if ("`binsmethod'"=="")    local binsmethod "DPI"
+	 if ("`binspos'"=="es") local binspos "ES"
+	 if ("`binspos'"=="qs") local binspos "QS"
+	 if ("`binspos'"=="")   local binspos "QS"
+
 	 
-	 * Extract p and s, grid, set default
+	 * analyze options related to degrees *************
+	 if ("`dots'"!="T"&"`dots'"!="F"&"`dots'"!="") {
+	    numlist "`dots'", integer max(2) range(>=0)
+		local dots=r(numlist)
+	 }
+	 if ("`line'"!="T"&"`line'"!="F"&"`line'"!="") {
+	    numlist "`line'", integer max(2) range(>=0)
+		local line=r(numlist)
+	 }
+	 if ("`ci'"!="T"&"`ci'"!="F"&"`ci'"!="") {
+	    numlist "`ci'", integer max(2) range(>=0)
+		local ci=r(numlist)
+	 }
+	 if ("`cb'"!="T"&"`cb'"!="F"&"`cb'"!="") {
+	    numlist "`cb'", integer max(2) range(>=0)
+		local cb=r(numlist)
+	 }
+	 
+	 
+	 if ("`dots'"=="F") {                   /* shut down dots */
+	    local dots ""
+	    local dotsgrid 0
+	 }
+	 if ("`line'"=="F") local line ""
+	 if ("`ci'"=="F")   local ci ""
+	 if ("`cb'"=="F")   local cb ""
+	 
+	 
+	 ***************************************************************
+	 * 4 cases: select J, select p, user specified both, and error
+	 local selection ""
+	 
+	 * analyze nbins
+	 if ("`nbins'"=="T") local nbins=0
+	 local len_nbins=0
+	 if ("`nbins'"!=""&"`nbins'"!="F") {
+	    numlist "`nbins'", integer sort
+	    local nbins=r(numlist)
+	    local len_nbins: word count `nbins'
+	 }
+	 
+	 * analyze numlist in pselect and sselect
+	 local len_p=0
+	 local len_s=0
+	 
+	 if ("`pselect'"!="") {
+	    numlist "`pselect'", integer range(>=`deriv') sort
+		local plist=r(numlist)
+	 }
+	 
+	 if ("`sselect'"!="") {
+	    numlist "`sselect'", integer range(>=0) sort
+		local slist=r(numlist)
+	 }
+	 	 	 
+	 local len_p: word count `plist'
+	 local len_s: word count `slist'
+	 
+	 if (`len_p'==1&`len_s'==0) {
+	    local slist `plist'
+		local len_s=1
+	 }
+	 if (`len_p'==0&`len_s'==1) {
+	    local plist `slist'
+		local len_p=1
+     }
+	 
+	 if ("`binspos'"!="ES"&"`binspos'"!="QS") {
+		if ("`nbins'"!=""|"`pselect'"!=""|"`sselect'"!="") {
+		   di as error "nbins(), pselect() or sselect() incorrectly specified."
+		   exit
+		}
+	 }
+
+	 
+	 * 1st case: select J
+	 if (("`nbins'"=="0"|`len_nbins'>1|"`nbins'"=="")&("`binspos'"=="ES"|"`binspos'"=="QS")) local selection "J"
+	 if ("`selection'"=="J") {
+	 	if (`len_p'>1|`len_s'>1) {
+		   if ("`nbins'"=="") {
+		      di as error "nbins() must be specified for degree/smoothness selection."
+			  exit
+		   }
+		   else {
+			  di as error "Only one p and one s are allowed to select # of bins."
+			  exit
+		   }
+		}
+	 	if ("`plist'"=="") local plist=`deriv'
+		if ("`slist'"=="") local slist=`plist'
+		if ("`dots'"!=""&"`dots'"!="T"&"`dots'"!="F") {                         /* respect user-specified dots */
+		   local plist: word 1 of `dots'
+		   local slist: word 2 of `dots'
+		   if ("`slist'"=="") local slist `plist'
+		}
+		if ("`dots'"==""|"`dots'"=="T") local dots `plist' `slist'              /* selection is based on dots */
+		if ("`line'"=="T") local line `plist' `slist'
+		if ("`ci'"=="T") local ci `=`plist'+1' `=`slist'+1'
+		if ("`cb'"=="T") local cb `=`plist'+1' `=`slist'+1'
+		local len_p=1
+	    local len_s=1
+     }                                                                          /* e.g., binsreg y x, nbins(a b) or nbins(T) or pselect(a) nbins(T) */
+	 
+	 
+	 * 2nd case: select P (at least for one object) 
+	 if ("`selection'"!="J" & ("`dots'"==""|"`dots'"=="T"|"`line'"=="T"|"`ci'"=="T"|"`cb'"=="T")) {
+	    local pselectOK "T"                                                     /* p selection CAN be turned on as long as one of the four is T */     
+	 }
+
+	 if ("`pselectOK'"=="T" & `len_nbins'==1 & (`len_p'>1|`len_s'>1)) {
+	    local selection "P"
+	 }                                                                         /* e.g., binsreg y x, pselect(a b) or pselect() dots(T) */
+	 
+	 * 3rd case: completely user-specified J and p
+	 if ((`len_p'<=1&`len_s'<=1) & "`selection'"!="J") {
+		local selection "NA"
+		if ("`dots'"==""|"`dots'"=="T") {
+		   if (`len_p'==1&`len_s'==1) local dots `plist' `slist'
+	       else                       local dots `deriv' `deriv'                            /* e.g., binsreg y x or , dots(0 0) nbins(20) */
+		}
+		tokenize `dots'
+		if ("`2'"=="") local 2 `1'
+	    if ("`line'"=="T") {
+		   if (`len_p'==1&`len_s'==1) local line `plist' `slist'
+	       else                       local line `dots'                            
+		}
+	    if ("`ci'"=="T") {
+		   if (`len_p'==1&`len_s'==1) local ci `=`plist'+1' `=`slist'+1'
+	       else                       local ci `=`1'+1' `=`2'+1'                            
+		}
+	    if ("`cb'"=="T") {
+		   if (`len_p'==1&`len_s'==1) local cb `=`plist'+1' `=`slist'+1'
+	       else                       local cb `=`1'+1' `=`2'+1'                            
+		}
+	 }
+	 	 
+	 * exclude all other cases
+	 if ("`selection'"=="") {
+	    di as error "Degree, smoothness, or # of bins are not correctly specified."
+        exit
+	 }
+
+	 
+	 ****** Now, extract from dots, line, etc. ************ 
 	 * dots
 	 tokenize `dots'
 	 local dots_p "`1'"
 	 local dots_s "`2'"
-	 if ("`dots_p'"=="") local dots_p 0
+	 if ("`dots_p'"==""|"`dots_p'"=="T") local dots_p=.
 	 if ("`dots_s'"=="") local dots_s `dots_p'
+	 
 	 if ("`dotsgrid'"=="") local dotsgrid "mean"
 	 local dotsngrid_mean=0
 	 if (strpos("`dotsgrid'","mean")!=0) {
@@ -72,17 +225,16 @@ program define binslogit, eclass
      }
 	 local dotsntot=`dotsngrid_mean'+`dotsngrid'
 	 
+	 
 	 * line
 	 tokenize `line'
 	 local line_p "`1'"
 	 local line_s "`2'"
 	 local linengrid `linegrid'
-	 if ("`line_p'"=="") {
-	    local linengrid=0
-		local line_p=.
-	 }
-	 if ("`line_p'"!=""&"`line_s'"=="") local line_s `line_p'
-	 
+	 if ("`line'"=="") local linengrid=0
+	 if ("`line_p'"==""|"`line_p'"=="T") local line_p=.
+	 if ("`line_s'"=="") local line_s `line_p'
+	 	 
 	 * ci
 	 if ("`cigrid'"=="") local cigrid "mean"
 	 local cingrid_mean=0
@@ -100,23 +252,42 @@ program define binslogit, eclass
 	 tokenize `ci'
 	 local ci_p "`1'"
 	 local ci_s "`2'"
-	 if ("`ci_p'"=="") {
-	    local cintot=0
-	    local ci_p=.
-	 }
-	 if ("`ci_p'"!=""&"`ci_s'"=="") local ci_s `ci_p'
-
+	 if ("`ci'"=="") local cintot=0
+	 if ("`ci_p'"==""|"`ci_p'"=="T") local ci_p=.
+	 if ("`ci_s'"=="") local ci_s `ci_p'
 	 
 	 * cb
 	 tokenize `cb'
 	 local cb_p "`1'"
 	 local cb_s "`2'"
 	 local cbngrid `cbgrid'
-	 if ("`cb_p'"=="") {
-	    local cbngrid=0
-	    local cb_p=.
+	 if ("`cb'"=="") local cbngrid=0
+	 if ("`cb_p'"==""|"`cb_p'"=="T") local cb_p=.
+	 if ("`cb_s'"=="") local cb_s `cb_p'
+	 
+	 * Add warnings about degrees for estimation and inference
+	 if ("`selection'"=="J") {
+	    if ("`ci_p'"!=".") {
+		   if (`ci_p'<=`dots_p') {
+		      local ci_p=`dots_p'+1
+			  local ci_s=`ci_p'
+			  di as text "Warning: Degree for ci() has been changed. It must be greater than the degree for dots()."
+		   }
+		}
+	    if ("`cb_p'"!=".") {
+		   if (`cb_p'<=`dots_p') {
+		      local cb_p=`dots_p'+1
+			  local cb_s=`cb_p'
+			  di as text "Warning: Degree for cb() has been changed. It must be greater than the degree for dots()."
+		   }
+		}
 	 }
-	 if ("`cb_p'"!=""&"`cb_s'"=="") local cb_s `cb_p'
+	 if ("`selection'"=="NA") {
+	    if ("`ci'"!=""|"`cb'"!="") {
+		   di as text "Warning: Confidence intervals/bands are valid when nbins() is much larger than IMSE-optimal choice."
+	    }
+	 }
+	 * if selection==P, compare ci_p/cb_p with P_opt later
 	 
 	 * poly fit
 	 local polyregngrid `polyreggrid'
@@ -141,14 +312,14 @@ program define binslogit, eclass
 	 local simsngrid=`simsgrid'
 	 	 
 	 * Record if nbins specified by users, set default
-	 local nbins_all=`nbins'              /* local save common nbins */
-	 if (`nbins'!=0) local binselectmethod "User-specified"
-	 if ("`binsmethod'"=="rot") local binsmethod "ROT"
-	 if ("`binsmethod'"=="dpi") local binsmethod "DPI"
-	 if ("`binsmethod'"=="")    local binsmethod "DPI"
-	 if ("`binspos'"=="es") local binspos "ES"
-	 if ("`binspos'"=="qs") local binspos "QS"
-	 if ("`binspos'"=="")   local binspos "QS"
+	 local nbins_full `nbins'              /* local save common nbins */
+	 if ("`selection'"=="NA")   local binselectmethod "User-specified"
+     else {
+	    if ("`binsmethod'"=="DPI")  local binselectmethod "IMSE-optimal plug-in choice"
+        if ("`binsmethod'"=="ROT")  local binselectmethod "IMSE-optimal rule-of-thumb choice"
+		if ("`selection'"=="J") local binselectmethod "`binselectmethod' (select # of bins)"
+		if ("`selection'"=="P") local binselectmethod "`binselectmethod' (select degree and smoothness)"
+	 }
 	 
 	 * Mass point check?
 	 if ("`masspoints'"=="") {
@@ -210,24 +381,22 @@ program define binslogit, eclass
 		exit
 	 }
 	 if (`dotsngrid'<0|`linengrid'<0|`cingrid'<0|`cbngrid'<0|`simsngrid'<0) {
-	    di as error "number of evaluation points incorrectly specified."
+	    di as error "Number of evaluation points incorrectly specified."
 		exit
 	 }
-	 if (`nbins'<0) {
-	    di as error "number of bins incorrectly specified."
-		exit
-	 }		
 	 if (`level'>100|`level'<0) {
-	     di as error "confidence level incorrectly specified."
+	     di as error "Confidence level incorrectly specified."
 		 exit
 	 }
-	 if (`dots_p'<`dots_s') {
-	     di as error "p cannot be smaller than s."
-		 exit
-	 }
-	 if (`dots_p'<`deriv') {
-	     di as error "p for dots cannot be less than deriv."
-		 exit
+	 if ("`dots_p'"!=".") {
+		 if (`dots_p'<`dots_s') {
+			 di as error "p cannot be smaller than s."
+			 exit
+		 }
+		 if (`dots_p'<`deriv') {
+			 di as error "p for dots cannot be less than deriv."
+			 exit
+		 }
 	 }
 	 if ("`line_p'"!=".") {
 	    if (`line_p'<`line_s') {
@@ -271,7 +440,7 @@ program define binslogit, eclass
 		   confirm new file `"`savedata'.dta"'
 		}
 		if ("`plot'"!="") {
-		    di as error "plot cannot be turned off if graph data are requested."
+		    di as error "Plot cannot be turned off if graph data are requested."
 			exit
 		}
 	 }
@@ -287,8 +456,6 @@ program define binslogit, eclass
 
 	 * Mark sample
 	 preserve
-	 *marksample touse, nov   /* do not account for missing values !! */
-	 *qui keep if `touse'
 	 
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
@@ -352,6 +519,12 @@ program define binslogit, eclass
 	 local xmin=r(min)
 	 local xmax=r(max)
 	 local Ntotal=r(N)  /* total sample size, with wt */
+	 * define the support of plot
+	 if ("`plotxrange'"!="") {
+	    local xsc `plotxrange'
+		if (wordcount("`xsc'")==1) local xsc `xsc' `xmax'
+	 }
+	 else local xsc `xmin' `xmax'
 	 
 	 * Effective sample size
 	 local eN=`nsize'
@@ -399,9 +572,15 @@ program define binslogit, eclass
 	 
 	 *******************************************************
 	 *** Mass point counting *******************************
-	 tempname Ndistlist Nclustlist
+	 tempname Ndistlist Nclustlist mat_imse_var_rot mat_imse_bsq_rot mat_imse_var_dpi mat_imse_bsq_dpi
 	 mat `Ndistlist'=J(`bynum',1,.)
 	 mat `Nclustlist'=J(`bynum',1,.)
+	 * Matrices saving imse
+	 mat `mat_imse_var_rot'=J(`bynum',1,.)
+	 mat `mat_imse_bsq_rot'=J(`bynum',1,.)
+	 mat `mat_imse_var_dpi'=J(`bynum',1,.)
+	 mat `mat_imse_bsq_dpi'=J(`bynum',1,.)
+	 
 	 if (`bynum'>1) mata: `byvec'=st_data(.,"`by'")
 	 if ("`clusterON'"=="T") mata: `cluvec'=st_data(.,"`clustervar'")
 	 
@@ -411,9 +590,6 @@ program define binslogit, eclass
 	 * knotlist: inner knot seq; knotlistON: local, knot available before loop
 	 
 	 tempname fullkmat   /* matrix name for saving knots based on the full sample */
-	 
-	 if ("`binsmethod'"=="DPI")  local binselectmethod "IMSE-optimal plug-in choice"
-     if ("`binsmethod'"=="ROT")  local binselectmethod "IMSE-optimal rule-of-thumb choice"
 	 
 	 * Extract user-specified knot list
 	 if ("`binspos'"!="ES"&"`binspos'"!="QS") {
@@ -425,11 +601,12 @@ program define binslogit, eclass
 		   local first: word 1 of `knotlist'
 		   local last: word `nbins' of `knotlist'
 		   if (`first'<=`xmin'|`last'>=`xmax') {
-			  di as error "inner knots specified out of allowed range."
+			  di as error "Inner knots specified out of allowed range."
 			  exit
 		   }
 		   else {
 		      local nbins=`nbins'+1
+			  local nbins_full `nbins'
               local pos "user"
 				   
 			  foreach el of local knotlist {
@@ -439,7 +616,7 @@ program define binslogit, eclass
 		   }
 	    }
 	    else {
-		   di as error "numeric list incorrectly specified in binspos()."
+		   di as error "Numeric list incorrectly specified in binspos()."
 		   exit
 		}
 	 }
@@ -448,7 +625,7 @@ program define binslogit, eclass
 	 if ("`fewmasspoints'"!="") local fullfewobs "T"
 	 
 	 * Bin selection using the whole sample if
-	 if ("`fullfewobs'"==""&(`nbins'==0)&(("`by'"=="")|(("`by'"!="")&("`samebinsby'"!="")))) {
+	 if ("`fullfewobs'"==""&"`selection'"!="NA"&(("`by'"=="")|(("`by'"!="")&("`samebinsby'"!="")))) {
 	    local selectfullON "T"
 	 }
 	 
@@ -478,9 +655,13 @@ program define binslogit, eclass
 		   local eN=min(`eN', `Nclust')   /* effective sample size */
 	    }
 	 
+
 		* Check effective sample size
-		if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`dots_p'+1+`qrot')) {
-		    di as text in gr "warning: too small effective sample size for bin selection." ///
+		if ("`dots_p'"==".") local dotspcheck=6
+		else                 local dotspcheck=`dots_p'
+		* Check effective sample size
+		if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`dotspcheck'+1+`qrot')) {
+		    di as text in gr "Warning: Too small effective sample size for bin selection." ///
 			                 _newline _skip(9) "# of mass points or clusters used and by() option ignored."
 	        local by ""                 
 			local byvals ""
@@ -488,30 +669,106 @@ program define binslogit, eclass
 			local binspos "QS"                /* forced to be QS */
 	    }
 		else {
-			qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
-		                      binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
-							  `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							  numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
-			if (e(nbinsrot_regul)==.) {
-			   di as error "bin selection fails."
-			   exit
-			}
-			if ("`binsmethod'"=="ROT") {
-		       local nbins=e(nbinsrot_regul)
-		    }
-		    else if ("`binsmethod'"=="DPI") {
-			   local nbins=e(nbinsdpi)
-			   if (`nbins'==.) {
-			      local nbins=e(nbinsrot_regul)
-			      di as text in gr "warning: DPI selection fails. ROT choice used."
-			   }
-		    }
+		   local randcut1k `randcut'
+		   if ("`randcut'"=="" & `Ntotal'>5000) {
+	           local randcut1k=max(5000/`Ntotal', 0.01)
+		       di as text in gr "Warning: To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut(1)."
+	       }
+		   if ("`selection'"=="J") {
+		      qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`dots_p' `dots_s') nbins(`nbins_full') ///
+				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+								`vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			  if (e(nbinsrot_regul)==.) {
+			      di as error "Bin selection fails."
+				  exit
+			  }
+			  if ("`binsmethod'"=="ROT") {
+				  local nbins=e(nbinsrot_regul)
+				  mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	              mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+			  }
+			  else if ("`binsmethod'"=="DPI") {
+				 local nbins=e(nbinsdpi)
+				 mat `mat_imse_var_dpi'=J(`bynum',1,e(imse_var_dpi))
+	             mat `mat_imse_bsq_dpi'=J(`bynum',1,e(imse_bsq_dpi))
+				 if (`nbins'==.) {
+				    local nbins=e(nbinsrot_regul)
+ 				    mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	                mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+					di as text in gr "Warning: DPI selection fails. ROT choice used."
+				 }
+			  }
+		   }
+		   else if ("`selection'"=="P") {
+		   	  qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_full') ///
+				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+								pselect(`plist') sselect(`slist') ///
+								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+								`vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			  if (e(prot_regul)==.) {
+			      di as error "bin selection fails."
+				  exit
+			  }
+			  if ("`binsmethod'"=="ROT") {
+			      local binsp=e(prot_regul)
+				  local binss=e(srot_regul)
+				  mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	              mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+			  }
+			  else if ("`binsmethod'"=="DPI") {
+				 local binsp=e(pdpi)
+				 local binss=e(sdpi)
+				 mat `mat_imse_var_dpi'=J(`bynum',1,e(imse_var_dpi))
+	             mat `mat_imse_bsq_dpi'=J(`bynum',1,e(imse_bsq_dpi))
+				 if (`binsp'==.) {
+				    local binsp=e(prot_regul)
+					local binss=e(srot_regul)
+				    mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	                mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+					di as text in gr "Warning: DPI selection fails. ROT choice used."
+				 }
+			  }
+			  if ("`dots'"=="T"|"`dots'"=="") {
+				 local dots_p=`binsp'
+				 local dots_s=`binss'
+			  }
+			  if ("`line'"=="T") {
+			     local line_p=`binsp'
+				 local line_s=`binss'
+			  }
+			  if ("`ci'"!="T"&"`ci'"!="") {
+			     if (`ci_p'<=`binsp') {
+				   local ci_p=`binsp'+1
+				   local ci_s=`ci_p'
+				   di as text "Warning: Degree for ci() has been changed. It must be greater than the IMSE-optimal degree."
+				 }
+			  }
+			  if ("`ci'"=="T") {
+			     local ci_p=`binsp'+1
+				 local ci_s=`binss'+1
+			  }
+			  if ("`cb'"!="T"&"`cb'"!="") {
+			     if (`cb_p'<=`binsp') {
+				   local cb_p=`binsp'+1
+				   local cb_s=`cb_p'
+				   di as text "Warning: Degree for cb() has been changed. It must be greater than the IMSE-optimal degree."
+				 }
+			  }
+			  if ("`cb'"=="T") {
+			     local cb_p=`binsp'+1
+				 local cb_s=`binss'+1
+			  }
+		   }
 		}
 	 }
 	 
-	 if (("`selectfullON'"=="T"|(`nbins'!=0&"`samebinsby'"!=""))&"`fullfewobs'"=="") {
+	 if (("`selectfullON'"=="T"|("`selection'"=="NA"&"`samebinsby'"!=""))&"`fullfewobs'"=="") {
 		 * Save in a knot list
          local knotlistON "T"
+		 local nbins_full=`nbins'
 		 if ("`binspos'"=="ES") {
 	        local stepsize=(`xmax'-`xmin')/`nbins'
 	        forvalues i=1/`=`nbins'+1' {
@@ -695,38 +952,117 @@ program define binslogit, eclass
 		*********************************************************
 		if ("`pos'"!="user") local pos `binspos'              /* initialize pos */
 		* Selection?
-	    if (`nbins_all'==0&"`knotlistON'"!="T"&"`fullfewobs'"=="") {
+	    if ("`selection'"!="NA"&"`knotlistON'"!="T"&"`fullfewobs'"=="") {
 		   * Check effective sample size
-		   if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`dots_p'+1+`qrot')) {
-		      di as text in gr "warning: too small effective sample size for bin selection." ///
+		   if ("`dots_p'"==".") local dotspcheck=6
+		   else                 local dotspcheck=`dots_p'
+		   if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`dotspcheck'+1+`qrot')) {
+		      di as text in gr "Warning: Too small effective sample size for bin selection." ///
 			                   _newline _skip(9) "# of mass points or clusters used."
 	          local fewobs "T"
 			  local nbins=`eN'
 			  local pos "QS"                /* forced to be QS */
 	       }
 		   else {
-			  qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') bins(`dots_p' `dots_s') ///
-		                        binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
-							    `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							    numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
-			  if (e(nbinsrot_regul)==.) {
-			      di as error "bin selection fails."
-			      exit
+		   	  local randcut1k `randcut'
+		      if ("`randcut'"=="" & `N'>5000) {
+			     local randcut1k=max(5000/`N', 0.01)
+				 di as text in gr "Warning: To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut(1)."
+		      }
+		      if ("`selection'"=="J") {
+			     qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
+				                   bins(`dots_p' `dots_s') nbins(`nbins_full') ///
+		                           absorb(`absorb') reghdfeopt(`reghdfeopt') /// 
+					   			   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
+							       `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			     if (e(nbinsrot_regul)==.) {
+			        di as error "Bin selection fails."
+			        exit
+			     }
+			     if ("`binsmethod'"=="ROT") {
+		            local nbins=e(nbinsrot_regul)
+				    mat `mat_imse_bsq_rot'[`counter_by',1]=e(imse_bsq_rot)
+				    mat `mat_imse_var_rot'[`counter_by',1]=e(imse_var_rot)
+		         }
+		         else if ("`binsmethod'"=="DPI") {
+			        local nbins=e(nbinsdpi)
+					mat `mat_imse_bsq_dpi'[`counter_by',1]=e(imse_bsq_dpi)
+				    mat `mat_imse_var_dpi'[`counter_by',1]=e(imse_var_dpi)
+			        if (`nbins'==.) {
+			           local nbins=e(nbinsrot_regul)
+					   mat `mat_imse_bsq_rot'[`counter_by',1]=e(imse_bsq_rot)
+				       mat `mat_imse_var_rot'[`counter_by',1]=e(imse_var_rot)
+			           di as text in gr "Warning: DPI selection fails. ROT choice used."
+			        }
+		         }
 			  }
-			  if ("`binsmethod'"=="ROT") {
-		          local nbins=e(nbinsrot_regul)
-		      }
-		      else if ("`binsmethod'"=="DPI") {
-			      local nbins=e(nbinsdpi)
-			      if (`nbins'==.) {
-			         local nbins=e(nbinsrot_regul)
-			         di as text in gr "warning: DPI selection fails. ROT choice used."
-			      }
-		      }
+		      else if ("`selection'"=="P") {
+		   	     qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_full') ///
+				     			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+					  			    pselect(`plist') sselect(`slist') ///
+								    binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+								    `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			     if (e(prot_regul)==.) {
+			        di as error "Bin selection fails."
+				    exit
+			     }
+			     if ("`binsmethod'"=="ROT") {
+				    local binsp=e(prot_regul)
+				    local binss=e(srot_regul)
+					mat `mat_imse_bsq_rot'[`counter_by',1]=e(imse_bsq_rot)
+				    mat `mat_imse_var_rot'[`counter_by',1]=e(imse_var_rot)
+			     }
+			     else if ("`binsmethod'"=="DPI") {
+				    local binsp=e(pdpi)
+				    local binss=e(sdpi)
+					mat `mat_imse_bsq_dpi'[`counter_by',1]=e(imse_bsq_dpi)
+				    mat `mat_imse_var_dpi'[`counter_by',1]=e(imse_var_dpi)
+				    if (`binsp'==.) {
+				       local binsp=e(prot_regul)
+					   local binss=e(srot_regul)
+					   mat `mat_imse_bsq_rot'[`counter_by',1]=e(imse_bsq_rot)
+				       mat `mat_imse_var_rot'[`counter_by',1]=e(imse_var_rot)
+					   di as text in gr "Warning: DPI selection fails. ROT choice used."
+				    }
+			     }
+				 if ("`dots'"=="T"|"`dots'"=="") {
+				    local dots_p=`binsp'
+					local dots_s=`binss'
+				 }
+				 if ("`line'"=="T") {
+				    local line_p=`binsp'
+					local line_s=`binss'
+				 }
+				 if ("`ci'"!="T"&"`ci'"!="") {
+					if (`ci_p'<=`binsp') {
+					   local ci_p=`binsp'+1
+					   local ci_s=`ci_p'
+				       di as text "Warning: Degree for ci() has been changed. It must be greater than the IMSE-optimal degree."
+				    }
+			     }
+				 if ("`ci'"=="T") {
+					local ci_p=`binsp'+1
+					local ci_s=`binss'+1
+				 }
+				 if ("`cb'"!="T"&"`cb'"!="") {
+			        if (`cb_p'<=`binsp') {
+				      local cb_p=`binsp'+1
+					  local cb_s=`cb_p'
+				      di as text "Warning: Degree for cb() has been changed. It must be greater than the IMSE-optimal degree."
+				    }
+			     }
+				 if ("`cb'"=="T") {
+				    local cb_p=`binsp'+1
+					local cb_s=`binss'+1
+				 }
+		      }		   
 		   }
 	    }
 		
-		if (`nbins_all'!=0) local nbins=`nbins_all'    /* add the universal nbins */
+		if ("`selection'"=="NA"|"`knotlistON'"=="T") local nbins=`nbins_full'    /* add the universal nbins */
+		*if ("`knotlistON'"=="T") local nbins=`nbins_full'
 		if ("`fullfewobs'"!="") {
 		   local fewobs "T"
 		   local nbins=`eN'
@@ -740,24 +1076,24 @@ program define binslogit, eclass
 		      local fewobs "T"           /* even though ROT available, treat it as few obs case */
 		      local nbins=`eN'
 		      local pos "QS"
-		      di as text in gr "warning: too small effective sample size for dots. # of mass points or clusters used."
+		      di as text in gr "Warning: Too small effective sample size for dots. # of mass points or clusters used."
 	       }
 		   if ("`line_p'"!=".") {
 	          if ((`nbins'-1)*(`line_p'-`line_s'+1)+`line_p'+1+`dfcheck_n2'>=`eN') {
 	             local line_fewobs "T"
-		         di as text in gr "warning: too small effective sample size for line."
+		         di as text in gr "Warning: Too small effective sample size for line."
 	          }
 		   }
 		   if ("`ci_p'"!=".") {
 	          if ((`nbins'-1)*(`ci_p'-`ci_s'+1)+`ci_p'+1+`dfcheck_n2'>=`eN') {
 	             local ci_fewobs "T"
-		         di as text in gr "warning: too small effective sample size for CI."
+		         di as text in gr "Warning: Too small effective sample size for CI."
 	          }
 		   }
 		   if ("`cb_p'"!=".") {
 	          if ((`nbins'-1)*(`cb_p'-`cb_s'+1)+`cb_p'+1+`dfcheck_n2'>=`eN') {
 	             local cb_fewobs "T"
-		         di as text in gr "warning: too small effective sample size for CB."
+		         di as text in gr "Warning: Too small effective sample size for CB."
 	          }
 		   }
 	    }
@@ -765,7 +1101,7 @@ program define binslogit, eclass
 	    if ("`polyreg'"!="") {
 	       if (`polyreg'+1>=`eN') {
 	          local polyreg_fewobs "T"
-		      di as text in gr "warning: too small effective sample size for polynomial fit."
+		      di as text in gr "Warning: Too small effective sample size for polynomial fit."
 	       }
 	    }
  
@@ -812,7 +1148,7 @@ program define binslogit, eclass
 		else {
 		   mata: st_matrix("`kmat'", (`xmin' \ uniqrows(st_matrix("`kmat'")[|2 \ `=`nbins'+1'|])))
 	       if (`nbins'!=rowsof(`kmat')-1) {
-	          di as text in gr "warnings: repeated knots. Some bins dropped."
+	          di as text in gr "Warning: Repeated knots. Some bins dropped."
 		      local nbins=rowsof(`kmat')-1
 	       }
 		   
@@ -830,30 +1166,37 @@ program define binslogit, eclass
 		*************************************************
 		mata: `binedges'=.               /* initialize */
 		if ("`fewobs'"!="T"&"`localcheck'"=="T") {
-		   mata: `binedges'=binsreg_uniq(`xsub', `xcatsub', `nbins', "uniqmin")
+		   mata: st_local("Ncat", strofreal(rows(uniqrows(`xcatsub'))))
+		   if (`nbins'==`Ncat') {
+		      mata: `binedges'=binsreg_uniq(`xsub', `xcatsub', `nbins', "uniqmin")
+		   }
+		   else {
+		      local uniqmin=0
+			  di as text in gr "Warning: There are empty bins. Specify a smaller number in nbins()."
+		   }
 		   
 		   if ("`dots_p'"!=".") {
 		      if (`uniqmin'<`dots_p'+1) {
 		         local dots_fewobs "T"
-		         di as text in gr "warning: some bins have too few distinct x-values for dots."
+		         di as text in gr "Warning: Some bins have too few distinct x-values for dots."
 		      }
 	       }
 	       if ("`line_p'"!=".") {
 		      if (`uniqmin'<`line_p'+1) {
 		         local line_fewobs "T"
-		         di as text in gr "warning: some bins have too few distinct x-values for line."
+		         di as text in gr "Warning: Some bins have too few distinct x-values for line."
 		      }
 	       }
 	       if ("`ci_p'"!=".") {
 		      if (`uniqmin'<`ci_p'+1) {
 		         local ci_fewobs "T"
-		         di as text in gr "warning: some bins have too few distinct x-values for CI."
+		         di as text in gr "Warning: Some bins have too few distinct x-values for CI."
 		      }
 	       }
 	       if ("`cb_p'"!=".") {
 		      if (`uniqmin'<`cb_p'+1) {
 		         local cb_fewobs "T"
-		         di as text in gr "warning: some bins have too few distinct x-values for CB."
+		         di as text in gr "Warning: Some bins have too few distinct x-values for CB."
 		      }
 	       }
 		}
@@ -941,8 +1284,8 @@ program define binslogit, eclass
 	    ********** dots and ci for few obs. case ********
 	    *************************************************
 	    if (`dotsntot'!=0&"`plot'"==""&"`fewobs'"=="T") {
-		   di as text in gr "warning: dots(0 0) is used."
-		   if (`deriv'>0) di as text in gr "warning: deriv(0 0) is used."
+		   di as text in gr "Warning: dots(0 0) is used."
+		   if (`deriv'>0) di as text in gr "Warning: deriv(0 0) is used."
 		   
 		   local dots_first=`byfirst'
 		   local dots_last=`byfirst'-1+`nbins'
@@ -969,7 +1312,7 @@ program define binslogit, eclass
 		   }
 		   
 	       local nseries=`nbins'
-	       capture logit `y_var' ibn.`xcat' `w_var' `conds' `wt', nocon `vce'
+	       capture logit `y_var' ibn.`xcat' `w_var' `conds' `wt', nocon `vce' `logitopt'
 		   tempname fewobs_b fewobs_V
 		   if (_rc==0) {
 		      mat `fewobs_b'=e(b)
@@ -1017,7 +1360,7 @@ program define binslogit, eclass
 						   mcolor(`col') msymbol(`sym') `dotsplotopt')
 		   
 		   if (`cintot'!=0) {
-		      di as text in gr "warning: ci(0 0) is used."
+		      di as text in gr "Warning: ci(0 0) is used."
 		   
 		   	  if (`nwvar'>0) {
 			     mata: `mata_se'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"))
@@ -1080,20 +1423,20 @@ program define binslogit, eclass
 		   
 		   * fitting
 		   tempname dots_b dots_V
-		   if ((`dots_p'==`ci_p'&`dots_s'==`ci_s'&"`ciON'"=="T")| ///
-		       (`dots_p'==`cb_p'&`dots_s'==`cb_s'&"`cbON'"=="T")) {
+		   if (("`dots_p'"=="`ci_p'"&"`dots_s'"=="`ci_s'"&"`ciON'"=="T")| ///
+		       ("`dots_p'"=="`cb_p'"&"`dots_s'"=="`cb_s'"&"`cbON'"=="T")) {
 			  binslogit_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						usereg `sorted' `usegtools'
+						usereg `sorted' `usegtools' logitopt(`logitopt')
 		   }
 		   else {
 		      binslogit_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' `usegtools'
+						`sorted' `usegtools' logitopt(`logitopt')
 		   }
 		   
 		   mat `dots_b'=e(bmat)
@@ -1153,25 +1496,25 @@ program define binslogit, eclass
 		   * fitting
 		   tempname line_b line_V
 		   capture confirm matrix `dots_b' `dots_V'
-		   if (`line_p'==`dots_p'& `line_s'==`dots_s' & _rc==0) {
+		   if ("`line_p'"=="`dots_p'"& "`line_s'"=="`dots_s'" & _rc==0) {
 		      matrix `line_b'=`dots_b'
 		      matrix `line_V'=`dots_V'
 		   }
 		   else {
-		      if ((`line_p'==`ci_p'&`line_s'==`ci_s'&"`ciON'"=="T")| ///
-		          (`line_p'==`cb_p'&`line_s'==`cb_s'&"`cbON'"=="T")) {
+		      if (("`line_p'"=="`ci_p'"&"`line_s'"=="`ci_s'"&"`ciON'"=="T")| ///
+		          ("`line_p'"=="`cb_p'"&"`line_s'"=="`cb_s'"&"`cbON'"=="T")) {
 				 binslogit_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  usereg `sorted' `usegtools'
+						  usereg `sorted' `usegtools' logitopt(`logitopt')
 			  }
 			  else {
 		         binslogit_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') /// 
-						  `sorted' `usegtools'
+						  `sorted' `usegtools' logitopt(`logitopt')
 			  }
 		      mat `line_b'=e(bmat)
 		      mat `line_V'=e(Vmat)
@@ -1211,6 +1554,10 @@ program define binslogit, eclass
 	    ******* Polynomial fit ************
 	    ***********************************
 	    if ("`polyON'"=="T") {
+		   if (`nwvar'>0) {
+		      di as text "Note: When additional covariates w are included, the polynomial fit may not always be close to the binscatter fit."
+		   }
+
 	       local poly_first=`byfirst'
 		   local poly_last=`byfirst'-1+`poly_nr'
 
@@ -1223,7 +1570,7 @@ program define binslogit, eclass
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 		 
-		   capture logit `y_var' `poly_series' `w_var' `conds' `wt', nocon `vce'
+		   capture logit `y_var' `poly_series' `w_var' `conds' `wt', nocon `vce' `logitopt'
 		   * store results
 		   tempname poly_b poly_V poly_adjw
 	       if (_rc==0) {
@@ -1373,13 +1720,13 @@ program define binslogit, eclass
 		   * fitting
 		   tempname ci_b ci_V
 		   capture confirm matrix `line_b' `line_V'
-		   if (`ci_p'==`line_p'& `ci_s'==`line_s' & _rc==0) {
+		   if ("`ci_p'"=="`line_p'"& "`ci_s'"=="`line_s'" & _rc==0) {
 		         matrix `ci_b'=`line_b'
 		         matrix `ci_V'=`line_V'
 		   }
 		   else {
 		      capture confirm matrix `dots_b' `dots_V'
-		      if (`ci_p'==`dots_p'& `ci_s'==`dots_s' & _rc==0) {
+		      if ("`ci_p'"=="`dots_p'"& "`ci_s'"=="`dots_s'" & _rc==0) {
 		         matrix `ci_b'=`dots_b'
 		         matrix `ci_V'=`dots_V'
 		      }
@@ -1391,7 +1738,7 @@ program define binslogit, eclass
 	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' `usegtools'
+						`sorted' `usegtools' logitopt(`logitopt')
 				 
 		        mat `ci_b'=e(bmat)
 		        mat `ci_V'=e(Vmat)
@@ -1445,6 +1792,9 @@ program define binslogit, eclass
 	    tempname cval
 	    scalar `cval'=.
 	    if ("`cbON'"=="T") {
+		   if (`nsims'<2000|`simsgrid'<50) {
+	         di as text "Note: A larger number random draws/evaluation points is recommended to obtain the final results."
+	       }
 		   * Prepare grid for plotting
 	       local cb_first=`byfirst'
 		   local cb_last=`byfirst'-1+`cb_nr'
@@ -1452,19 +1802,19 @@ program define binslogit, eclass
 		   * fitting
 		   tempname cb_b cb_V
 		   capture confirm matrix `ci_b' `ci_V'
-		   if (`cb_p'==`ci_p'& `cb_s'==`ci_s' & _rc==0) {
+		   if ("`cb_p'"=="`ci_p'"& "`cb_s'"=="`ci_s'" & _rc==0) {
 		      matrix `cb_b'=`ci_b'
 		      matrix `cb_V'=`ci_V'
 		   } 
 		   else {
 		      capture confirm matrix `line_b' `line_V'
-		      if (`cb_p'==`line_p'& `cb_s'==`line_s' & _rc==0) {
+		      if ("`cb_p'"=="`line_p'"& "`cb_s'"=="`line_s'" & _rc==0) {
 		         matrix `cb_b'=`line_b'
 		         matrix `cb_V'=`line_V'
 		      }
 			  else {
 			     capture confirm matrix `dots_b' `dots_V'
-			     if (`cb_p'==`dots_p'& `cb_s'==`dots_s' & _rc==0) {
+			     if ("`cb_p'"=="`dots_p'"& "`cb_s'"=="`dots_s'" & _rc==0) {
 		            matrix `cb_b'=`dots_b'
 		            matrix `cb_V'=`dots_V'
 		         }
@@ -1473,7 +1823,7 @@ program define binslogit, eclass
 	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) /// 
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' `usegtools'
+						`sorted' `usegtools' logitopt(`logitopt')
 					mat `cb_b'=e(bmat)
 		            mat `cb_V'=e(Vmat)
 				 }
@@ -1551,17 +1901,28 @@ program define binslogit, eclass
 	       di in smcl in gr "{lalign 1:# of distinct values}"   _col(30) " {c |} " _col(32) as result %7.0f `Ndist'
 	       di in smcl in gr "{lalign 1:# of clusters}"          _col(30) " {c |} " _col(32) as result %7.0f `Nclust'	 
 	       di in smcl in gr "{hline 30}{c +}{hline 15}"
-	       di in smcl in gr "{lalign 1:Bin selection:}"                   _col(30) " {c |} "
-		   if ("`binselectmethod'"=="User-specified") {
-	          di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(39) as result %7.0f "."
-	          di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(39) as result %7.0f "."
-	       }
+	       di in smcl in gr "{lalign 1:Bin/Degree selection:}"                   _col(30) " {c |} "
+		   if ("`selection'"=="P") {
+		   di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `binsp'
+	       di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `binss'
+		   }
 		   else {
-	          di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `dots_p'
-	          di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `dots_s'
-	       }
+	       di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `dots_p'
+	       di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `dots_s'
+		   }
+
 		   di in smcl in gr "{ralign 29:# of bins}"                       _col(30) " {c |} " _col(32) as result %7.0f `nbins'
-	       di in smcl in gr "{hline 30}{c BT}{hline 15}"
+	       if ("`binselectmethod'"!="User-specified") {
+		      if ("`binsmethod'"=="ROT") {
+		         di in smcl in gr "{ralign 29:imse, bias^2}"                 _col(30) " {c |} " _col(32) as result %7.3f `=`mat_imse_bsq_rot'[`counter_by',1]'
+	             di in smcl in gr "{ralign 29:imse, var.}"                   _col(30) " {c |} " _col(32) as result %7.3f `=`mat_imse_var_rot'[`counter_by',1]'
+			  }
+			  else if ("`binsmethod'"=="DPI") {
+			     di in smcl in gr "{ralign 29:imse, bias^2}"                 _col(30) " {c |} " _col(32) as result %7.3f `=`mat_imse_bsq_dpi'[`counter_by',1]'
+	             di in smcl in gr "{ralign 29:imse, var.}"                   _col(30) " {c |} " _col(32) as result %7.3f `=`mat_imse_var_dpi'[`counter_by',1]'
+			  }
+		   }
+		   di in smcl in gr "{hline 30}{c BT}{hline 15}"
 		   di ""
 		   di in smcl in gr "{hline 9}{c TT}{hline 30}"
 		   di in smcl _col(10) "{c |}" in gr _col(17) "p" _col(25) "s" _col(33) "df"
@@ -1668,7 +2029,7 @@ program define binslogit, eclass
 		}
 		
 		* Plot it
-	    local graphcmd twoway `plotcmd', xtitle(`x_varname') ytitle(`y_varname') `plot_legend' `options' 
+	    local graphcmd twoway `plotcmd', xtitle(`x_varname') ytitle(`y_varname') xscale(range(`xsc')) `plot_legend' `options' 
 	    `graphcmd'
 	 }
 	 mata: mata drop `plotmat' `xvec' `yvec' `byvec' `cluvec'
@@ -1766,6 +2127,10 @@ program define binslogit, eclass
 	 ereturn matrix Ndist_by=`Ndistlist'
 	 ereturn matrix N_by=`Nlist'
 
+	 ereturn matrix imse_var_rot=`mat_imse_var_rot'
+	 ereturn matrix imse_bsq_rot=`mat_imse_bsq_rot'
+	 ereturn matrix	imse_var_dpi=`mat_imse_var_dpi'
+	 ereturn matrix imse_bsq_dpi=`mat_imse_bsq_dpi'
 end
 
 * Helper commands
@@ -1776,7 +2141,7 @@ program define binslogit_fit, eclass
 	        p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
 			xname(name) yname(name) catname(name) edge(name) ///
-			usereg sorted usegtools]                                        /* usereg: force the command to use reg; sored: sorted data? */
+			usereg sorted usegtools logitopt(string asis)]                  /* usereg: force the command to use reg; sored: sorted data? */
 	 
 	 preserve
 	 marksample touse
@@ -1824,7 +2189,7 @@ program define binslogit_fit, eclass
 	 
 	 * Regression?
 	 if (`p'==0) {
-		 capture logit `y_var' ibn.`xcat' `w_var' `wt', nocon `vce'
+		 capture logit `y_var' ibn.`xcat' `w_var' `wt', nocon `vce' `logitopt'
 		 if (_rc==0) {
 		    matrix `temp_b'=e(b)
 		    matrix `temp_V'=e(V)
@@ -1845,7 +2210,7 @@ program define binslogit_fit, eclass
 	
 		 mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
 		 
-		 capture logit `y_var' `series' `w_var' `wt', nocon `vce'
+		 capture logit `y_var' `series' `w_var' `wt', nocon `vce' `logitopt'
 	     * store results
 	     if (_rc==0) {
 		    matrix `temp_b'=e(b)

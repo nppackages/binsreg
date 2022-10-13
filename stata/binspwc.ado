@@ -1,13 +1,14 @@
-*! version 0.8 12-Oct-2021  
+*! version 1.2 09-Oct-2022
 
 capture program drop binspwc
 program define binspwc, eclass
     version 13
 	 
 	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] , by(varname) [deriv(integer 0) at(string asis) nolink ///
-	       estmethod(string) absorb(string asis) reghdfeopt(string asis) ///
-		   pwc(numlist integer max=2 >=0) testtype(string) lp(string) ///
-		   bins(numlist integer max=2 >=0) bynbins(numlist integer >=0) binspos(string) ///
+	       estmethod(string) estmethodopt(string asis) absorb(string asis) reghdfeopt(string asis) ///
+		   pwc(string) testtype(string) lp(string) ///
+		   bins(numlist integer max=2 >=0) bynbins(string) binspos(string) ///
+		   pselect(numlist integer >=0) sselect(numlist integer >=0) ///
 		   binsmethod(string) nbinsrot(string) samebinsby randcut(numlist max=1 >=0 <=1) ///
 		   nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
 		   dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
@@ -30,7 +31,6 @@ program define binspwc, eclass
 	 }
 	 
 	 * which model?
-	 * which model?	 
 	 if ("`absorb'"!="") {
 	    if ("`estmethod'"!="") {
 		   if ("`estmethod'"!="reghdfe") {
@@ -77,7 +77,7 @@ program define binspwc, eclass
 		local clustervar `2'
 		if ("`estmethod'"=="qreg") {
 		   local vce "vce(robust)"
-		   di as text in gr "warning: vce(cluster) not allowed. vce(robust) used instead."
+		   di as text in gr "Warning: vce(cluster) not allowed. vce(robust) used instead."
 		}
 	 }
 	 
@@ -91,7 +91,7 @@ program define binspwc, eclass
 		if ("`estmethod'"=="qreg") {
 		   local estcmd "bsqreg"
 		   if ("`weight'"!="") {
-		      di as error "weights not allowed for bootstrapping."
+		      di as error "Weights not allowed for bootstrapping."
 		      exit
 		   }
 		}
@@ -116,32 +116,153 @@ program define binspwc, eclass
 	    local vce_select "`vce'"
 	 }
 	 
-	 * binning
-	 tokenize `bins'
-	 local binsp "`1'"
-	 local binss "`2'"
-	 if ("`binsp'"=="") local binsp=2
-	 if ("`binss'"=="") local binss=`binsp'
-	 
-	 if ("`bynbins'"!="") local binselectmethod "User-specified"
-	 local lenbynbins: word count `bynbins'
-	 if (`lenbynbins'==1) {
-	    local nbins_all=`bynbins'
-	 }
-	 
 	 if ("`binspos'"=="es") local binspos "ES"
 	 if ("`binspos'"=="qs") local binspos "QS"
 	 if ("`binspos'"=="")   local binspos "QS"
 	 if ("`binsmethod'"=="rot") local binsmethod "ROT"
 	 if ("`binsmethod'"=="dpi") local binsmethod "DPI"
 	 if ("`binsmethod'"=="")    local binsmethod "DPI"
+
+	 * degree, smoothness and binning
+	 if ("`pwc'"!="T"&"`pwc'"!="F"&"`pwc'"!="") {
+	    numlist "`pwc'", integer max(2) range(>=0)
+		local pwc=r(numlist)
+	 }
+	 
+	 if ("`pwc'"=="F") local pwc ""
+	 if ("`pwc'"=="T"&"`binspos'"!="ES"&"`binspos'"!="QS") local pwc ""
+	 
+	 local selection ""
+	 
+	 * analyze nbins
+	 local lenbynbins=0
+	 if ("`bynbins'"!="T"&"`bynbins'"!="") {
+	    numlist "`bynbins'", integer range(>=0)
+	    local bynbins=r(numlist)
+		local lenbynbins: word count `bynbins'
+	    if (`lenbynbins'==1) {
+	       local nbins_all=`bynbins'
+	    }
+	 }
+	 
+	 * analyze numlist in pselect and sselect
+	 local len_p=0
+	 local len_s=0
+	 
+	 if ("`pselect'"!="") {
+	    numlist "`pselect'", integer range(>=`deriv') sort
+		local plist=r(numlist)
+	 }
+	 
+	 if ("`sselect'"!="") {
+	    numlist "`sselect'", integer range(>=0) sort
+		local slist=r(numlist)
+	 }
+	 	 	 
+	 local len_p: word count `plist'
+	 local len_s: word count `slist'
+	 
+	 if (`len_p'==1&`len_s'==0) {
+	    local slist `plist'
+		local len_s=1
+	 }
+	 if (`len_p'==0&`len_s'==1) {
+	    local plist `slist'
+		local len_p=1
+     }
+	 
+	 if ("`binspos'"!="ES"&"`binspos'"!="QS") {
+	    if ("`bynbins'"!=""|"`pselect'"!=""|"`sselect'"!="") {
+           di as error "bynbins(), pselect() or sselect() incorrectly specified."
+		   exit
+		}
+	 }
+
+	 tokenize `bins'
+	 local binsp "`1'"
+	 local binss "`2'"
+	 if ("`binsp'"=="") local binsp=.
+	 if ("`binss'"=="") local binss=`binsp'
+	 if ("`bins'"!="") {
+	 	if ("`bynbins'"!=""&"`bynbins'"!="T"&"`bynbins'"!="0") {
+			di as error "bynbins() or bins() is incorrectly specified."
+			exit
+		}
+	 }
+	 
+	 * 1st case: select J
+	 if (("`bins'"!=""|"`bynbins'"=="0"|"`bynbins'"=="T"|"`bynbins'"=="")&("`binspos'"=="ES"|"`binspos'"=="QS")) local selection "J"
+	 
+	 if ("`selection'"=="J") {
+	 	if (`len_p'>1|`len_s'>1) {
+		   di as error "Only one p and one s are allowed to select # of bins."
+		   exit
+		}
+		if ("`plist'"=="") local plist=`deriv'
+		if ("`slist'"=="") local slist=`plist'
+		if ("`bins'"=="") {
+		   local binsp `plist'
+		   local binss `slist'
+		}
+		local len_p=1
+	    local len_s=1
+		if ("`pwc'"=="T"|"`pwc'"=="") local pwc `=`binsp'+1' `=`binss'+1'
+     }                                                                          
+	 
+	 * 2nd case: select P (the special case with nbins() pselect() will be modified in the next step) 
+	 if ("`selection'"!="J" & ("`pwc'"=="T"|"`pwc'"=="")) local pselectOK "T"  
+
+	 if (("`pselectOK'"=="T") & ("`bynbins'"!=""&"`bynbins'"!="T") & (`len_p'>1|`len_s'>1)) {
+	    local selection "P"
+	 }                                                                          
+	 
+	 * 3rd case: user-specified J and p
+	 if ((`len_p'<=1&`len_s'<=1) & "`selection'"!="J") {
+		local selection "NA" 
+		if ("`pwc'"=="") {
+		   if ("`bins'"!="")  local pwc `=`binsp'+1' `=`binss'+1'
+		   else {
+		   	 if (`len_p'==1&`len_s'==1) local pwc `=`plist'+1' `=`slist'+1'
+			 else                       local pwc `=`deriv'+1' `=`deriv'+1'
+		   }
+		}
+	 }
+	 
+	 * exclude all other cases
+	 if ("`selection'"=="") {
+	    di as error "Degree, smoothness, or # of bins are not correctly specified."
+        exit
+	 }
+	 
+	 if ("`selection'"=="NA") local binselectmethod "User-specified"
+	 else {
+	    if ("`binsmethod'"=="DPI")  local binselectmethod "IMSE-optimal plug-in choice"
+        if ("`binsmethod'"=="ROT")  local binselectmethod "IMSE-optimal rule-of-thumb choice"
+		if ("`selection'"=="J") local binselectmethod "`binselectmethod' (select # of bins)"
+		if ("`selection'"=="P") local binselectmethod "`binselectmethod' (select degree and smoothness)"
+	 }
 	 
 	 * option for comparison
 	 tokenize `pwc'
 	 local tsha_p "`1'"
 	 local tsha_s "`2'"
-	 if ("`tsha_p'"=="") local tsha_p 3
+	 if ("`tsha_p'"==""|"`tsha_p'"=="T") local tsha_p=.
 	 if ("`tsha_s'"=="") local tsha_s `tsha_p'
+	 
+	 
+	 * Add warnings about degrees for estimation and inference
+	 if ("`selection'"=="J") {
+	    if ("`tsha_p'"!=".") {
+		   if (`tsha_p'<=`binsp') {
+		      local tsha_p=`binsp'+1
+			  local tsha_s=`tsha_p'
+			  di as text "Warning: Degree for pwc() has been changed. It must be greater than the degree for bin selection."
+		   }
+		}
+	 }
+	 if ("`selection'"=="NA") {
+		di as text "Warning: Testing procedures are valid when nbins() is much larger than the  IMSE-optimal choice."
+	 }
 	 
 	 * mass check? 
 	 if ("`masspoints'"=="") {
@@ -164,7 +285,6 @@ program define binspwc, eclass
 	    di as error "veryfew() not allowed for testing."
 		exit
 	 }
-	 
 	 
 	 * extract dfcheck
 	 if ("`dfcheck'"=="") local dfcheck 20 30
@@ -206,14 +326,19 @@ program define binspwc, eclass
 	     di as error "p cannot be smaller than s."
 		 exit
 	 }
-	 if (`tsha_p'<=`binsp') {
-	     di as text in gr "warning: p for testing <= p for bins() not suggested."
+	 if ("`tsha_p'"!="."&"`binsp'"!=".") {
+	    if (`tsha_p'<=`binsp') {
+	       di as text in gr "Warning: p for testing <= p for bins() not suggested."
+	    }
 	 }
 	 if (`tsha_p'<`deriv') {
 	    di as error "p for test cannot be smaller than deriv."
 		exit
 	 }
-	
+	 if (`nsims'<2000|`simsgrid'<50) {
+	    di as text "Note: A larger number random draws/evaluation points is recommended to obtain the final results."
+	 }
+
 	 
 	 * Mark sample
 	 preserve
@@ -289,13 +414,14 @@ program define binspwc, eclass
 	 * save by-value in a local and calculate group mins and maxs
      local bynum=r(r)
 	 if (`bynum'==1) {
-	    di as error "more than one group is required."
+	    di as error "More than one group is required."
 		exit
 	 }
 	 tempname xminmat xmaxmat Nmat
 	 matrix `xminmat'=J(`bynum', 1, .)
 	 matrix `xmaxmat'=`xminmat'
 	 matrix `Nmat'=`xminmat'
+	 local Ntotal=0
      forvalues i=1/`bynum' {
 	    local byv `=`byvalmatrix'[`i',1]' 
         local byvals `byvals' `byv'
@@ -304,6 +430,7 @@ program define binspwc, eclass
 	    mat `xminmat'[`i',1]=r(min)
 	    mat `xmaxmat'[`i',1]=r(max)
 	    mat `Nmat'[`i',1]=r(N)        /* sample size, with wt */
+		local Ntotal=`Ntotal'+r(N)
      }
 	 mata: st_local("Ntotal", strofreal(sum(st_matrix("`Nmat'"))))
 	 
@@ -320,9 +447,15 @@ program define binspwc, eclass
 	 
 	 *******************************************************
 	 *** Mass point counting *******************************
-	 tempname Ndistlist Nclustlist
+	 tempname Ndistlist Nclustlist mat_imse_var_rot mat_imse_bsq_rot mat_imse_var_dpi mat_imse_bsq_dpi
 	 mat `Ndistlist'=J(`bynum',1,.)
 	 mat `Nclustlist'=J(`bynum',1,.)
+	 * Matrices saving imse
+	 mat `mat_imse_var_rot'=J(`bynum',1,.)
+	 mat `mat_imse_bsq_rot'=J(`bynum',1,.)
+	 mat `mat_imse_var_dpi'=J(`bynum',1,.)
+	 mat `mat_imse_bsq_dpi'=J(`bynum',1,.)
+
 	 if (`bynum'>1) mata: `byvec'=st_data(.,"`by'")
 	 if ("`clusterON'"=="T") mata: `cluvec'=st_data(.,"`clustervar'")
 	 
@@ -332,9 +465,6 @@ program define binspwc, eclass
 	 * knotlist: inner knot seq; knotlistON: local, knot available before loop
 	 
 	 tempname fullkmat   /* matrix name for saving knots based on the full sample */
-	 
-	 if ("`binsmethod'"=="DPI")  local binselectmethod "IMSE-optimal plug-in choice"
-     if ("`binsmethod'"=="ROT")  local binselectmethod "IMSE-optimal rule-of-thumb choice"
 	 
 	 * Extract user-specified knot list
 	 if ("`binspos'"!="ES"&"`binspos'"!="QS") {
@@ -346,7 +476,7 @@ program define binspwc, eclass
 		   local first: word 1 of `knotlist'
 		   local last: word `nbins_all' of `knotlist'
 		   if (`first'<=`max_xmin'|`last'>=`min_xmax') {
-			  di as error "inner knots specified out of allowed range."
+			  di as error "Inner knots specified out of allowed range."
 			  exit
 		   }
 		   else {
@@ -360,13 +490,13 @@ program define binspwc, eclass
 		   }
 	    }
 	    else {
-		   di as error "numeric list incorrectly specified in binspos()."
+		   di as error "Numeric list incorrectly specified in binspos()."
 		   exit
 		}
 	 }
 	 
 	 * Bin selection using the whole sample if
-	 if (("`nbins_all'"=="")&("`samebinsby'"!="")) {
+	 if ("`selection'"!="NA" & "`samebinsby'"!="") {
 	    local selectfullON "T"
 	 }
 	 
@@ -407,35 +537,83 @@ program define binspwc, eclass
 	    }
 	 
 		* Check effective sample size
-		if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`binsp'+1+`qrot')) {
+		if ("`binsp'"==".") local binspcheck=6
+		else                local binspcheck=`binsp'
+		if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`binspcheck'+1+`qrot')) {
 		    * ROT inavailable, exit
-			di as error "too few observations for bin selection."
+			di as error "Too few observations for bin selection."
 			exit
 	    }
 		else {
-			qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`binsp' `binss') ///
-		                      absorb(`absorb') reghdfeopt(`reghdfeopt') ///
-							  binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
-							  `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							  numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
-			if (e(nbinsrot_regul)==.) {
-			   di as error "bin selection fails."
-			   exit
-			}
-			if ("`binsmethod'"=="ROT") {
-		       local nbins_all=e(nbinsrot_regul)
-		    }
-		    else if ("`binsmethod'"=="DPI") {
-			   local nbins_all=e(nbinsdpi)
-			   if (`nbins_all'==.) {
-			      local nbins_all=e(nbinsrot_regul)
-			      di as text in gr "warning: DPI selection fails. ROT choice used."
-			   }
-		    }
+			local randcut1k `randcut'
+		    if ("`randcut'"=="" & `Ntotal'>5000) {
+	           local randcut1k=max(5000/`Ntotal', 0.01)
+		       di as text in gr "Warning: To speed up computation, bin/degree selection uses a subsample of roughly max(5000, 0.01n) observations if n>5000. To use the full sample, set randcut(1)."
+	        }
+			if ("`selection'"=="J") {
+		      qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`binsp' `binss') nbins() ///
+				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+								`vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			  if (e(nbinsrot_regul)==.) {
+			      di as error "Bin selection fails."
+				  exit
+			  }
+			  if ("`binsmethod'"=="ROT") {
+				  local nbins_all=e(nbinsrot_regul)
+				  mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	              mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+			  }
+			  else if ("`binsmethod'"=="DPI") {
+				 local nbins_all=e(nbinsdpi)
+                 mat `mat_imse_var_dpi'=J(`bynum',1,e(imse_var_dpi))
+	             mat `mat_imse_bsq_dpi'=J(`bynum',1,e(imse_bsq_dpi))
+				 if (`nbins_all'==.) {
+				    local nbins_all=e(nbinsrot_regul)
+					mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	                mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+					di as text in gr "Warning: DPI selection fails. ROT choice used."
+				 }
+			  }
+		   }
+		   else if ("`selection'"=="P") {
+		   	  qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_all') ///
+				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+								pselect(`plist') sselect(`slist') ///
+								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+								`vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			  if (e(prot_regul)==.) {
+			      di as error "Bin selection fails."
+				  exit
+			  }
+			  if ("`binsmethod'"=="ROT") {
+				  local binsp=e(prot_regul)
+				  local binss=e(srot_regul)
+				  mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	              mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+			  }
+			  else if ("`binsmethod'"=="DPI") {
+				 local binsp=e(pdpi)
+				 local binss=e(sdpi)
+				 mat `mat_imse_var_dpi'=J(`bynum',1,e(imse_var_dpi))
+	             mat `mat_imse_bsq_dpi'=J(`bynum',1,e(imse_bsq_dpi))
+				 if (`binsp'==.) {
+				    local binsp=e(prot_regul)
+					local binss=e(srot_regul)
+					mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+	                mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
+					di as text in gr "Warning: DPI selection fails. ROT choice used."
+				 }
+			  }
+			  local tsha_p=`binsp'+1
+			  local tsha_s=`binss'+1
+		   }
 		}
 	 }
 	 
-	 if ("`selectfullON'"=="T"|("`nbins_all'"!=""&"`samebinsby'"!="")) {
+	 if ("`selectfullON'"=="T"|("`selection'"=="NA"&"`samebinsby'"!="")) {
 		 * Save in a knot list
          local knotlistON "T"
 		 if ("`binspos'"=="ES") {
@@ -482,7 +660,7 @@ program define binspwc, eclass
 	 qui gen `bycond'=. in 1
 	 
 	 * matrix names, for returns
-	 tempname nbinslist teststat pvalue
+	 tempname nbinslist teststat pvalue pwc_plist pwc_slist
 	 
 	 * prepare grid
 	 mata: `uni_grid'=rangen(`max_xmin', `min_xmax', `simsgrid'+2); ///
@@ -560,6 +738,7 @@ program define binspwc, eclass
 		
 		local xmin=r(min)
 	    local xmax=r(max)
+		local N=r(N)
 		
 	    * Effective sample size
 		if ("`wtype'"!="f") local eN=r(N)
@@ -603,42 +782,91 @@ program define binspwc, eclass
 		
 		* Selection?
 		local nbins ""
-		if (`lenbynbins'>1) local nbins: word `counter' of `bynbins'
+		if (`lenbynbins'>1)    local nbins: word `counter' of `bynbins'
 		if ("`nbins_all'"!="") local nbins=`nbins_all'    /* add the universal nbins */
 		
-	    if ("`nbins'"==""&"`knotlistON'"!="T") {
+	    if ("`selection'"!="NA"&"`knotlistON'"!="T") {
 		   * Check effective sample size
-		   if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`binsp'+1+`qrot')) {
-		      di as error "too few observations for bin selection."
+		   if ("`binsp'"==".") local binspcheck=6
+		   else                local binspcheck=`binsp'
+		   if ("`nbinsrot'"==""&(`eN'<=`dfcheck_n1'+`binspcheck'+1+`qrot')) {
+		      di as error "Too few observations for bin selection."
 	          exit
 	       }
 		   else {
-			  qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') bins(`binsp' `binss') ///
-		                        absorb(`absorb') reghdfeopt(`reghdfeopt') ///
-								binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
-							    `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							    numdist(`Ndist') numclust(`Nclust') randcut(`randcut') usegtools(`sel_gtools')
-			  if (e(nbinsrot_regul)==.) {
-			      di as error "bin selection fails."
-			      exit
+		   	  local randcut1k `randcut'
+		      if ("`randcut'"=="" & `N'>5000) {
+			     local randcut1k=max(5000/`N', 0.01)
+				 di as text in gr "Warning: To speed up computation, bin/degree selection uses a subsample of roughly max(5000, 0.01n) observations if n>5000. To use the full sample, set randcut(1)."
+		      }
+		      if ("`selection'"=="J") {
+			     qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
+				                   bins(`binsp' `binss') nbins() ///
+		                           absorb(`absorb') reghdfeopt(`reghdfeopt') /// 
+					   			   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
+							       `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			     if (e(nbinsrot_regul)==.) {
+			        di as error "Bin selection fails."
+			        exit
+			     }
+			     if ("`binsmethod'"=="ROT") {
+		            local nbins=e(nbinsrot_regul)
+				    mat `mat_imse_bsq_rot'[`counter',1]=e(imse_bsq_rot)
+				    mat `mat_imse_var_rot'[`counter',1]=e(imse_var_rot)
+		         }
+		         else if ("`binsmethod'"=="DPI") {
+			        local nbins=e(nbinsdpi)
+				    mat `mat_imse_bsq_dpi'[`counter',1]=e(imse_bsq_dpi)
+				    mat `mat_imse_var_dpi'[`counter',1]=e(imse_var_dpi)
+			        if (`nbins'==.) {
+			           local nbins=e(nbinsrot_regul)
+				       mat `mat_imse_bsq_rot'[`counter',1]=e(imse_bsq_rot)
+				       mat `mat_imse_var_rot'[`counter',1]=e(imse_var_rot)
+			           di as text in gr "Warning: DPI selection fails. ROT choice used."
+			        }
+		         }
 			  }
-			  if ("`binsmethod'"=="ROT") {
-		          local nbins=e(nbinsrot_regul)
-		      }
-		      else if ("`binsmethod'"=="DPI") {
-			      local nbins=e(nbinsdpi)
-			      if (`nbins'==.) {
-			         local nbins=e(nbinsrot_regul)
-			         di as text in gr "warning: DPI selection fails. ROT choice used."
-			      }
-		      }
+		      else if ("`selection'"=="P") {
+		   	     qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins') ///
+				     			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+					  			    pselect(`plist') sselect(`slist') ///
+								    binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
+								    `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
+								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+			     if (e(prot_regul)==.) {
+			        di as error "Bin selection fails."
+				    exit
+			     }
+			     if ("`binsmethod'"=="ROT") {
+				    local binsp=e(prot_regul)
+				    local binss=e(srot_regul)
+					mat `mat_imse_bsq_rot'[`counter',1]=e(imse_bsq_rot)
+				    mat `mat_imse_var_rot'[`counter',1]=e(imse_var_rot)
+			     }
+			     else if ("`binsmethod'"=="DPI") {
+				    local binsp=e(pdpi)
+				    local binss=e(sdpi)
+                    mat `mat_imse_bsq_dpi'[`counter',1]=e(imse_bsq_dpi)
+				    mat `mat_imse_var_dpi'[`counter',1]=e(imse_var_dpi)
+				    if (`binsp'==.) {
+				       local binsp=e(prot_regul)
+					   local binss=e(srot_regul)
+                       mat `mat_imse_bsq_rot'[`counter',1]=e(imse_bsq_rot)
+				       mat `mat_imse_var_rot'[`counter',1]=e(imse_var_rot)
+					   di as text in gr "Warning: DPI selection fails. ROT choice used."
+				    }
+			     }
+				 local tsha_p=`binsp'+1
+				 local tsha_s=`binss'+1
+		      }				  
 		   }
 	    }
 		
 		*******************************************************
 	    * Check if eff. sample size is large enough for testing
 		if ((`nbins'-1)*(`tsha_p'-`tsha_s'+1)+`tsha_p'+1+`dfcheck_n2'>=`eN') {
-		   di as text in gr "warning: too small effective sample size for testing shape."
+		   di as text in gr "Warning: Too small effective sample size for testing shape."
 	    }
 		
 	    * Generate category variable for data and save knot in matrix
@@ -665,7 +893,7 @@ program define binspwc, eclass
 		* Renew knot list
 		mata: st_matrix("`kmat'", (`xmin' \ uniqrows(st_matrix("`kmat'")[|2 \ `=`nbins'+1'|])))
 	    if (`nbins'!=rowsof(`kmat')-1) {
-	       di as text in gr "warnings: repeated knots. Some bins dropped."
+	       di as text in gr "Warning: Repeated knots. Some bins dropped."
 		   local nbins=rowsof(`kmat')-1
 	    }
 		binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat') ///
@@ -674,16 +902,25 @@ program define binspwc, eclass
 		mata: `xcatsub'=st_data(., "`xcat'")
 		mata: `xcatsub'=select(`xcatsub', `byindex')
         
-		* Now, save nbins in a list !!!
+		* Now, save nbins, p and s in a matrix !!!
 		mat `nbinslist'=(nullmat(`nbinslist') \ `nbins')
-		
+		mat `pwc_plist'=(nullmat(`pwc_plist') \ `tsha_p')
+		mat `pwc_slist'=(nullmat(`pwc_slist') \ `tsha_s')
 		
 		* Check for empty bins
 	    if ("`localcheck'"=="T") {
-	       mata: `binedges'=binsreg_uniq(`xsub', `xcatsub', `nbins', "uniqmin")
-	       mata: mata drop `binedges'
+		   mata: st_local("Ncat", strofreal(rows(uniqrows(`xcatsub'))))
+		   if (`nbins'==`Ncat') {
+		      mata: `binedges'=binsreg_uniq(`xsub', `xcatsub', `nbins', "uniqmin")
+			  mata: mata drop `binedges'
+		   }
+		   else {
+		      local uniqmin=0
+			  di as text in gr "Warning: There are empty bins. Specify a smaller number in nbins()."
+		   }
+	       
 		   if (`uniqmin'<`tsha_p'+1) {
-		      di as text in gr "warning: some bins have too few distinct x-values for testing."
+		      di as text in gr "Warning: Some bins have too few distinct x-values for testing."
 		   }
 	    }		
 		
@@ -701,11 +938,11 @@ program define binspwc, eclass
 		tempname tsha_b tsha_V
 		mata: binsreg_st_spdes(`xsub', "`tsha_series'", "`kmat'", `xcatsub', `tsha_p', 0, `tsha_s', "`bycond'")
 	    if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce'
+		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
 		}
 		else if ("`estmethod'"=="qreg") {
 		   if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
-		   else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce'
+		   else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
 		}
 		else {
 		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce' 
@@ -854,42 +1091,26 @@ program define binspwc, eclass
 	 ******************************
 	 ******* Display **************
 	 ******************************
-	 if ("`knotlist'"!="") {
-	     local binselectmethod "User-specified"
-		 local placement "User-specified"
-	 }
-	 else {
-	    if ("`binsmethod'"=="DPI") local binselectmethod "IMSE-optimal plug-in choice"
-		if ("`binsmethod'"=="ROT") local binselectmethod "IMSE-optimal rule-of-thumb choice"
-		if ("`pos'"=="ES") local placement "Evenly-spaced"
-		if ("`pos'"=="QS") local placement "Quantile-spaced"
-	 }
-	 
 	 di ""
 	 di in smcl in gr "Pairwise group comparison based on binscatter estimates"
 	 di in smcl in gr "Estimation method: `estmethod'"
-	 di in smcl in gr "Group variable: `byvarname'"
-	 di in smcl in gr "Bin selection method: `binselectmethod'"
-	 di in smcl in gr "Placement: `placement'"
 	 di in smcl in gr "Derivative: `deriv'"
-	 di in smcl in gr "{hline 30}{c TT}{hline 15}"
-	 di in smcl in gr "{lalign 1:Bin selection:}"             _col(30) " {c |} "
-	 if ("`binselectmethod'"=="User-specified") {
-	    di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(39) as result %7.0f "."
-	    di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(39) as result %7.0f "."
-	 }
-	 else {
-	    di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `binsp'
-	    di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `binss'
-	 }
-	 di in smcl in gr "{hline 30}{c +}{hline 15}"
-	 di in smcl in gr "{lalign 1:Hypothesis test:}"             _col(30) " {c |} "
+	 di in smcl in gr "Group variable: `byvarname'"
+	 di in smcl in gr "Bin/Degree selection method: `binselectmethod'"
+	 di in smcl in gr "Placement: `placement'"
+
+	 *di in smcl in gr "{hline 30}{c TT}{hline 15}"
+	 *di in smcl in gr "{lalign 1:Bin/Degree selection:}"            _col(30) " {c |} "
+	 *di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `binsp'
+	 *di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `binss'
+	 *di in smcl in gr "{hline 30}{c +}{hline 15}"
+	 *di in smcl in gr "{lalign 1:Hypothesis test:}"             _col(30) " {c |} "
 	 *di in smcl in gr "Pairwise Group Comparison, by `byvarname':"
-	 di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `tsha_p'
-	 di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `tsha_s'
-     di in smcl in gr "{hline 30}{c BT}{hline 15}"
+	 *di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `tsha_p'
+	 *di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `tsha_s'
+     *di in smcl in gr "{hline 30}{c BT}{hline 15}"
 
-
+	 
      forval i=1/`=`counter2'-1' {
 	    local g1=`=`teststat'[`i',2]'
 		local g2=`=`teststat'[`i',3]'
@@ -904,7 +1125,8 @@ program define binspwc, eclass
 	    di in smcl in gr "{lalign 1:# of observations}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Nmat'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Nmat'[`g2',1]'
 	    di in smcl in gr "{lalign 1:# of distinct values}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Ndistlist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Ndistlist'[`g2',1]'
 	    di in smcl in gr "{lalign 1:# of clusters}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Nclustlist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Nclustlist'[`g2',1]'	 
-	    *di in smcl in gr "{hline 30}{c +}{hline 15}"
+	   	di in smcl in gr "{lalign 1:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `=`pwc_plist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`pwc_plist'[`g2',1]'
+	    di in smcl in gr "{lalign 1:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `=`pwc_slist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`pwc_slist'[`g2',1]'
 	    di in smcl in gr "{lalign 1:# of bins}"       _col(30) " {c |} " _col(32) as result %7.0f `=`nbinslist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`nbinslist'[`g2',1]'
 	    di in smcl in gr "{hline 30}{c BT}{hline 21}"
 
@@ -965,17 +1187,24 @@ program define binspwc, eclass
 	 ereturn scalar N=`Ntotal'
 	 ereturn scalar p=`binsp'
 	 ereturn scalar s=`binss'
-	 ereturn scalar pwc_p=`tsha_p'
-	 ereturn scalar pwc_s=`tsha_s'
 	 
 	 * by pair
 	 ereturn matrix pval=`pvalue'
 	 ereturn matrix stat=`teststat'
+
 	 * by group:
 	 ereturn matrix nbins_by=`nbinslist'
+	 ereturn matrix pwc_plist=`pwc_plist'
+	 ereturn matrix pwc_slist=`pwc_slist'
 	 ereturn matrix Nclust_by=`Nclustlist'    
 	 ereturn matrix Ndist_by=`Ndistlist'
 	 ereturn matrix N_by=`Nmat'
+	 
+	 ereturn matrix imse_var_rot=`mat_imse_var_rot'
+	 ereturn matrix imse_bsq_rot=`mat_imse_bsq_rot'
+	 ereturn matrix	imse_var_dpi=`mat_imse_var_dpi'
+	 ereturn matrix imse_bsq_dpi=`mat_imse_bsq_dpi'
+
 	 
 	 * local: corresponding by-values
 	 ereturn local byvalue `byvalnamelist'

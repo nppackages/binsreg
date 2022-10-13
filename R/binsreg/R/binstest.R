@@ -2,7 +2,7 @@
 #'@title  Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter
 #'@description \code{binstest} implements binscatter-based hypothesis testing procedures for parametric functional
 #'             forms of and nonparametric shape restrictions on the regression function of interest, following the results
-#'             in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+#'             in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
 #'             If the binning scheme is not set by the user,
 #'             the companion function \code{\link{binsregselect}} is used to implement binscatter in a
 #'             data-driven way and inference procedures are based on robust bias correction.
@@ -22,20 +22,20 @@
 #'           \code{at} can also be a vector of the same length as the number of columns of \code{w} (if \code{w} is a matrix) or a data frame containing the same variables as specified in \code{w} (when
 #'           \code{data} is specified). Note that when \code{at="mean"} or \code{at="median"}, all factor variables (if specified) are excluded from the evaluation (set as zero).
 #'@param  nolink if true, the function within the inverse link function is reported instead of the conditional mean function for the outcome.
-#'@param  testmodel a vector. \code{testmodel=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s}
-#'                  smoothness constraints for parametric model specification testing.  The default is
-#'                  \code{testmodel=c(3,3)}, which corresponds to a cubic B-spline estimate of the regression
-#'                  function of interest for testing against the fitting from a parametric model specification.
+#'@param  testmodel a vector or a logical value. It sets the degree of polynomial and the number of smoothness constraints for parametric model specification
+#'                  testing. If \code{testmodel=c(p,s)} is specified, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used.
+#'                  If \code{testmodel=T} or \code{testmodel=NULL} (default) is specified, \code{testmodel=c(1,1)} is used unless the degree \code{p} and the smoothness \code{s}
+#'                  selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
 #'@param  testmodelparfit a data frame or matrix which contains the evaluation grid and fitted values of the model(s) to be
 #'                        tested against.  The column contains a series of evaluation points
 #'                        at which the binscatter model and the parametric model of interest are compared with
 #'                        each other.  Each parametric model is represented by other columns, which must
 #'                        contain the fitted values at the corresponding evaluation points.
 #'@param  testmodelpoly degree of a global polynomial model to be tested against.
-#'@param  testshape a vector. \code{testshape=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s}
-#'                  smoothness constraints for nonparametric shape restriction testing. The default is
-#'                  \code{testshape=c(3,3)}, which corresponds to a cubic B-spline estimate of the regression
-#'                  function of interest for one-sided or two-sided testing.
+#'@param  testshape a vector or a logical value. It sets the degree of polynomial and the number of smoothness constraints for nonparametric shape restriction
+#'                  testing. If \code{testshape=c(p,s)} is specified, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used.
+#'                  If \code{testshape=T} or \code{testshape=NULL} (default) is specified, \code{testshape=c(1,1)} is used unless the degree \code{p} and smoothness \code{s} selection
+#'                  is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
 #'@param  testshapel a vector of null boundary values for hypothesis testing. Each number \code{a} in the vector
 #'                   corresponds to one boundary of a one-sided hypothesis test to the left of the form
 #'                   \code{H0: sup_x mu(x)<=a}.
@@ -43,13 +43,26 @@
 #'                   corresponds to one boundary of a one-sided hypothesis test to the right of the form
 #'                   \code{H0: inf_x mu(x)>=a}.
 #'@param  testshape2 a vector of null boundary values for hypothesis testing. Each number \code{a} in the vector
-#'                   corresponds to one boundary of a two-sided hypothesis test ofthe form
+#'                   corresponds to one boundary of a two-sided hypothesis test of the form
 #'                   \code{H0: sup_x |mu(x)-a|=0}.
 #'@param  lp an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
 #'           corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive integer \code{q}.
-#'@param  bins A vector. Degree and smoothness for bin selection. The default is \code{bins=c(2,2)}, which corresponds to a quadratic spline estimate.
-#'@param  nbins number of bins for partitioning/binning of \code{x}.  If not specified, the number of bins is
-#'              selected via the companion function \code{binsregselect} in a data-driven, optimal way whenever possible.
+#'@param  bins a vector. If \code{bins=c(p,s)}, it sets the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
+#'             for data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
+#'             The default is \code{bins=c(0,0)}, which corresponds to the piecewise constant.
+#'@param  nbins number of bins for partitioning/binning of \code{x}.  If \code{nbins=T} or \code{nbins=NULL} (default) is specified, the number
+#'              of bins is selected via the companion command \code{\link{binsregselect}} in a data-driven, optimal way whenever possible.
+#'              If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command \code{\link{binsregselect}}.
+#'@param  pselect vector of numbers within which the degree of polynomial \code{p} for point estimation is selected.
+#'                 If the selected optimal degree is \code{p}, then piecewise polynomials of degree
+#'                 \code{p+1} are used to conduct testing for nonparametric shape restrictions or parametric model specifications.
+#'                 \emph{Note:} To implement the degree or smoothness selection, in addition to \code{pselect} or \code{sselect},
+#'                \code{nbins=#} must be specified.
+#'@param  sselect vector of numbers within which the number of smoothness constraints \code{s} for point estimation is selected.
+#'                If the selected optimal smoothness is \code{s}, then piecewise polynomials of \code{s+1} smoothness constraints
+#'                are used to conduct testing for nonparametric shape restrictions or parametric model specifications.
+#'                If not specified, for each value \code{p} supplied in the option \code{pselect}, only the piecewise polynomial
+#'                with the maximum smoothness is considered, i.e., \code{s=p}.
 #'@param  binspos position of binning knots. The default is \code{binspos="qs"}, which corresponds to quantile-spaced
 #'                binning (canonical binscatter).  The other options are \code{"es"} for evenly-spaced binning, or
 #'                a vector for manual specification of the positions of inner knots (which must be within the range of
@@ -59,25 +72,27 @@
 #'                   for rule of thumb implementation.
 #'@param  nbinsrot initial number of bins value used to construct the DPI number of bins selector.
 #'                 If not specified, the data-driven ROT selector is used instead.
-#'@param  randcut upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-#'                Observations for which \code{runif()<=#} are used. # must be between 0 and 1.
+#'@param  randcut upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
+#'                Observations for which \code{runif()<=#} are used. # must be between 0 and 1. By default, \code{max(5,000, 0.01n)} observations
+#'                are used if the samples size \code{n>5,000}.
 #'@param  nsims number of random draws for hypothesis testing. The default is
 #'              \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
-#'              \code{[(p+1)*J - (J-1)*s]}.
+#'              \code{[(p+1)*J - (J-1)*s]}. A larger number of draws is recommended to obtain the final results.
 #'@param  simsgrid number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 #'                 the supremum (infimum or Lp metric) operation needed to construct hypothesis testing
 #'                 procedures. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
 #'                 evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+#'                 A larger number of evaluation points is recommended to obtain the final results.
 #'@param  simsseed seed for simulation.
 #'@param  vce procedure to compute the variance-covariance matrix estimator. For least squares regression and generalized linear regression, the allowed options are the same as that for \code{\link{binsreg}} or \code{\link{binsqreg}}.
 #'            For quantile regression, the allowed options are the same as that for \code{\link{binsqreg}}.
 #'@param  cluster cluster ID. Used for compute cluster-robust standard errors.
-#'@param  asyvar  If true, the standard error of the nonparametric component is computed and the uncertainty related to control
+#'@param  asyvar  if true, the standard error of the nonparametric component is computed and the uncertainty related to control
 #'                variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.
 #'@param  dfcheck adjustments for minimum effective sample size checks, which take into account number of unique
 #'                values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 #'                the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.
 #'@param  masspoints how mass points in \code{x} are handled. Available options:
 #'                   \itemize{
 #'                   \item \code{"on"} all mass point and degrees of freedom checks are implemented. Default.
@@ -90,8 +105,9 @@
 #'@param  weights an optional vector of weights to be used in the fitting process. Should be \code{NULL} or
 #'                a numeric vector. For more details, see \code{\link{lm}}.
 #'@param  subset optional rule specifying a subset of observations to be used.
-#'@param  numdist  Number of distinct for selection. Used to speed up computation.
-#'@param  numclust Number of clusters for selection. Used to speed up computation.
+#'@param  numdist  number of distinct for selection. Used to speed up computation.
+#'@param  numclust number of clusters for selection. Used to speed up computation.
+#'@param  estmethodopt a list of optional arguments used by \code{\link{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).
 #'@param  ...      optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link{boot.rq}}.
 #'@return \item{\code{testshapeL}}{Results for \code{testshapel}, including: \code{testvalL}, null boundary values;
 #'                                 \code{stat.shapeL}, test statistics; and \code{pval.shapeL}, p-value.}
@@ -103,6 +119,10 @@
 #'                               \code{stat.poly}, test statistic; \code{pval.poly}, p-value.}
 #'        \item{\code{testmodel}}{Results for \code{testmodelparfit}, including: \code{stat.model}, test statistics;
 #'                                \code{pval.model}, p-values.}
+#'        \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
+#'        \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
+#'        \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
+#'        \item{\code{imse.bsq.dpi}}{Bias constant in IMSE, DPI selection.}
 #'        \item{\code{opt}}{ A list containing options passed to the function, as well as total sample size \code{n},
 #'                           number of distinct values \code{Ndist} in \code{x}, number of clusters \code{Nclust}, and
 #'                           number of bins \code{nbins}.}
@@ -117,9 +137,9 @@
 #' Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
 #'
 #'@references
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
 #'
 #'@seealso \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}.
 #'
@@ -131,15 +151,16 @@
 
 binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian(),
                      quantile=NULL, deriv=0, at=NULL, nolink=F,
-                     testmodel=c(3,3), testmodelparfit=NULL, testmodelpoly=NULL,
-                     testshape=c(3,3), testshapel=NULL,
+                     testmodel=NULL, testmodelparfit=NULL, testmodelpoly=NULL,
+                     testshape=NULL, testshapel=NULL,
                      testshaper=NULL, testshape2=NULL, lp=Inf,
-                     bins=c(2,2), nbins=NULL, binspos="qs",
-                     binsmethod="dpi", nbinsrot=NULL, randcut=NULL,
+                     bins=NULL, nbins=NULL,
+                     pselect=NULL, sselect=NULL,
+                     binspos="qs", binsmethod="dpi", nbinsrot=NULL, randcut=NULL,
                      nsims=500, simsgrid=20, simsseed=NULL,
                      vce=NULL, cluster=NULL, asyvar=F,
                      dfcheck=c(20,30), masspoints="on", weights=NULL, subset=NULL,
-                     numdist=NULL, numclust=NULL, ...) {
+                     numdist=NULL, numclust=NULL, estmethodopt=NULL, ...) {
 
   # param for internal use
   qrot <- 2
@@ -147,11 +168,11 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
   ####################
   ### prepare data ###
   ####################
-  xname <- deparse(substitute(x))
-  yname <- deparse(substitute(y))
-  weightsname <- deparse(substitute(weights))
-  subsetname  <- deparse(substitute(subset))
-  clustername <- deparse(substitute(cluster))
+  xname <- deparse(substitute(x), width.cutoff = 500L)
+  yname <- deparse(substitute(y), width.cutoff = 500L)
+  weightsname <- deparse(substitute(weights), width.cutoff = 500L)
+  subsetname  <- deparse(substitute(subset), width.cutoff = 500L)
+  clustername <- deparse(substitute(cluster), width.cutoff = 500L)
 
   # extract y, x, w, weights, subset, if needed (w as a matrix, others as vectors)
   # generate design matrix for covariates W
@@ -170,6 +191,8 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
         w.model <- binsreg.model.mat(w)
         w <- w.model$design
         w.factor <- w.model$factor.colnum
+      } else if (is.data.frame(w)) {
+        w <- as.matrix(w)
       }
     }
   } else {
@@ -184,7 +207,7 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     if (clustername != "NULL") if (clustername %in% names(data)) {
       cluster <- data[,clustername]
     }
-    if (deparse(substitute(w))!="NULL") {
+    if (deparse(substitute(w), width.cutoff = 500L)[1]!="NULL") {
       if (is.formula(w)) {
         if (is.data.frame(at)) {
           if (ncol(data)!=ncol(at)) {
@@ -201,7 +224,7 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
           w <- w[-nrow(w),, drop=F]
         }
       } else {
-        if (deparse(substitute(w)) %in% names(data)) w <- data[,deparse(substitute(w))]
+        if (deparse(substitute(w), width.cutoff = 500L) %in% names(data)) w <- data[,deparse(substitute(w), width.cutoff = 500L)]
         w <- as.matrix(w)
         if (is.character(w)) {
           w <- model.matrix(~w)[,-1,drop=F]
@@ -294,11 +317,121 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     stop()
   }
 
+  # analyze bins- and degree-related options
+  tshaON <- tmodON <- F
+  if (!is.null(testshapel)|!is.null(testshaper)|!is.null(testshape2)) tshaON <- T
+  if (!is.null(testmodelparfit)|!is.null(testmodelpoly)) tmodON <- T
+
+  if (is.logical(testshape)) if (!testshape) testshape <- NULL
+  if (is.logical(testmodel)) if (!testmodel) testmodel <- NULL
+  if (is.logical(testshape) & (!tshaON | !is.character(binspos))) testshape <- NULL
+  if (is.logical(testmodel) & (!tmodON | !is.character(binspos))) testmodel <- NULL
+
+  if (!is.character(binspos)) {
+    if (!is.null(nbins)|!is.null(pselect)|!is.null(sselect)) {
+      print("nbins, pselect or sselect incorrectly specified.")
+      stop()
+    }
+  }
+
+  # 4 cases: select J, select p, user specify both, or an error
+  if (!is.null(bins)) {
+    bins.p <- bins[1]
+    if (length(bins)==1) {
+      bins.s <- bins.p
+    } else if (length(bins)==2) {
+      bins.s <- bins[2]
+    } else {
+      print("bins not correctly specified.")
+      stop()
+    }
+    plist <- bins.p; slist <- bins.s
+    if (is.numeric(nbins)) if (length(nbins)==1) if (nbins!=0) {
+      print("bins or nbins is incorrectly specified.")
+      stop()
+    }
+  } else {
+    plist <- pselect; slist <- sselect
+    bins.p <- bins.s <- NULL
+  }
+
+  len_nbins <- length(nbins); len_p <- length(plist); len_s <- length(slist)
+  if (len_p==1 & len_s==0) {
+    slist <- plist; len_s <- 1
+  }
+  if (len_p==0 & len_s==1) {
+    plist <- slist; len_p <- 1
+  }
+
+
+  # 1st case: select J
+  selection <- ""
+  if (is.character(binspos)) {
+    if (is.logical(nbins)) if (nbins) selection <- "J"
+    if (len_nbins==1) if (nbins==0) selection <- "J"
+    if (is.null(nbins)|len_nbins>1|!is.null(bins)) selection <- "J"          # turn on J selection
+  }
+  if (selection=="J") {
+    if (len_p>1|len_s>1) {
+      if (is.null(nbins)) {
+        print("nbins must be specified for degree/smoothness selection.")
+        stop()
+      } else {
+        print("Only one p and one s are allowed to select # of bins.")
+        stop()
+      }
+    }
+    if (is.null(plist)) plist <- deriv
+    if (is.null(slist)) slist <- plist
+    if (is.null(bins)) {
+      bins.p <- plist; bins.s <- slist
+    }
+    len_p <- len_s <- 1
+    if (is.null(testshape)) testshape <- c(plist+1, slist+1)
+    if (is.logical(testshape)) if (testshape) {
+      testshape <- c(plist+1, slist+1)
+    }
+    if (is.null(testmodel)) testmodel <- c(plist+1, slist+1)
+    if (is.logical(testmodel)) if (testmodel) {
+      testmodel <- c(plist+1, slist+1)
+    }
+  }
+
+  # 2nd case: select p (at least for one object)
+  pselectOK <- F
+  if (selection!="J" & (is.logical(testshape)|is.null(testshape)) & tshaON) {
+    pselectOK <- T
+  }
+  if (selection!="J" & (is.logical(testmodel)|is.null(testmodel)) & tmodON) {
+    pselectOK <- T
+  }
+  if (pselectOK & (len_p>1|len_s>1) &len_nbins==1) {
+    selection <- "P"
+  }
+
+  # 3rd case: user specified
+  if ((len_p<=1 & len_s<=1) & selection!="J") {
+    selection <- "U"
+    if (is.null(testshape)) {
+      if (len_p==1 & len_s==1) testshape <- c(plist+1, slist+1)
+      else                     testshape <- c(deriv+1, deriv+1)
+    }
+    if (is.null(testmodel)) {
+      if (len_p==1 & len_s==1) testmodel <- c(plist+1, slist+1)
+      else                     testmodel <- c(deriv+1, deriv+1)
+    }
+  }
+
+  if (selection=="") {
+    print("Degree, smoothness, or # of bins not correctly specified")
+    stop()
+  }
+
   ##################################error checking
   exit <- 0
   if (!is.character(binspos)) {
     if (min(binspos)<=xmin|max(binspos)>=xmax) {
-      print("knots out of allowed range")
+      print("Knots out of allowed range")
       exit <- 1
     }
   } else {
@@ -319,7 +452,11 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     print("p<s not allowed.")
     exit <- 1
   }
-  if (testshape[1]<deriv|testmodel[1]<deriv) {
+  if (length(testshape)>=1) if(!is.logical(testshape)) if (testshape[1]<deriv) {
+    print("p<deriv not allowed.")
+    exit <- 1
+  }
+  if (length(testmodel)>=1) if(!is.logical(testmodel)) if (testmodel[1]<deriv) {
     print("p<deriv not allowed.")
     exit <- 1
   }
@@ -331,13 +468,17 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     print("veryfew not allowed for testing.")
     exit <- 1
   }
-  if ((length(testshape)>=1)&(length(bins)>=1)) if (testshape[1]<=bins[1]) {
+  if ((length(testshape)>=1)&(length(bins)>=1)) if (!is.logical(testshape)) if (testshape[1]<=bins[1]) {
     warning("p for testing <= p for bin selection not suggested.")
   }
-  if ((length(testmodel)>=1)&(length(bins)>=1)) if (testmodel[1]<=bins[1]) {
+  if ((length(testmodel)>=1)&(length(bins)>=1)) if (!is.logical(testmodel)) if (testmodel[1]<=bins[1]) {
     warning("p for testing <= p for bin selection not suggested.")
   }
   if (exit>0) stop()
+
+  if (nsims<2000|simsgrid<50) {
+    print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+  }
 
   #################################################
   localcheck <- massadj <- T
@@ -373,16 +514,41 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
   }
 
   # prepare params
-  bins.p <- bins[1]; bins.s <- bins[2]
   tsha.p <- testshape[1]; tsha.s <- testshape[2]
+  if (is.logical(tsha.p)) tsha.p <- NULL
+  if (!is.null(tsha.s)) if (is.na(tsha.s))  tsha.s <- tsha.p
+
   tmod.p <- testmodel[1]; tmod.s <- testmodel[2]
+  if (is.logical(tmod.p)) tmod.p <- NULL
+  if (!is.null(tmod.s)) if (is.na(tmod.s))  tmod.s <- tmod.p
+
+  if (selection=="J") {
+    if (!is.null(tsha.p)) if (tsha.p<=plist) {
+      tsha.p <- bins.p+1; tsha.s <- tsha.p
+      warning("Degree for testshape has been changed. It must be greater than the degree for bin selection.")
+    }
+    if (!is.null(tmod.p)) if (tmod.p<=plist) {
+      tmod.p <- bins.p+1; tmod.s <- tmod.p
+      warning("Degree for testmodel has been changed. It must be greater than the degree for bin selection.")
+    }
+  }
+  if (selection=="U") {
+    warning("Testing procedures are valid when nbins is much larger than the IMSE-optimal choice.")
+  }
+
   nL <- length(testshapel); nR <- length(testshaper); nT <- length(testshape2)
   ntestshape <- nL + nR + nT
 
-  if (binsmethod=="dpi") {
-    selectmethod <- "IMSE direct plug-in"
+  if (selection=="U") {
+    selectmethod <- "User-specified"
   } else {
-    selectmethod <- "IMSE rule-of-thumb"
+    if (binsmethod=="dpi") {
+      selectmethod <- "IMSE direct plug-in"
+    } else {
+      selectmethod <- "IMSE rule-of-thumb"
+    }
+    if (selection=="J") selectmethod <- paste(selectmethod, "(select # of bins)")
+    if (selection=="P") selectmethod <- paste(selectmethod, "(select degree and smoothness)")
   }
 
   knot <- NULL
@@ -391,7 +557,6 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     knot <- c(xmin, binspos, xmax)
     position <- "User-specified"
     es <- F
-    selectmethod <- "User-specified"
   } else {
     if (binspos == "es") {
       es <- T
@@ -403,11 +568,14 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
   }
 
   #### bin selection if needed ########
-  if (is.null(nbins)) {
+  imse.v.rot <- imse.v.dpi <- imse.b.rot <- imse.b.dpi <- NA
+  if (selection!="U") {
     # check if rot can be implemented
+    if (is.null(bins.p)) binspcheck <- 6
+    else                 binspcheck <- bins.p
     if (is.null(nbinsrot)) {
-      if (eN <= dfcheck[1]+bins.p+1+qrot) {
-        print("too small effective sample size for bin selection.")
+      if (eN <= dfcheck[1]+binspcheck+1+qrot) {
+        print("Too small effective sample size for bin selection.")
         stop()
       }
     }
@@ -421,24 +589,82 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     } else {
       Nclust.sel <- Nclust
     }
-    binselect <- binsregselect(y, x, w, deriv=deriv,
-                               bins=bins, binspos=binspos,
-                               binsmethod=binsmethod, nbinsrot=nbinsrot,
-                               vce=vce.select, cluster=cluster, randcut=randcut,
-                               dfcheck=dfcheck, masspoints=masspoints, weights=weights,
-                               numdist=Ndist.sel, numclust=Nclust.sel)
-
-    if (is.na(binselect$nbinsrot.regul)) {
-      print("bin selection fails.")
-      stop()
+    randcut1k <- randcut
+    if (is.null(randcut) & N>5000) {
+      randcut1k <- max(5000/N, 0.01)
+      warning("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
     }
-    if (binsmethod == "rot") {
-      nbins <- binselect$nbinsrot.regul
-    } else if (binsmethod == "dpi") {
-      nbins <- binselect$nbinsdpi
-      if (is.na(nbins)) {
-        warning("DPI selection fails. ROT choice used.")
+    if (selection=="J") {
+      binselect <- binsregselect(y, x, w, deriv=deriv,
+                                 bins=c(bins.p,bins.s), binspos=binspos, nbins=nbins,
+                                 binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                 vce=vce.select, cluster=cluster, randcut=randcut1k,
+                                 dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                 numdist=Ndist.sel, numclust=Nclust.sel)
+      if (is.na(binselect$nbinsrot.regul)) {
+        print("Bin selection fails.")
+        stop()
+      }
+      if (binsmethod == "rot") {
         nbins <- binselect$nbinsrot.regul
+        imse.v.rot <- binselect$imse.var.rot
+        imse.b.rot <- binselect$imse.bsq.rot
+      } else if (binsmethod == "dpi") {
+        nbins <- binselect$nbinsdpi
+        imse.v.dpi <- binselect$imse.var.dpi
+        imse.b.dpi <- binselect$imse.bsq.dpi
+        if (is.na(nbins)) {
+          warning("DPI selection fails. ROT choice used.")
+          nbins <- binselect$nbinsrot.regul
+          imse.v.rot <- binselect$imse.var.rot
+          imse.b.rot <- binselect$imse.bsq.rot
+        }
+      }
+    } else if (selection=="P") {
+      binselect <- binsregselect(y, x, w, deriv=deriv,
+                                 binspos=binspos, nbins=nbins,
+                                 pselect=plist, sselect=slist,
+                                 binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                 vce=vce.select, cluster=cluster, randcut=randcut1k,
+                                 dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                 numdist=Ndist.sel, numclust=Nclust.sel)
+      if (is.na(binselect$prot.regul)) {
+        print("Bin selection fails.")
+        stop()
+      }
+      if (binsmethod == "rot") {
+        bins.p <- binselect$prot.regul
+        bins.s <- binselect$srot.regul
+        imse.v.rot <- binselect$imse.var.rot
+        imse.b.rot <- binselect$imse.bsq.rot
+      } else if (binsmethod == "dpi") {
+        bins.p <- binselect$pdpi
+        bins.s <- binselect$sdpi
+        imse.v.dpi <- binselect$imse.var.dpi
+        imse.b.dpi <- binselect$imse.bsq.dpi
+        if (is.na(bins.p)) {
+          warning("DPI selection fails. ROT choice used.")
+          bins.p <- binselect$prot.regul
+          bins.s <- binselect$srot.regul
+          imse.v.rot <- binselect$imse.var.rot
+          imse.b.rot <- binselect$imse.bsq.rot
+        }
+      }
+      if (is.logical(testshape)|is.null(testshape)) {
+        tsha.p <- bins.p+1; tsha.s <- bins.s+1
+      } else {
+        if (tsha.p<=bins.p) {
+          tsha.p <- bins.p+1; tsha.s <- tsha.p
+          warning("Degree for testshape has been changed. It must be greater than the IMSE-optimal degree.")
+        }
+      }
+      if (is.logical(testmodel)|is.null(testmodel)) {
+        tmod.p <- bins.p+1; tmod.s <- bins.s+1
+      } else {
+        if (tmod.p<=bins.p) {
+          tmod.p <- bins.p+1; tmod.s <- tmod.p
+          warning("Degree for testmodel has been changed. It must be greater than the IMSE-optimal degree.")
+        }
       }
     }
   }
@@ -447,13 +673,13 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
   tsha.fewobs <- F
   if (ntestshape!=0) if ((nbins-1)*(tsha.p-tsha.s+1)+tsha.p+1+dfcheck[2]>=eN) {
     tsha.fewobs <- T
-    warning("too small eff. sample size for testing shape.")
+    warning("Too small eff. sample size for testing shape.")
   }
 
   tmod.fewobs <- F
   if (!is.null(testmodelparfit)|!is.null(testmodelpoly)) if ((nbins-1)*(tmod.p-tmod.s+1)+tmod.p+1+dfcheck[2]>=eN) {
     tmod.fewobs <- T
-    warning("too small eff. sample size for testing models.")
+    warning("Too small eff. sample size for testing models.")
   }
 
   # Generate knot
@@ -467,7 +693,7 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
   # check local mass points
   knot <- c(knot[1], unique(knot[-1]))
   if (nbins!=length(knot)-1) {
-    warning("repeated knots. Some bins dropped.")
+    warning("Repeated knots. Some bins dropped.")
     nbins <- length(knot)-1
   }
   if (localcheck) {
@@ -475,13 +701,13 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     if (ntestshape != 0) {
       if (uniqmin < tsha.p+1) {
         tsha.fewobs <- T
-        warning("some bins have too few distinct values of x for testing shape.")
+        warning("Some bins have too few distinct values of x for testing shape.")
       }
     }
     if (!is.null(testmodelparfit)|!is.null(testmodelpoly)) {
       if (uniqmin < tmod.p+1) {
         tmod.fewobs <- T
-        warning("some bins have too few distinct values of x for testing models.")
+        warning("Some bins have too few distinct values of x for testing models.")
       }
     }
   }
@@ -538,9 +764,9 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     if (estmethod=="reg") {
       model <- lm(y ~ P-1, weights=weights)
     } else if (estmethod=="qreg") {
-      model <- rq(y ~ P-1, tau=quantile, weights=weights)
+      model <- do.call(rq, c(list(formula=y ~ P-1, tau=quantile, weights=weights), estmethodopt))
     } else if (estmethod=="glm") {
-      model <- glm(y ~ P-1, family=family, weights=weights)
+      model <- do.call(glm, c(list(formula=y ~ P-1, family=family, weights=weights), estmethodopt))
     }
     beta <- model$coeff[1:k]
     basis.sha <- binsreg.spdes(eval=x.grid, p=tsha.p, s=tsha.s, knot=knot, deriv=deriv)
@@ -665,9 +891,9 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       if (estmethod=="reg") {
         model  <- lm(y ~ P-1, weights=weights)
       } else if (estmethod=="qreg") {
-        model  <- rq(y ~ P-1, tau=quantile, weights=weights)
+        model  <- do.call(rq, c(list(formula=y ~ P-1, tau=quantile, weights=weights), estmethodopt))
       } else {
-        model  <- glm(y ~ P-1, family=family, weights=weights)
+        model  <- do.call(glm, c(list(formula=y ~ P-1, family=family, weights=weights), estmethodopt))
       }
 
       beta <- model$coeff[1:k]
@@ -729,9 +955,9 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       if (estmethod=="reg") {
         model.poly <- lm(y~P.poly-1, weights=weights)
       } else if (estmethod=="qreg") {
-        model.poly <- rq(y~P.poly-1, tau=quantile, weights=weights)
+        model.poly <- do.call(rq, c(list(formula=y~P.poly-1, tau=quantile, weights=weights), estmethodopt))
       } else if (estmethod=="glm") {
-        model.poly <- glm(y~P.poly-1, family=family, weights=weights)
+        model.poly <- do.call(glm, c(list(formula=y~P.poly-1, family=family, weights=weights), estmethodopt))
       }
       beta.poly <- model.poly$coefficients
       poly.fit <- 0
@@ -813,8 +1039,10 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
               testshape2=list(testval2=testshape2, stat.shape2=stat.shape2, pval.shape2=pval.shape2),
               testpoly=list(testpoly=testmodelpoly, stat.poly=stat.poly, pval.poly=pval.poly),
               testmodel=list(stat.model=stat.mod, pval.model=pval.mod),
+              imse.var.dpi=imse.v.dpi, imse.bsq.dpi=imse.b.dpi,
+              imse.var.rot=imse.v.rot, imse.bsq.rot=imse.b.rot,
               opt = list(bins.p=bins.p, bins.s=bins.s, deriv=deriv,
-                         testshape=testshape, testmodel=testmodel,
+                         testshape=c(tsha.p, tsha.s), testmodel=c(tmod.p, tmod.s),
                          binspos=position, binsmethod=selectmethod,
                          n=N, Ndist=Ndist, Nclust=Nclust,
                          nbins=nbins, knot=knot, lp=lp,
@@ -842,7 +1070,7 @@ print.CCFFbinstest <- function(x, ...) {
   cat(paste("# of clusters (Nclust)             =  ", x$opt$Nclust,    "\n", sep=""))
   cat(paste("Estimation Method (estmethod)      =  ", x$opt$estmethod, "\n", sep=""))
   cat(paste("Derivative (deriv)                 =  ", x$opt$deriv,     "\n", sep=""))
-  cat(paste("Bin selection:", "\n"))
+  cat(paste("Bin/Degree selection:", "\n"))
   cat(paste("  Method (binsmethod)              =  ", x$opt$binsmethod,"\n", sep=""))
   cat(paste("  Placement (binspos)              =  ", x$opt$binspos,   "\n", sep=""))
   cat(paste("  degree (p)                       =  ", x$opt$bins.p,    "\n", sep=""))
@@ -870,7 +1098,7 @@ summary.CCFFbinstest <- function(object, ...) {
   cat(paste("# of clusters (Nclust)             =  ", x$opt$Nclust,    "\n", sep=""))
   cat(paste("Estimation Method (estmethod)      =  ", x$opt$estmethod, "\n", sep=""))
   cat(paste("Derivative (deriv)                 =  ", x$opt$deriv,     "\n", sep=""))
-  cat(paste("Bin selection:", "\n"))
+  cat(paste("Bin/Degree selection:", "\n"))
   cat(paste("  Method (binsmethod)              =  ", x$opt$binsmethod,"\n", sep=""))
   cat(paste("  Placement (binspos)              =  ", x$opt$binspos,   "\n", sep=""))
   cat(paste("  degree (p)                       =  ", x$opt$bins.p,    "\n", sep=""))

@@ -6,14 +6,15 @@
 \usage{
 binstest(y, x, w = NULL, data = NULL, estmethod = "reg",
   family = gaussian(), quantile = NULL, deriv = 0, at = NULL,
-  nolink = F, testmodel = c(3, 3), testmodelparfit = NULL,
-  testmodelpoly = NULL, testshape = c(3, 3), testshapel = NULL,
-  testshaper = NULL, testshape2 = NULL, lp = Inf, bins = c(2, 2),
-  nbins = NULL, binspos = "qs", binsmethod = "dpi", nbinsrot = NULL,
-  randcut = NULL, nsims = 500, simsgrid = 20, simsseed = NULL,
-  vce = NULL, cluster = NULL, asyvar = F, dfcheck = c(20, 30),
-  masspoints = "on", weights = NULL, subset = NULL, numdist = NULL,
-  numclust = NULL, ...)
+  nolink = F, testmodel = NULL, testmodelparfit = NULL,
+  testmodelpoly = NULL, testshape = NULL, testshapel = NULL,
+  testshaper = NULL, testshape2 = NULL, lp = Inf, bins = NULL,
+  nbins = NULL, pselect = NULL, sselect = NULL, binspos = "qs",
+  binsmethod = "dpi", nbinsrot = NULL, randcut = NULL, nsims = 500,
+  simsgrid = 20, simsseed = NULL, vce = NULL, cluster = NULL,
+  asyvar = F, dfcheck = c(20, 30), masspoints = "on", weights = NULL,
+  subset = NULL, numdist = NULL, numclust = NULL, estmethodopt = NULL,
+  ...)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -40,10 +41,10 @@ the mean of \code{w}. Other options are: \code{at="median"} for the median of \c
 
 \item{nolink}{if true, the function within the inverse link function is reported instead of the conditional mean function for the outcome.}
 
-\item{testmodel}{a vector. \code{testmodel=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s}
-smoothness constraints for parametric model specification testing.  The default is
-\code{testmodel=c(3,3)}, which corresponds to a cubic B-spline estimate of the regression
-function of interest for testing against the fitting from a parametric model specification.}
+\item{testmodel}{a vector or a logical value. It sets the degree of polynomial and the number of smoothness constraints for parametric model specification
+testing. If \code{testmodel=c(p,s)} is specified, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used.
+If \code{testmodel=T} or \code{testmodel=NULL} (default) is specified, \code{testmodel=c(1,1)} is used unless the degree \code{p} and the smoothness \code{s}
+selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).}
 
 \item{testmodelparfit}{a data frame or matrix which contains the evaluation grid and fitted values of the model(s) to be
 tested against.  The column contains a series of evaluation points
@@ -53,10 +54,10 @@ contain the fitted values at the corresponding evaluation points.}
 
 \item{testmodelpoly}{degree of a global polynomial model to be tested against.}
 
-\item{testshape}{a vector. \code{testshape=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s}
-smoothness constraints for nonparametric shape restriction testing. The default is
-\code{testshape=c(3,3)}, which corresponds to a cubic B-spline estimate of the regression
-function of interest for one-sided or two-sided testing.}
+\item{testshape}{a vector or a logical value. It sets the degree of polynomial and the number of smoothness constraints for nonparametric shape restriction
+testing. If \code{testshape=c(p,s)} is specified, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used.
+If \code{testshape=T} or \code{testshape=NULL} (default) is specified, \code{testshape=c(1,1)} is used unless the degree \code{p} and smoothness \code{s} selection
+is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).}
 
 \item{testshapel}{a vector of null boundary values for hypothesis testing. Each number \code{a} in the vector
 corresponds to one boundary of a one-sided hypothesis test to the left of the form
@@ -67,16 +68,31 @@ corresponds to one boundary of a one-sided hypothesis test to the right of the f
 \code{H0: inf_x mu(x)>=a}.}
 
 \item{testshape2}{a vector of null boundary values for hypothesis testing. Each number \code{a} in the vector
-corresponds to one boundary of a two-sided hypothesis test ofthe form
+corresponds to one boundary of a two-sided hypothesis test of the form
 \code{H0: sup_x |mu(x)-a|=0}.}
 
 \item{lp}{an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
 corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive integer \code{q}.}
 
-\item{bins}{A vector. Degree and smoothness for bin selection. The default is \code{bins=c(2,2)}, which corresponds to a quadratic spline estimate.}
+\item{bins}{a vector. If \code{bins=c(p,s)}, it sets the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
+for data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
+The default is \code{bins=c(0,0)}, which corresponds to the piecewise constant.}
 
-\item{nbins}{number of bins for partitioning/binning of \code{x}.  If not specified, the number of bins is
-selected via the companion function \code{binsregselect} in a data-driven, optimal way whenever possible.}
+\item{nbins}{number of bins for partitioning/binning of \code{x}.  If \code{nbins=T} or \code{nbins=NULL} (default) is specified, the number
+of bins is selected via the companion command \code{\link{binsregselect}} in a data-driven, optimal way whenever possible.
+If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command \code{\link{binsregselect}}.}
+
+\item{pselect}{vector of numbers within which the degree of polynomial \code{p} for point estimation is selected.
+ If the selected optimal degree is \code{p}, then piecewise polynomials of degree
+ \code{p+1} are used to conduct testing for nonparametric shape restrictions or parametric model specifications.
+ \emph{Note:} To implement the degree or smoothness selection, in addition to \code{pselect} or \code{sselect},
+\code{nbins=#} must be specified.}
+
+\item{sselect}{vector of numbers within which the number of smoothness constraints \code{s} for point estimation is selected.
+If the selected optimal smoothness is \code{s}, then piecewise polynomials of \code{s+1} smoothness constraints
+are used to conduct testing for nonparametric shape restrictions or parametric model specifications.
+If not specified, for each value \code{p} supplied in the option \code{pselect}, only the piecewise polynomial
+with the maximum smoothness is considered, i.e., \code{s=p}.}
 
 \item{binspos}{position of binning knots. The default is \code{binspos="qs"}, which corresponds to quantile-spaced
 binning (canonical binscatter).  The other options are \code{"es"} for evenly-spaced binning, or
@@ -90,17 +106,19 @@ for rule of thumb implementation.}
 \item{nbinsrot}{initial number of bins value used to construct the DPI number of bins selector.
 If not specified, the data-driven ROT selector is used instead.}
 
-\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-Observations for which \code{runif()<=#} are used. # must be between 0 and 1.}
+\item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
+Observations for which \code{runif()<=#} are used. # must be between 0 and 1. By default, \code{max(5,000, 0.01n)} observations
+are used if the samples size \code{n>5,000}.}
 
 \item{nsims}{number of random draws for hypothesis testing. The default is
 \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
-\code{[(p+1)*J - (J-1)*s]}.}
+\code{[(p+1)*J - (J-1)*s]}. A larger number of draws is recommended to obtain the final results.}
 
 \item{simsgrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 the supremum (infimum or Lp metric) operation needed to construct hypothesis testing
 procedures. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
-evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.}
+evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+A larger number of evaluation points is recommended to obtain the final results.}
 
 \item{simsseed}{seed for simulation.}
 
@@ -109,13 +127,13 @@ For quantile regression, the allowed options are the same as that for \code{\lin
 
 \item{cluster}{cluster ID. Used for compute cluster-robust standard errors.}
 
-\item{asyvar}{If true, the standard error of the nonparametric component is computed and the uncertainty related to control
+\item{asyvar}{if true, the standard error of the nonparametric component is computed and the uncertainty related to control
 variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.}
 
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -132,9 +150,11 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 
 \item{subset}{optional rule specifying a subset of observations to be used.}
 
-\item{numdist}{Number of distinct for selection. Used to speed up computation.}
+\item{numdist}{number of distinct for selection. Used to speed up computation.}
 
-\item{numclust}{Number of clusters for selection. Used to speed up computation.}
+\item{numclust}{number of clusters for selection. Used to speed up computation.}
+
+\item{estmethodopt}{a list of optional arguments used by \code{\link{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).}
 
 \item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link{boot.rq}}.}
 }
@@ -149,6 +169,10 @@ a numeric vector. For more details, see \code{\link{lm}}.}
                               \code{stat.poly}, test statistic; \code{pval.poly}, p-value.}
        \item{\code{testmodel}}{Results for \code{testmodelparfit}, including: \code{stat.model}, test statistics;
                                \code{pval.model}, p-values.}
+       \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
+       \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
+       \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
+       \item{\code{imse.bsq.dpi}}{Bias constant in IMSE, DPI selection.}
        \item{\code{opt}}{ A list containing options passed to the function, as well as total sample size \code{n},
                           number of distinct values \code{Ndist} in \code{x}, number of clusters \code{Nclust}, and
                           number of bins \code{nbins}.}
@@ -156,7 +180,7 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 \description{
 \code{binstest} implements binscatter-based hypothesis testing procedures for parametric functional
             forms of and nonparametric shape restrictions on the regression function of interest, following the results
-            in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+            in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
             If the binning scheme is not set by the user,
             the companion function \code{\link{binsregselect}} is used to implement binscatter in a
             data-driven way and inference procedures are based on robust bias correction.
@@ -169,9 +193,9 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  summary(est)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}.

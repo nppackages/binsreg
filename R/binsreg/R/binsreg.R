@@ -1,7 +1,7 @@
 ####################################################################################################
 #'@title  Data-Driven Binscatter Least Squares Regression with Robust Inference Procedures and Plots
 #'@description \code{binsreg} implements binscatter least squares regression with robust inference procedures and plots, following the
-#'             results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+#'             results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
 #'             Binscatter provides a flexible way to describe the mean relationship between two variables, after
 #'             possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
 #'             The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -19,34 +19,37 @@
 #'           \code{data} is specified). Note that when \code{at="mean"} or \code{at="median"}, all factor variables (if specified) are excluded from the evaluation (set as zero).
 #'@param  deriv  derivative order of the regression function for estimation, testing and plotting.
 #'               The default is \code{deriv=0}, which corresponds to the function itself.
-#'@param  dots a vector. \code{dots=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints for
-#'             point estimation and plotting as "dots". The default is \code{dots=c(0,0)}, which corresponds to
-#'             piecewise constant (canonical binscatter)
+#'@param  dots a vector or a logical value. If \code{dots=c(p,s)}, a piecewise polynomial of degree \code{p} with
+#'             \code{s} smoothness constraints is used for point estimation and plotting as "dots".
+#'             The default is \code{dots=c(0,0)}, which corresponds to piecewise constant (canonical binscatter).
+#'             If \code{dots=T}, the default \code{dots=c(0,0)} is used unless the degree \code{p} and smoothness \code{s} selection
+#'             is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+#'             If \code{dots=F} is specified, the dots are not included in the plot.
 #'@param  dotsgrid number of dots within each bin to be plotted. Given the choice, these dots are point estimates
 #'                 evaluated over an evenly-spaced grid within each bin. The default is \code{dotsgrid=0}, and only
 #'                 the point estimates at the mean of \code{x} within each bin are presented.
 #'@param  dotsgridmean If true, the dots corresponding to the point estimates evaluated at the mean of \code{x} within each bin
 #'                     are presented. By default, they are presented, i.e., \code{dotsgridmean=T}.
-#'@param  line a vector. \code{line=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
-#'             for plotting as a "line".  By default, the line is not included in the plot unless explicitly
-#'             specified.  Recommended specification is \code{line=c(3,3)}, which adds a cubic B-spline estimate
-#'             of the regression function of interest to the binned scatter plot.
+#'@param  line a vector or a logical value. If \code{line=c(p,s)}, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
+#'             is used for plotting as a "line". If \code{line=T} is specified, \code{line=c(0,0)} is used unless the degree \code{p} and smoothness \code{s}
+#'             selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+#'             If \code{line=F} or \code{line=NULL} is specified, the line is not included in the plot.  The default is \code{line=NULL}.
 #'@param  linegrid number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 #'                 the point estimate set by the \code{line=c(p,s)} option. The default is \code{linegrid=20},
 #'                 which corresponds to 20 evenly-spaced evaluation points within each bin for fitting/plotting the line.
-#'@param  ci a vector. \code{ci=c(p,s)} sets a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints used for
-#'             constructing confidence intervals. By default, the confidence intervals are not included in the plot
-#'             unless explicitly specified.  Recommended specification is \code{ci=c(3,3)}, which adds confidence
-#'             intervals based on cubic B-spline estimate of the regression function of interest to the binned scatter plot.
+#'@param  ci a vector or a logical value. If \code{ci=c(p,s)} a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used for
+#'             constructing confidence intervals. If \code{ci=T} is specified, \code{ci=c(1,1)} is used unless the degree \code{p} and smoothness \code{s}
+#'             selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+#'             If \code{ci=F} or \code{ci=NULL} is specified, the confidence intervals are not included in the plot.  The default is \code{ci=NULL}.
 #'@param  cigrid number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
 #'               estimate set by the \code{ci=c(p,s)} option. The default is \code{cigrid=1}, which corresponds to 1
 #'               evenly-spaced evaluation point within each bin for confidence interval construction.
 #'@param  cigridmean If true, the confidence intervals corresponding to the point estimates evaluated at the mean of \code{x} within each bin
 #'                   are presented. The default is \code{cigridmean=T}.
-#'@param  cb a vector. \code{cb=c(p,s)} sets a the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints used for
-#'           constructing the confidence band. By default, the confidence band is not included in the plot unless
-#'           explicitly specified.  Recommended specification is \code{cb=c(3,3)}, which adds a confidence band
-#'           based on cubic B-spline estimate of the regression function of interest to the binned scatter plot.
+#'@param  cb a vector or a logical value. If \code{cb=c(p,s)}, a the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used for
+#'           constructing the confidence band. If the option \code{cb=T} is specified, \code{cb=c(1,1)} is used unless the degree \code{p} and smoothness \code{s}
+#'           selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+#'           If \code{cb=F} or \code{cb=NULL} is specified, the confidence band is not included in the plot. The default is \code{cb=NULL}.
 #'@param  cbgrid number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
 #'               estimate set by the \code{cb=c(p,s)} option. The default is \code{cbgrid=20}, which corresponds
 #'               to 20 evenly-spaced evaluation points within each bin for confidence interval construction.
@@ -70,29 +73,45 @@
 #'@param  bylpatterns an ordered list of line patterns for plotting each subgroup series defined by the option \code{by}.
 #'@param  legendTitle String, title of legend.
 #'@param  legendoff If true, no legend is added.
-#'@param  nbins number of bins for partitioning/binning of \code{x}.  If not specified, the number of bins is
-#'              selected via the companion function \code{binsregselect} in a data-driven, optimal way whenever possible.
+#'@param  nbins number of bins for partitioning/binning of \code{x}.  If \code{nbins=T} or \code{nbins=NULL} (default) is specified, the number
+#'              of bins is selected via the companion command \code{\link{binsregselect}} in a data-driven, optimal way whenever possible.
+#'              If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command \code{\link{binsregselect}}.
 #'@param  binspos position of binning knots. The default is \code{binspos="qs"}, which corresponds to quantile-spaced
 #'                binning (canonical binscatter).  The other options are \code{"es"} for evenly-spaced binning, or
-#'                a vector for manual specification of the positions of inner knots (which must be within the range of
-#'                \code{x}).
+#'                a vector for manual specification of the positions of inner knots (which must be within the range of \code{x}).
 #'@param  binsmethod method for data-driven selection of the number of bins. The default is \code{binsmethod="dpi"},
 #'                   which corresponds to the IMSE-optimal direct plug-in rule.  The other option is: \code{"rot"}
 #'                   for rule of thumb implementation.
 #'@param  nbinsrot initial number of bins value used to construct the DPI number of bins selector.
 #'                 If not specified, the data-driven ROT selector is used instead.
+#'@param  pselect vector of numbers within which the degree of polynomial \code{p} for point estimation is selected.
+#'                 Piecewise polynomials of the selected optimal degree \code{p} are used to construct dots or line
+#'                 if \code{dots=T} or \code{line=T} is specified,
+#'                 whereas piecewise polynomials of degree \code{p+1} are used to construct confidence intervals
+#'                 or confidence band if \code{ci=T} or \code{cb=T} is specified.
+#'                 \emph{Note:} To implement the degree or smoothness selection, in addition to \code{pselect} or \code{sselect},
+#'                \code{nbins=#} must be specified.
+#'@param  sselect vector of numbers within which the number of smoothness constraints \code{s} for point estimation is selected.
+#'                Piecewise polynomials with the selected optimal \code{s} smoothness constraints are used to construct dots or line
+#'                 if \code{dots=T} or \code{line=T} is specified,
+#'                whereas piecewise polynomials with \code{s+1} constraints are used to construct
+#'                confidence intervals or confidence band if \code{ci=T} or \code{cb=T} is
+#'                specified.  If not specified, for each value \code{p} supplied in the option \code{pselect}, only the piecewise polynomial
+#'                with the maximum smoothness is considered, i.e., \code{s=p}.
 #'@param  samebinsby if true, a common partitioning/binning structure across all subgroups specified by the option \code{by} is forced.
 #'                   The knots positions are selected according to the option \code{binspos} and using the full sample. If \code{nbins}
 #'                   is not specified, then the number of bins is selected via the companion command \code{\link{binsregselect}} and
 #'                   using the full sample.
-#'@param  randcut upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-#'                Observations for which \code{runif()<=#} are used. # must be between 0 and 1.
+#'@param  randcut upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
+#'                Observations for which \code{runif()<=#} are used. # must be between 0 and 1.  By default, \code{max(5,000, 0.01n)} observations
+#'                are used if the samples size \code{n>5,000}.
 #'@param  nsims number of random draws for constructing confidence bands. The default is
 #'              \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
-#'              \code{[(p+1)*J - (J-1)*s]}.
+#'              \code{[(p+1)*J - (J-1)*s]}. A larger number of draws is recommended to obtain the final results.
 #'@param  simsgrid number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 #'                 the supremum operation needed to construct confidence bands. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
 #'                 evaluation points within each bin for approximating the supremum operator.
+#'                 A larger number of evaluation points is recommended to obtain the final results.
 #'@param  simsseed  seed for simulation.
 #'@param  vce Procedure to compute the variance-covariance matrix estimator. Options are
 #'           \itemize{
@@ -110,11 +129,11 @@
 #'@param  asyvar  If true, the standard error of the nonparametric component is computed and the uncertainty related to control
 #'                variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.
 #'@param  level nominal confidence level for confidence interval and confidence band estimation. Default is \code{level=95}.
-#'@param  noplot If true, no plot produced.
+#'@param  noplot if true, no plot produced.
 #'@param  dfcheck adjustments for minimum effective sample size checks, which take into account number of unique
 #'                values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 #'                the different statistical models considered. The default is \code{dfcheck=c(20, 30)}.
-#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.
 #'@param  masspoints how mass points in \code{x} are handled. Available options:
 #'                   \itemize{
 #'                   \item \code{"on"} all mass point and degrees of freedom checks are implemented. Default.
@@ -150,10 +169,16 @@
 #'                                \code{bin}, the indicator of bins;
 #'                                \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin;
 #'                                \code{polyci.l} and \code{polyci.r}, left and right boundaries of each confidence intervals.}}
+#'        \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
+#'        \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
+#'        \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
+#'        \item{\code{imse.bsq.dpi}}{Bias constant in IMSE, DPI selection.}
 #'        \item{\code{cval.by}}{A vector of critical values for constructing confidence band for each group.}
 #'        \item{\code{opt}}{ A list containing options passed to the function, as well as \code{N.by} (total sample size for each group),
 #'                           \code{Ndist.by} (number of distinct values in \code{x} for each group), \code{Nclust.by} (number of clusters for each group),
-#'                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
+#'                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).
+#'                           The degree and smoothness of polynomials for dots, line, confidence intervals and confidence band for each group are saved
+#'                           in \code{dots}, \code{line}, \code{ci}, and \code{cb}.}
 #'
 #'@author
 #' Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
@@ -165,9 +190,9 @@
 #' Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
 #'
 #'@references
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
 #'
 #'@seealso \code{\link{binsregselect}}, \code{\link{binstest}}.
 #'
@@ -178,12 +203,14 @@
 #'@export
 
 binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
-                    dots=c(0,0), dotsgrid=0, dotsgridmean=T, line=NULL, linegrid=20,
+                    dots=NULL, dotsgrid=0, dotsgridmean=T, line=NULL, linegrid=20,
                     ci=NULL, cigrid=0, cigridmean=T, cb=NULL, cbgrid=20,
                     polyreg=NULL, polyreggrid=20, polyregcigrid=0,
                     by=NULL, bycolors=NULL, bysymbols=NULL, bylpatterns=NULL,
                     legendTitle=NULL, legendoff=F,
-                    nbins=NULL, binspos="qs", binsmethod="dpi", nbinsrot=NULL, samebinsby=F, randcut=NULL,
+                    nbins=NULL, binspos="qs", binsmethod="dpi", nbinsrot=NULL,
+                    pselect=NULL, sselect=NULL,
+                    samebinsby=F, randcut=NULL,
                     nsims=500, simsgrid=20, simsseed=NULL,
                     vce="HC1",cluster=NULL, asyvar=F, level=95,
                     noplot=F, dfcheck=c(20,30), masspoints="on", weights=NULL, subset=NULL, plotxrange=NULL, plotyrange=NULL) {
@@ -196,12 +223,12 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
   ####################
 
   # variable name
-  xname <- deparse(substitute(x))
-  yname <- deparse(substitute(y))
-  byname <- deparse(substitute(by))
-  weightsname <- deparse(substitute(weights))
-  subsetname  <- deparse(substitute(subset))
-  clustername <- deparse(substitute(cluster))
+  xname <- deparse(substitute(x), width.cutoff = 500L)
+  yname <- deparse(substitute(y), width.cutoff = 500L)
+  byname <- deparse(substitute(by), width.cutoff = 500L)
+  weightsname <- deparse(substitute(weights), width.cutoff = 500L)
+  subsetname  <- deparse(substitute(subset), width.cutoff = 500L)
+  clustername <- deparse(substitute(cluster), width.cutoff = 500L)
 
   # extract y, x, w, weights, subset, if needed (w as a matrix, others as vectors)
   # generate design matrix for covariates W
@@ -220,6 +247,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         w.model <- binsreg.model.mat(w)
         w <- w.model$design
         w.factor <- w.model$factor.colnum
+      } else if (is.data.frame(w)) {
+        w <- as.matrix(w)
       }
     }
   } else {
@@ -237,7 +266,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     if (clustername != "NULL") if (clustername %in% names(data)) {
       cluster <- data[,clustername]
     }
-    if (deparse(substitute(w))!="NULL") {
+    if (deparse(substitute(w), width.cutoff = 500L)[1]!="NULL") {
       if (is.formula(w)) {
         if (is.data.frame(at)) {
           if (ncol(data)!=ncol(at)) {
@@ -254,7 +283,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
           w <- w[-nrow(w),, drop=F]
         }
       } else {
-        if (deparse(substitute(w)) %in% names(data)) w <- data[,deparse(substitute(w))]
+        if (deparse(substitute(w), width.cutoff = 500L) %in% names(data)) w <- data[,deparse(substitute(w), width.cutoff = 500L)]
         w <- as.matrix(w)
         if (is.character(w)) {
           w <- model.matrix(~w)[,-1,drop=F]
@@ -292,31 +321,160 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
   cluster <- cluster[na.ok]
 
   xmin <- min(x); xmax <- max(x)
+  # define the support of plot
+  xsc.min <- plotxrange[1]; xsc.max <- plotxrange[2]
+  if (is.null(xsc.min)) xsc.min <- xmin
+  if (is.null(xsc.max)) xsc.max <- xmax
 
   # evaluation point of w
   if (is.null(at))  at <- "mean"
+
+  ##########################################
+  # analyze bins- and degree-related options
+  if (is.logical(dots)) if (!dots) {
+    dots <- NULL
+    dotsgrid <- 0
+  }
+  if (is.logical(line)) if (!line) line <- NULL
+  if (is.logical(ci)) if (!ci) ci <- NULL
+  if (is.logical(cb)) if (!cb) cb <- NULL
+
+  # 4 cases: select J, select p, user specify both, or an error
+  len_nbins <- length(nbins)
+  if (is.logical(nbins)) len_nbins <- 0
+  plist <- pselect; slist <- sselect
+  len_p <- length(plist); len_s <- length(slist)
+  if (len_p==1 & len_s==0) {
+    slist <- plist; len_s <- 1
+  }
+  if (len_p==0 & len_s==1) {
+    plist <- slist; len_p <- 1
+  }
+
+  if (!is.character(binspos)) {
+    if (!is.null(nbins)|!is.null(pselect)|!is.null(sselect)) {
+      print("binspos not correctly specified")
+      stop()
+    }
+  }
+
+  len_dots <- length(dots)
+
+  # 1st case: select J
+  selection <- ""
+  if (is.character(binspos)) {
+    if (is.logical(nbins)) {
+      if (nbins) selection <- "J"
+    } else {
+      if (len_nbins==1) if (nbins==0) selection <- "J"
+      if (is.null(nbins)) selection <- "J"
+    }
+    if (len_nbins>1) selection <- "J"
+  }
+
+  if (selection=="J") {
+    if (len_p>1|len_s>1){
+      if (is.null(nbins)) {
+        print("nbins must be specified for degree/smoothness selection.")
+        stop()
+      } else {
+        print("Only one p and one s are allowed to select # of bins.")
+        stop()
+      }
+    }
+    if (is.null(plist)) plist <- deriv
+    if (is.null(slist)) slist <- plist
+    if (!is.logical(dots) & !is.null(dots)) {
+      plist <- dots[1]; slist <- dots[2]
+      if (is.na(slist)) slist <- plist
+    }
+    if (is.null(dots)) dots <- c(plist, slist)
+    if (is.logical(dots)) if (dots) {
+      dots <- c(plist, slist)
+    }
+    if (is.logical(line)) if (line) {
+      line <- c(plist, slist)
+    }
+    if (is.logical(ci)) if (ci) {
+      ci <- c(plist+1, slist+1)
+    }
+    if (is.logical(cb)) if (cb) {
+      cb <- c(plist+1, slist+1)
+    }
+    len_p <- len_s <- 1
+  }
+
+  # 2nd case: select p (at least for one object)
+  pselectOK <- F
+  if (selection!="J") {
+    if (is.null(dots)) {
+      pselectOK <- T
+    }
+    if (is.logical(dots)) if (dots) {
+      pselectOK <- T
+    }
+    if (is.logical(line)) if (line) {
+      pselectOK <- T
+    }
+    if (is.logical(ci)) if (ci) {
+      pselectOK <- T
+    }
+    if (is.logical(cb)) if (cb) {
+      pselectOK <- T
+    }
+  }
+
+  if (pselectOK & len_nbins==1 & (len_p>1|len_s>1)) {
+    selection <- "P"
+  }
+
+  # 3rd case: user specified
+  if ((len_p<=1 & len_s<=1) & selection!="J") {
+    selection <- "U"
+    if (is.null(dots)) {
+      if (len_p==1 & len_s==1) dots <- c(plist, slist)
+      else                     dots <- c(deriv, deriv)
+    }
+    if (is.logical(dots)) if (dots) {
+      if (len_p==1 & len_s==1) dots <- c(plist, slist)
+      else                     dots <- c(deriv, deriv)
+    }
+    if (is.na(dots[2])) dots[2] <- dots[1]
+
+    if (is.logical(line)) if (line) {
+      if (len_p==1 & len_s==1) line <- c(plist, slist)
+      else                     line <- dots
+    }
+    if (is.logical(ci)) if (ci) {
+      if (len_p==1 & len_s==1) ci <- c(plist+1, slist+1)
+      else                     ci <- c(dots[1]+1, dots[2]+1)
+    }
+    if (is.logical(cb)) if (cb) {
+      if (len_p==1 & len_s==1) cb <- c(plist+1, slist+1)
+      else                     cb <- c(dots[1]+1, dots[2]+1)
+    }
+  }
+
+  if (selection=="") {
+    print("Degree, smoothness, or # of bins not correctly specified")
+    stop()
+  }
 
   ##################################################
   ######## Error Checking ##########################
   ##################################################
   exit <- 0
   if (deriv < 0) {
-    print("derivative incorrectly specified.")
+    print("Derivative incorrectly specified.")
     exit <- 1
   }
   if (dotsgrid<0|linegrid<0|cigrid<0|cbgrid<0|polyreggrid<0|polyregcigrid<0) {
     print("# of evaluation points incorrectly specified.")
     exit <- 1
   }
-  if (!is.null(nbins)) {
-    if (nbins < 0) {
-      print("# of bins incorrectly specified.")
-      exit <- 1
-    }
-  }
   if (!is.character(binspos)) {
     if (min(binspos)<=xmin|max(binspos)>=xmax) {
-      print("knots out of allowed range")
+      print("Knots out of allowed range.")
       exit <- 1
     }
   } else {
@@ -341,24 +499,24 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     print("p<s not allowed.")
     exit <- 1
   }
-  if (dots[1] < deriv) {
-    print("p<deriv not allowed.")
-    exit <- 1
-  }
-  if (!is.null(line)) if (line[1] < deriv) {
-    print("p<deriv not allowed.")
-    exit <- 1
-  }
-  if (!is.null(ci)) if (ci[1] < deriv) {
-    print("p<deriv not allowed.")
-    exit <- 1
-  }
-  if (!is.null(cb)) if (cb[1] < deriv) {
-    print("p<deriv not allowed.")
-    exit <- 1
-  }
+  # if (dots[1] < deriv) {
+  #   print("p<deriv not allowed.")
+  #   exit <- 1
+  # }
+  # if (!is.null(line)) if (line[1] < deriv) {
+  #   print("p<deriv not allowed.")
+  #   exit <- 1
+  # }
+  # if (!is.null(ci)) if (ci[1] < deriv) {
+  #   print("p<deriv not allowed.")
+  #   exit <- 1
+  # }
+  # if (!is.null(cb)) if (cb[1] < deriv) {
+  #   print("p<deriv not allowed.")
+  #   exit <- 1
+  # }
   if (binsmethod!="dpi" & binsmethod!="rot") {
-    print("bin selection method incorrectly specified.")
+    print("Bin selection method incorrectly specified.")
     exit <- 1
   }
   if (!is.null(w)) {
@@ -370,7 +528,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     } else {
       if (is.vector(at)) {
         if (length(at)!=nwvar) {
-          print("length of at not equal to # of w variables.")
+          print("Length of at not equal to # of w variables.")
           exit <- 1
         }
       } else {
@@ -387,19 +545,23 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
   ##################################################
   # Prepare options
-  dots.p <- dots[1]; dots.s <- dots[2]
+  if (is.null(dots)) {
+    dots.p <- dots.s <- NULL
+  } else {
+    dots.p <- dots[1]; dots.s <- dots[2]
+    if (is.logical(dots.p)) dots.p <- NULL
+    if (is.na(dots.s))      dots.s <- dots.p
+  }
   dotsmean <- 0
   if (dotsgridmean) dotsmean <- 1
 
   if (is.null(line)) {
     linegrid <- 0
+    line.p <- line.s <- NULL
   } else {
-    line.p <- line[1]
-    if (length(line)==1) {
-      line.s <- line.p
-    } else {
-      line.s <- line[2]
-    }
+    line.p <- line[1]; line.s <- line[2]
+    if (is.logical(line.p)) line.p <- NULL
+    if (is.na(line.s))      line.s <- line.p
   }
 
   cimean <- 0
@@ -407,29 +569,42 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
   if (is.null(ci)) {
     cigrid <- 0
     cimean <- 0
+    ci.p <- ci.s <- NULL
   } else {
-    ci.p <- ci[1]
-    if (length(ci)==1) {
-      ci.s <- ci.p
-    } else {
-      ci.s <- ci[2]
-    }
+    ci.p <- ci[1]; ci.s <- ci[2]
+    if (is.logical(ci.p)) ci.p <- NULL
+    if (is.na(ci.s))      ci.s <- ci.p
   }
 
   if (is.null(cb)) {
     cbgrid <- 0
+    cb.p <- cb.s <- NULL
   } else {
-    cb.p <- cb[1]
-    if (length(cb)==1) {
-      cb.s <- cb.p
-    } else {
-      cb.s <- cb[2]
-    }
+    cb.p <- cb[1]; cb.s <- cb[2]
+    if (is.logical(cb.p)) cb.p <- NULL
+    if (is.na(cb.s))      cb.s <- cb.p
   }
 
   if (is.null(polyreg)) {
     polyreggrid   <- 0
     polyregcigrid <- 0
+  }
+
+  # Add a warning about degrees for estimation and inference
+  if (selection=="J") {
+    if (!is.null(ci.p)) if (ci.p<=dots.p) {
+      ci.p <- dots.p+1; ci.s <- ci.p
+      warning("Degree for ci has been changed. It must be greater than the degree for dots.")
+    }
+    if (!is.null(cb.p)) if (cb.p<=dots.p) {
+      cb.p <- dots.p+1; cb.s <- cb.p
+      warning("Degree for cb has been changed. It must be greater than the degree for dots.")
+    }
+  }
+  if (selection=="U") {
+    if (!is.null(ci)|!is.null(cb)) {
+      warning("Confidence intervals/bands are valid when nbins is much larger than the IMSE-optimal choice.")
+    }
   }
 
   localcheck <- massadj <- T; fewmasspoints <- F
@@ -491,15 +666,20 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
   }
 
   #########################################
-  if (binsmethod=="dpi") {
-    selectmethod <- "IMSE direct plug-in"
-  } else {
-    selectmethod <- "IMSE rule-of-thumb"
-  }
   nbins_all <- nbins         # "nbins" is reserved for use within loop
-  if (!is.null(nbins)) {
+
+  if (selection=="U") {
     selectmethod <- "User-specified"
+  } else {
+    if (binsmethod=="dpi") {
+      selectmethod <- "IMSE direct plug-in"
+    } else {
+      selectmethod <- "IMSE rule-of-thumb"
+    }
+    if (selection=="J") selectmethod <- paste(selectmethod, "(select # of bins)")
+    if (selection=="P") selectmethod <- paste(selectmethod, "(select degree and smoothness)")
   }
+
 
   knot <- NULL
   knotlistON <- F
@@ -508,7 +688,6 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     knot <- c(xmin, sort(binspos), xmax)
     position <- "User-specified"
     es <- F
-    selectmethod <- "User-specified"
     knotlistON <- T
   } else {
     if (binspos == "es") {
@@ -523,9 +702,10 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
   ################################################
   ### Bin selection using full sample if needed ##
-  fullfewobs <- fewobs <- selectfullON <- F
-  if (fewmasspoints) fullfewobs <- fewobs <- T
-  if (!fullfewobs & is.null(nbins) & (is.null(by) | (!is.null(by) & samebinsby))) selectfullON <- T
+  imse.v.rot <- imse.v.dpi <- imse.b.rot <- imse.b.dpi <- rep(NA, ngroup)
+  fullfewobs <- selectfullON <- F
+  if (fewmasspoints) fullfewobs <- T
+  if (!fullfewobs & selection!="U" & (is.null(by) | (!is.null(by) & samebinsby))) selectfullON <- T
   if (selectfullON) {
     # effective size
     eN <- N <- length(x)
@@ -542,15 +722,17 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
     # check if rot can be implemented
     if (is.null(nbinsrot)) {
-      if (eN <= dfcheck[1]+dots.p+1+qrot) {
-        warning("too small effective sample size for bin selection. # of mass of points or clusters used and by option ignored.")
-        fewobs <- fullfewobs <- T
+      if (is.null(dots.p)) dotspcheck <- 6
+      else                 dotspcheck <- dots.p
+      if (eN <= dfcheck[1]+dotspcheck+1+qrot) {
+        warning("Too small effective sample size for bin selection. # of mass of points or clusters used and by option ignored.")
+        fullfewobs <- T
         byvals <- "Full Sample"
         es <- F
         position <- "Quantile-spaced"
       }
     }
-    if (!fewobs) {
+    if (!fullfewobs) {
       if (is.na(Ndist))  {
         Ndist.sel <- NULL
       } else {
@@ -561,23 +743,90 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       } else {
         Nclust.sel <- Nclust
       }
-      binselect <- binsregselect(y, x, w, deriv=deriv,
-                                 bins=dots, binspos=binspos,
-                                 binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                 vce=vce, cluster=cluster, randcut=randcut,
-                                 dfcheck=dfcheck, masspoints=masspoints, weights=weights,
-                                 numdist=Ndist.sel, numclust=Nclust.sel)
-      if (is.na(binselect$nbinsrot.regul)) {
-        print("bin selection fails.")
-        stop()
+
+      randcut1k <- randcut
+      if (is.null(randcut) & N>5000) {
+        randcut1k <- max(5000/N, 0.01)
+        warning("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
       }
-      if (binsmethod == "rot") {
-        nbins <- binselect$nbinsrot.regul
-      } else if (binsmethod == "dpi") {
-        nbins <- binselect$nbinsdpi
-        if (is.na(nbins)) {
-          warning("DPI selection fails. ROT choice used.")
+
+      if (selection=="J") {
+        binselect <- binsregselect(y, x, w, deriv=deriv,
+                                   bins=dots, binspos=binspos, nbins=nbins_all,
+                                   binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                   vce=vce, cluster=cluster, randcut=randcut1k,
+                                   dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                   numdist=Ndist.sel, numclust=Nclust.sel)
+        if (is.na(binselect$nbinsrot.regul)) {
+          print("Bin selection fails.")
+          stop()
+        }
+        if (binsmethod == "rot") {
           nbins <- binselect$nbinsrot.regul
+          imse.v.rot <- rep(binselect$imse.var.rot, ngroup)
+          imse.b.rot <- rep(binselect$imse.bsq.rot, ngroup)
+        } else if (binsmethod == "dpi") {
+          nbins <- binselect$nbinsdpi
+          imse.v.dpi <- rep(binselect$imse.var.dpi, ngroup)
+          imse.b.dpi <- rep(binselect$imse.bsq.dpi, ngroup)
+          if (is.na(nbins)) {
+            warning("DPI selection fails. ROT choice used.")
+            nbins <- binselect$nbinsrot.regul
+            imse.v.rot <- rep(binselect$imse.var.rot, ngroup)
+            imse.b.rot <- rep(binselect$imse.bsq.rot, ngroup)
+          }
+        }
+      } else if (selection=="P") {
+        binselect <- binsregselect(y, x, w, deriv=deriv,
+                                   binspos=binspos, nbins=nbins_all,
+                                   pselect=plist, sselect=slist,
+                                   binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                   vce=vce, cluster=cluster, randcut=randcut1k,
+                                   dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                   numdist=Ndist.sel, numclust=Nclust.sel)
+        if (is.na(binselect$prot.regul)) {
+          print("bin selection fails.")
+          stop()
+        }
+        if (binsmethod == "rot") {
+          binsp <- binselect$prot.regul
+          binss <- binselect$srot.regul
+          imse.v.rot <- rep(binselect$imse.var.rot, ngroup)
+          imse.b.rot <- rep(binselect$imse.bsq.rot, ngroup)
+        } else if (binsmethod == "dpi") {
+          binsp <- binselect$pdpi
+          binss <- binselect$sdpi
+          imse.v.dpi <- rep(binselect$imse.var.dpi, ngroup)
+          imse.b.dpi <- rep(binselect$imse.bsq.dpi, ngroup)
+          if (is.na(binsp)) {
+            warning("DPI selection fails. ROT choice used.")
+            binsp <- binselect$prot.regul
+            binss <- binselect$srot.regul
+            imse.v.rot <- rep(binselect$imse.var.rot, ngroup)
+            imse.b.rot <- rep(binselect$imse.bsq.rot, ngroup)
+          }
+        }
+        if (is.logical(dots)|is.null(dots)) {
+          dots.p <- binsp; dots.s <- binss
+        }
+        if (is.logical(line)) {
+          line.p <- binsp; line.s <- binss
+        }
+        if (!is.null(ci) & !is.logical(ci)) if (ci.p<=binsp) {
+          ci.p <- binsp+1
+          ci.s <- ci.p
+          warning("Degree for ci has been changed. It must be greater than the IMSE-optimal degree.")
+        }
+        if (is.logical(ci)) {
+          ci.p <- binsp+1; ci.s <- binss+1
+        }
+        if (!is.null(cb) & !is.logical(cb)) if (cb.p<=binsp) {
+          cb.p <- binsp+1
+          cb.s <- cb.p
+          warning("Degree for cb has been changed. It must be greater than the IMSE-optimal degree.")
+        }
+        if (is.logical(cb)) {
+          cb.p <- binsp+1; cb.s <- binss+1
         }
       }
     }
@@ -585,8 +834,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
   # Generate knot using the full sample if needed
 
-  if ((selectfullON | (!is.null(nbins) & samebinsby)) & !fullfewobs & is.null(knot)) {
-    knotlistON <- T
+  if ((selectfullON | (selection=="U" & samebinsby)) & !fullfewobs & is.null(knot)) {
+    knotlistON <- T; nbins_full <- nbins
     if (es) {
       knot <- genKnot.es(xmin, xmax, nbins)
     } else {
@@ -605,6 +854,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
   ##################################################################
   N.by <- Ndist.by <- Nclust.by <- nbins.by <- cval.by <- NULL   # save results
+  dots.by <- line.by <- ci.by <- cb.by <- matrix(NA,ngroup,2)
   data.plot <- list()     # list storing graph data
 
   ##################################################################
@@ -642,11 +892,13 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
     #######################################################
     ############### Bin selection if needed ###############
-    nbins <- NULL; knot <- NULL                       # initialize again
-    if (is.null(nbins_all) & !knotlistON & !fullfewobs) {
+    nbins <- NULL; knot <- NULL; fewobs <- F              # initialize
+    if (selection!="U" & !knotlistON & !fullfewobs) {
       # check if rot can be implemented
-      if (is.null(nbinsrot)) if (eN <= dfcheck[1]+dots.p+1+qrot) {
-          warning("too small effective sample size for bin selection.
+      if (is.null(dots.p)) dotspcheck <- 6
+      else                 dotspcheck <- dots.p
+      if (is.null(nbinsrot)) if (eN <= dfcheck[1]+dotspcheck+1+qrot) {
+          warning("Too small effective sample size for bin selection.
                   # of mass points or clusters used.")
           fewobs <- T
           nbins <- eN
@@ -663,28 +915,95 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         } else {
           Nclust.sel <- Nclust
         }
-        binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
-                                   bins=dots, binspos=binspos,
-                                   binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                   vce=vce, cluster=cluster.sub, randcut=randcut,
-                                   dfcheck=dfcheck, masspoints=masspoints, weights=weights.sub,
-                                   numdist=Ndist.sel, numclust=Nclust.sel)
-        if (is.na(binselect$nbinsrot.regul)) {
-          print("bin selection fails.")
-          stop()
+        randcut1k <- randcut
+        if (is.null(randcut) & N>5000) {
+          randcut1k <- max(5000/N, 0.01)
+          warning("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
         }
-        if (binsmethod == "rot") {
-          nbins <- binselect$nbinsrot.regul
-        } else if (binsmethod == "dpi") {
-          nbins <- binselect$nbinsdpi
-          if (is.na(nbins)) {
-            warning("DPI selection fails. ROT choice used.")
-            nbins <- binselect$nbinsrot.regul
+        if (selection=="J") {
+          binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+                                     bins=dots, binspos=binspos, nbins=nbins_all,
+                                     binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                     vce=vce, cluster=cluster.sub, randcut=randcut1k,
+                                     dfcheck=dfcheck, masspoints=masspoints, weights=weights.sub,
+                                     numdist=Ndist.sel, numclust=Nclust.sel)
+          if (is.na(binselect$nbinsrot.regul)) {
+            print("Bin selection fails.")
+            stop()
           }
+          if (binsmethod == "rot") {
+            nbins <- binselect$nbinsrot.regul
+            imse.v.rot[i] <- binselect$imse.var.rot
+            imse.b.rot[i] <- binselect$imse.bsq.rot
+          } else if (binsmethod == "dpi") {
+            nbins <- binselect$nbinsdpi
+            imse.v.dpi[i] <- binselect$imse.var.dpi
+            imse.b.dpi[i] <- binselect$imse.bsq.dpi
+            if (is.na(nbins)) {
+              warning("DPI selection fails. ROT choice used.")
+              nbins <- binselect$nbinsrot.regul
+              imse.v.rot[i] <- binselect$imse.var.rot
+              imse.b.rot[i] <- binselect$imse.bsq.rot
+            }
+          }
+        } else if (selection=="P") {
+          binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+                                     binspos=binspos, nbins=nbins_all,
+                                     pselect=plist, sselect=slist,
+                                     binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                     vce=vce, cluster=cluster.sub, randcut=randcut1k,
+                                     dfcheck=dfcheck, masspoints=masspoints, weights=weights.sub,
+                                     numdist=Ndist.sel, numclust=Nclust.sel)
+          if (is.na(binselect$prot.regul)) {
+            print("Bin selection fails.")
+            stop()
+          }
+          binsp <- binss <- NA
+          if (binsmethod == "rot") {
+            binsp <- binselect$prot.regul
+            binss <- binselect$srot.regul
+            imse.v.rot[i] <- binselect$imse.var.rot
+            imse.b.rot[i] <- binselect$imse.bsq.rot
+          } else if (binsmethod == "dpi") {
+            binsp <- binselect$pdpi
+            binss <- binselect$sdpi
+            imse.v.dpi[i] <- binselect$imse.var.dpi
+            imse.b.dpi[i] <- binselect$imse.bsq.dpi
+            if (is.na(binsp)) {
+              warning("DPI selection fails. ROT choice used.")
+              binsp <- binselect$prot.regul
+              binss <- binselect$srot.regul
+              imse.v.rot[i] <- binselect$imse.var.rot
+              imse.b.rot[i] <- binselect$imse.bsq.rot
+            }
+          }
+          if (is.logical(dots)|is.null(dots)) {
+            dots.p <- binsp; dots.s <- binss
+          }
+          if (is.logical(line)) {
+            line.p <- binsp; line.s <- binss
+          }
+          if (!is.null(ci) & !is.logical(ci)) if (ci.p<=binsp) {
+            ci.p <- binsp+1
+            ci.s <- ci.p
+            warning("Degree for ci has been changed. It must be greater than the IMSE-optimal degree.")
+          }
+          if (is.logical(ci)) {
+            ci.p <- binsp+1; ci.s <- binss+1
+          }
+          if (!is.null(cb) & !is.logical(cb)) if (cb.p<=binsp) {
+            cb.p <- binsp+1
+            cb.s <- cb.p
+            warning("Degree for ci has been changed. It must be greater than the IMSE-optimal degree.")
+          }
+          if (is.logical(cb)) {
+            cb.p <- binsp+1; cb.s <- binss+1
+          }
+          nbins <- nbins_all
         }
       }
     }
-    if (!is.null(nbins_all)) nbins <- nbins_all
+    if (selection=="U") nbins <- nbins_all
     if (knotlistON) {
       nbins <- length(knot_all)-1
       knot  <- knot_all
@@ -694,6 +1013,11 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       nbins <- eN
     }
 
+    if (dotsmean+dotsgrid !=0) dots.by[i,] <- c(dots.p, dots.s)
+    if (!is.null(line)) line.by[i,] <- c(line.p, line.s)
+    if (!is.null(ci))   ci.by[i,] <- c(ci.p, ci.s)
+    if (!is.null(cb))   cb.by[i,] <- c(cb.p, cb.s)
+
     ###########################################
     # Checking for each case
     dots.fewobs <- line.fewobs <- ci.fewobs <- cb.fewobs <- polyreg.fewobs <- F
@@ -702,30 +1026,30 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         fewobs <- T
         nbins <- eN
         es <- F
-        warning("too small effective sample size for dots. # of mass points or clusters used.")
+        warning("Too small effective sample size for dots. # of mass points or clusters used.")
       }
       if (!is.null(line)) {
         if ((nbins-1)*(line.p-line.s+1)+line.p+1+dfcheck[2]>=eN) {
           line.fewobs <- T
-          warning("too small effective sample size for line.")
+          warning("Too small effective sample size for line.")
         }
       }
       if (!is.null(ci)) {
         if ((nbins-1)*(ci.p-ci.s+1)+ci.p+1+dfcheck[2]>=eN) {
           ci.fewobs <- T
-          warning("too small effective sample size for ci.")
+          warning("Too small effective sample size for ci.")
         }
       }
       if (!is.null(cb)) {
         if ((nbins-1)*(cb.p-cb.s+1)+cb.p+1+dfcheck[2]>=eN) {
           cb.fewobs <- T
-          warning("too small effective sample size for line.")
+          warning("Too small effective sample size for line.")
         }
       }
     }
     if (!is.null(polyreg)) if (polyreg+1>eN) {
        polyreg.fewobs <- T
-       warning("too small effective sample size for polynomial fit.")
+       warning("Too small effective sample size for polynomial fit.")
     }
 
     ####################################
@@ -755,7 +1079,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     } else {
       knot <- c(knot[1], unique(knot[-1]))
       if (nbins!=length(knot)-1) {
-        warning("repeated knots. Some bins dropped.")
+        warning("Repeated knots. Some bins dropped.")
         nbins <- length(knot)-1
       }
     }
@@ -766,25 +1090,25 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       if (!is.null(dots)) {
         if (uniqmin < dots.p+1) {
           dots.fewobs <- T
-          warning("some bins have too few distinct values of x for dots.")
+          warning("Some bins have too few distinct values of x for dots.")
         }
       }
       if (!is.null(line)) {
         if (uniqmin < line.p+1) {
           line.fewobs <- T
-          warning("some bins have too few distinct values of x for line.")
+          warning("Some bins have too few distinct values of x for line.")
         }
       }
       if (!is.null(ci)) {
         if (uniqmin < ci.p+1) {
           ci.fewobs <- T
-          warning("some bins have too few distinct values of x for CI.")
+          warning("Some bins have too few distinct values of x for CI.")
         }
       }
       if (!is.null(cb)) {
         if (uniqmin < cb.p+1) {
           cb.fewobs <- T
-          warning("some bins have too few distinct values of x for CB.")
+          warning("Some bins have too few distinct values of x for CB.")
         }
       }
     }
@@ -859,7 +1183,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       data.by$data.dots <- data.dots
       if (cigrid+cimean!=0) {
         warning("ci=c(0,0) used.")
-        basis.all <- cbind(diag(length(dots.x)), outer(rep(1, length(dots.x)), eval.w))
+        basis.all <- diag(length(dots.x))
+        if (!is.null(eval.w)) basis.all <- cbind(basis.all, outer(rep(1, length(dots.x)), eval.w))
         dots.se  <- sqrt(rowSums((basis.all %*% vcv) * basis.all))
         ci.l <- dots.fit - dots.se * qnorm(alpha)
         ci.r <- dots.fit + dots.se * qnorm(alpha)
@@ -945,6 +1270,9 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       polyON <- T
     }
     if (polyON) {
+      if (!is.null(w.sub)) {
+        print("Note: When additional covariates w are included, the polynomial fit may not always be close to the binscatter fit.")
+      }
       grid <- binsreg.grid(knot, polyreggrid, addmore=T)
       poly.x <- grid$eval; poly.bin <- grid$bin
       poly.isknot <- grid$isknot; poly.mid <- grid$mid
@@ -1053,6 +1381,9 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       cbON <- T
     }
     if (cbON) {
+      if (nsims<2000|simsgrid<50) {
+        print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+      }
       grid <- binsreg.grid(knot, cbgrid, addmore=T)
       cb.x <- grid$eval; cb.bin <- grid$bin
       cb.isknot <- grid$isknot; cb.mid <- grid$mid
@@ -1106,11 +1437,10 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     # Save all data for each group
     data.plot[[i]] <- data.by
     names(data.plot)[i] <- paste("Group", byvals[i], sep=" ")
-
   }
 
   ########################################
-  ############# Plotting ? ################
+  ############# Plotting ? ###############
   binsplot <- NULL
   if (!noplot) {
     binsplot <- ggplot() + theme_bw()
@@ -1190,7 +1520,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     } else {
        binsplot <- binsplot + theme(legend.position="none")
     }
-    binsplot <- binsplot + labs(x=paste(xname), y=paste(yname))
+    binsplot <- binsplot + labs(x=paste(xname), y=paste(yname)) + xlim(xsc.min, xsc.max)
     print(binsplot)
   }
 
@@ -1198,7 +1528,9 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
   ########### Output ###################
   ######################################
   out <- list(bins_plot=binsplot, data.plot=data.plot, cval.by=cval.by,
-              opt=list(dots=dots, line=line, ci=ci, cb=cb,
+              imse.var.dpi=imse.v.dpi, imse.bsq.dpi=imse.b.dpi,
+              imse.var.rot=imse.v.rot, imse.bsq.rot=imse.b.rot,
+              opt=list(dots=dots.by, line=line.by, ci=ci.by, cb=cb.by,
                        polyreg=polyreg, deriv=deriv,
                        binspos=position, binsmethod=selectmethod,
                        N.by=N.by, Ndist.by=Ndist.by, Nclust.by=Nclust.by,
@@ -1222,17 +1554,17 @@ print.CCFFbinsreg <- function(x, ...) {
   cat("Call: binsreg\n\n")
 
   cat("Binscatter Plot\n")
-  cat(paste("Bin selection method (binsmethod)  =  ", x$opt$binsmethod,   "\n", sep=""))
-  cat(paste("Placement (binspos)                =  ", x$opt$binspos,      "\n", sep=""))
-  cat(paste("Derivative (deriv)                 =  ", x$opt$deriv,        "\n", sep=""))
+  cat(paste("Bin/Degree selection method (binsmethod)  =  ", x$opt$binsmethod,   "\n", sep=""))
+  cat(paste("Placement (binspos)                       =  ", x$opt$binspos,      "\n", sep=""))
+  cat(paste("Derivative (deriv)                        =  ", x$opt$deriv,        "\n", sep=""))
   cat("\n")
   for (i in 1:length(x$opt$byvals)) {
   cat(paste("Group (by)                         =  ", x$opt$byvals[i],    "\n", sep=""))
   cat(paste("Sample size (n)                    =  ", x$opt$N.by[i],      "\n", sep=""))
   cat(paste("# of distinct values (Ndist)       =  ", x$opt$Ndist.by[i],  "\n", sep=""))
   cat(paste("# of clusters (Nclust)             =  ", x$opt$Nclust.by[i], "\n", sep=""))
-  cat(paste("dots, degree (p)                   =  ", x$opt$dots[1],      "\n", sep=""))
-  cat(paste("dots, smooth (s)                   =  ", x$opt$dots[2],      "\n", sep=""))
+  cat(paste("dots, degree (p)                   =  ", x$opt$dots[i,1],      "\n", sep=""))
+  cat(paste("dots, smoothness (s)               =  ", x$opt$dots[i,2],      "\n", sep=""))
   cat(paste("# of bins (nbins)                  =  ", x$opt$nbins.by[i],  "\n", sep=""))
   cat("\n")
   }
@@ -1252,18 +1584,26 @@ summary.CCFFbinsreg <- function(object, ...) {
   cat("Call: binsreg\n\n")
 
   cat("Binscatter Plot\n")
-  cat(paste("Bin selection method (binsmethod)  =  ", x$opt$binsmethod,   "\n", sep=""))
-  cat(paste("Placement (binspos)                =  ", x$opt$binspos,      "\n", sep=""))
-  cat(paste("Derivative (deriv)                 =  ", x$opt$deriv,        "\n", sep=""))
+  cat(paste("Bin/Degree selection method (binsmethod)  =  ", x$opt$binsmethod,   "\n", sep=""))
+  cat(paste("Placement (binspos)                       =  ", x$opt$binspos,      "\n", sep=""))
+  cat(paste("Derivative (deriv)                        =  ", x$opt$deriv,        "\n", sep=""))
   cat("\n")
   for (i in 1:length(x$opt$byvals)) {
   cat(paste("Group (by)                         =  ", x$opt$byvals[i],    "\n", sep=""))
   cat(paste("Sample size (n)                    =  ", x$opt$N.by[i],      "\n", sep=""))
   cat(paste("# of distinct values (Ndist)       =  ", x$opt$Ndist.by[i],  "\n", sep=""))
   cat(paste("# of clusters (Nclust)             =  ", x$opt$Nclust.by[i], "\n", sep=""))
-  cat(paste("dots, degree (p)                   =  ", x$opt$dots[1],      "\n", sep=""))
-  cat(paste("dots, smooth (s)                   =  ", x$opt$dots[2],      "\n", sep=""))
+  cat(paste("dots, degree (p)                   =  ", x$opt$dots[i,1],      "\n", sep=""))
+  cat(paste("dots, smoothness (s)               =  ", x$opt$dots[i,2],      "\n", sep=""))
   cat(paste("# of bins (nbins)                  =  ", x$opt$nbins.by[i],  "\n", sep=""))
+  if (x$opt$binsmethod=="IMSE rule-of-thumb (select # of bins)"|x$opt$binsmethod=="IMSE rule-of-thumb (select degree and smoothness)") {
+    cat(paste("imse, bias^2                       =  ", sprintf("%6.3f", x$imse.bsq.rot[i]),  "\n", sep=""))
+    cat(paste("imse, var.                         =  ", sprintf("%6.3f", x$imse.var.rot[i]),  "\n", sep=""))
+  } else if (x$opt$binsmethod=="IMSE direct plug-in (select # of bins)"|x$opt$binsmethod=="IMSE direct plug-in (select degree and smoothness)") {
+    cat(paste("imse, bias^2                       =  ", sprintf("%6.3f", x$imse.bsq.dpi[i]),  "\n", sep=""))
+    cat(paste("imse, var.                         =  ", sprintf("%6.3f", x$imse.var.dpi[i]),  "\n", sep=""))
+  }
+
   cat("\n")
 
   cat(paste(rep("=", 8 + 10 + 10 + 10), collapse="")); cat("\n")
@@ -1275,35 +1615,35 @@ summary.CCFFbinsreg <- function(object, ...) {
 
   cat(paste(rep("-", 8 + 10 + 10 + 10), collapse="")); cat("\n")
   cat(format("dots",  width= 8, justify="right"))
-  cat(format(sprintf("%3.0f", x$opt$dots[1]), width=10 , justify="right"))
-  cat(format(sprintf("%3.0f", x$opt$dots[2]), width=10 , justify="right"))
-  dots.df <- x$opt$dots[1]+1+(x$opt$nbins.by[i]-1)*(x$opt$dots[1]-x$opt$dots[2]+1)
+  cat(format(sprintf("%3.0f", x$opt$dots[i,1]), width=10 , justify="right"))
+  cat(format(sprintf("%3.0f", x$opt$dots[i,2]), width=10 , justify="right"))
+  dots.df <- x$opt$dots[i,1]+1+(x$opt$nbins.by[i]-1)*(x$opt$dots[i,1]-x$opt$dots[i,2]+1)
   cat(format(sprintf("%3.0f", dots.df), width=10 , justify="right"))
 
   if (!is.null(x$opt$line)) {
     cat("\n")
     cat(format("line",  width= 8, justify="right"))
-    cat(format(sprintf("%3.0f", x$opt$line[1]), width=10 , justify="right"))
-    cat(format(sprintf("%3.0f", x$opt$line[2]), width=10 , justify="right"))
-    line.df <- x$opt$line[1]+1+(x$opt$nbins.by[i]-1)*(x$opt$line[1]-x$opt$line[2]+1)
+    cat(format(sprintf("%3.0f", x$opt$line[i,1]), width=10 , justify="right"))
+    cat(format(sprintf("%3.0f", x$opt$line[i,2]), width=10 , justify="right"))
+    line.df <- x$opt$line[i,1]+1+(x$opt$nbins.by[i]-1)*(x$opt$line[i,1]-x$opt$line[i,2]+1)
     cat(format(sprintf("%3.0f", line.df), width=10 , justify="right"))
   }
 
   if (!is.null(x$opt$ci)) {
     cat("\n")
     cat(format("CI",  width= 8, justify="right"))
-    cat(format(sprintf("%3.0f", x$opt$ci[1]), width=10 , justify="right"))
-    cat(format(sprintf("%3.0f", x$opt$ci[2]), width=10 , justify="right"))
-    ci.df <- x$opt$ci[1]+1+(x$opt$nbins.by[i]-1)*(x$opt$ci[1]-x$opt$ci[2]+1)
+    cat(format(sprintf("%3.0f", x$opt$ci[i,1]), width=10 , justify="right"))
+    cat(format(sprintf("%3.0f", x$opt$ci[i,2]), width=10 , justify="right"))
+    ci.df <- x$opt$ci[i,1]+1+(x$opt$nbins.by[i]-1)*(x$opt$ci[i,1]-x$opt$ci[i,2]+1)
     cat(format(sprintf("%3.0f", ci.df), width=10 , justify="right"))
   }
 
   if (!is.null(x$opt$cb)) {
     cat("\n")
     cat(format("CB",  width= 8, justify="right"))
-    cat(format(sprintf("%3.0f", x$opt$cb[1]), width=10 , justify="right"))
-    cat(format(sprintf("%3.0f", x$opt$cb[2]), width=10 , justify="right"))
-    cb.df <- x$opt$cb[1]+1+(x$opt$nbins.by[i]-1)*(x$opt$cb[1]-x$opt$cb[2]+1)
+    cat(format(sprintf("%3.0f", x$opt$cb[i,1]), width=10 , justify="right"))
+    cat(format(sprintf("%3.0f", x$opt$cb[i,2]), width=10 , justify="right"))
+    cb.df <- x$opt$cb[i,1]+1+(x$opt$nbins.by[i]-1)*(x$opt$cb[i,1]-x$opt$cb[i,2]+1)
     cat(format(sprintf("%3.0f", cb.df), width=10 , justify="right"))
   }
 

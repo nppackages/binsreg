@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.8 12-OCT-2021}{...}
+{* *! version 1.2 09-OCT-2022}{...}
 {viewerjumpto "Syntax" "binspwc##syntax"}{...}
 {viewerjumpto "Description" "binspwc##description"}{...}
 {viewerjumpto "Options" "binspwc##options"}{...}
@@ -21,15 +21,17 @@
 {p 4 12} {cmdab:binspwc} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} {cmd:,} {opt by(varname)} [{p_end}
 {p 12 12} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 12 12} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
-{p 12 12} {opt pwc(p s)} {opt testtype(type)} {opt lp(metric)}{p_end}
-{p 12 12} {opt bins(p s)} {opt bynbins(numlist)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby} {opt randcut(#)}{p_end}
+{p 12 12} {opt pwc(pwcopt)} {opt testtype(type)} {opt lp(metric)}{p_end}
+{p 12 12} {opt bins(p s)} {opt bynbins(bynbinsopt)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby} {opt randcut(#)}{p_end}
+{p 12 12} {cmd:pselect(}{it:{help numlist}}{cmd:)} {cmd:sselect(}{it:{help numlist}}{cmd:)}{p_end}
 {p 12 12} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 12 12} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt usegtools(on/off)} ]{p_end}
+{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt estmethodopt(cmd_option)} {opt usegtools(on/off)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
-{p 4 8} p, s and v are integers satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
+{p 4 8} The degree of the piecewise polynomial p, the number of smoothness constraints s, and the derivative order v are integers 
+satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
 {p 4 8} {opt fweight}s, {opt aweight}s and {opt pweight}s are allowed; see {help weight}.{p_end}
 
@@ -37,7 +39,7 @@
 {title:Description}
 
 {p 4 8} {cmd:binspwc} implements binscatter-based hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2021a)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2022a)}.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter
 in a data-driven (optimal) way and inference procedures are based on robust bias correction.
 Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg},
@@ -45,7 +47,7 @@ Binned scatter plots based on different models can be constructed using the comp
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2021b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2022b)}.
 Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
@@ -87,7 +89,7 @@ The default is {cmd:at(mean)}, which corresponds to the mean of {it:othercovs}. 
 median of {it:othercovs}, {cmd:at(0)} for zeros, and {cmd:at(filename)} for particular values of {it:othercovs} saved in another file.
 {p_end}
 
-{p 4 8} Note: when {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified)
+{p 4 8} Note: When {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified)
 are excluded from the evaluation (set as zero).
 {p_end}
 
@@ -111,8 +113,13 @@ please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/s
 
 {dlgtab:Pairwise Group Comparison Testing}
 
-{p 4 8} {opt pwc(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for pairwise group comparison.
-The default is {cmd:pwc(3 3)}, which corresponds to a cubic B-spline estimate of the function of interest for each group.
+{p 4 8} {opt pwc(pwcopt)} sets the degree of polynomial and the number of smoothness constraints 
+for pairwise group comparison. If {cmd:pwc(p s)} is specified, a piecewise polynomial of degree
+{it:p} with {it:s} smoothness constraints is used. 
+If {cmd:pwc(T)} or {cmd:pwc()} is specified, 
+{cmd:pwc(1 1)} is used unless the degree {it:p} and smoothness {it:s} selection
+is requested via the option {cmd:pselect()} (see more details in the explanation of {cmd:pselect()}). 
+The default is {cmd:pwc()}.
 {p_end}
 
 {p 4 8} {opt testtype(type)} specifies the type of pairwise comparison test. The default is {opt testtype(2)},
@@ -124,16 +131,21 @@ for the one-sided test of the form H0: {it:mu_1(x)<=mu_2(x)} and {opt testtype(r
 which corresponds to the sup-norm. Other options are {cmd:Lp(q)} for a positive integer {cmd:q}.
 {p_end}
  
-{dlgtab:Partitioning/Binning Selection}
+{dlgtab:Binning/Degree/Smoothness Selection}
 
 {p 4 8} {opt bins(p s)} sets a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints for data-driven (IMSE-optimal)
 selection of the partitioning/binning scheme.
-The default is {cmd:bins(2 2)}, which corresponds to a quadratic spline estimate.
+The default is {cmd:bins(0 0)}, which corresponds to the piecewise constant.
 
-{p 4 8} {opt bynbins(numlist)} sets a {help numlist} of numbers of bins for partitioning/binning of {it:indvar},
-which is applied to the binscatter estimation for each group. The ordering of the group follows
-the result of {help tabulate oneway:tabulate}. If a single number of bins is specified, it applies to the estimation for all groups.
-If not specified, the number of bins is selected via the companion command {help binsregselect:binsregselect} in a data-driven, optimal way whenever possible.
+{p 4 8} {opt bynbins(bynbinsopt)} sets the number of bins for partitioning/binning of {it:indvar}.
+If {cmd:bynbins(}{help numlist}{cmd:)} is specified, the number in the {help numlist} 
+is applied to the binscatter estimation for each group. The ordering of the group follows
+the result of {help tabulate oneway:tabulate}. If a single number of bins is specified, it applies to the estimation for all groups. 
+If {cmd:bynbins(T)} or {cmd:bynbins()} (default) is specified, the number of bins is selected via the companion command 
+{help binsregselect:binsregselect} in a data-driven, optimal way whenever possible.
+{p_end}
+
+{p 4 8} Note: If a {it:numlist} with more than one number is supplied within {cmd:bynbins()}, it is understood as the number of bins applied to binscatter estimation for each subgroup rather than the range for selecting the number of bins.
 {p_end}
 
 {p 4 8} {opt binspos(position)} specifies the position of binning knots.
@@ -157,13 +169,35 @@ The knots positions are selected according to the option {cmd:binspos()} and usi
 If {cmd:nbins()} is not specified, then the number of bins is selected via the companion
 command {help binsregselect:binsregselect} and using the full sample.{p_end}
 
-{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
-Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.{p_end}
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample 
+for bins/degree/smoothness selection.
+Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1. 
+By default, max(5,000, 0.01n) observations are used if the samples size n>5,000.
+{p_end}
+
+{p 4 8} {opt pselect(numlist)} specifies a list of numbers within which the degree of polynomial {it:p} 
+for point estimation is selected. If the selected optimal degree is {it:p}, 
+then piecewise polynomials of degree {it:p+1} are used to conduct pairwise
+group comparison.
+{p_end}
+
+{p 4 8} {opt sselect(numlist)} specifies a list of numbers within which the number of smoothness constraints {it:s}
+for point estimation is selected. If the selected optimal smoothness is {it:s}, 
+then piecewise polynomials with {it:s+1} smoothness constraints are used to conduct pairwise
+group comparison.
+If not specified, for each value {it:p} supplied in the 
+option {cmd:pselect()}, only the piecewise polynomial with the maximum smoothness is considered, i.e., {it:s=p}.  
+{p_end}
+
+{p 4 8} Note: To implement the degree or smoothness selection, in addition to {cmd:pselect()} 
+or {cmd:sselect()}, {cmd:bynbins(}{help numlist}{cmd:)} must be specified.
+{p_end}
 
 {dlgtab:Simulation}
 
 {p 4 8} {opt nsims(#)} specifies the number of random draws for hypothesis testing.
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
+A large number of random draws is recommended to obtain the final results.
 {p_end}
 
 {p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid
@@ -171,6 +205,7 @@ within each bin used for evaluation of the supremum (infimum or Lp metric) opera
 construct confidence bands and hypothesis testing procedures.
 The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points
 within each bin for approximating the supremum (infimum or Lp metric) operator.
+A large number of evaluation points is recommended to obtain the final results.
 {p_end}
 
 {p 4 8} {opt simsseed(#)} sets the seed for simulations.
@@ -181,7 +216,7 @@ within each bin for approximating the supremum (infimum or Lp metric) operator.
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks,
 which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points),
 number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2021b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2022b) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -206,6 +241,10 @@ The default is {cmd:vce(robust)}.
 If {cmd:asyvar(on)} is specified, the standard error of the nonparametric component is used and the uncertainty
 related to other control variables {it:othercovs} is omitted.
 Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:othercovs} is taken into account.
+{p_end}
+
+{p 4 8} {opt estmethodopt(cmd_option)} options to be passed on to the estimation command specified in {cmd:estmethod()}.
+For example, options that control for the optimization process can be added here.
 {p_end}
 
 {p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package
@@ -248,18 +287,21 @@ Default is {cmd:usegtools(off)}.
 {synopt:{cmd:e(nbins_by)}}number of bins for each group{p_end}
 {synopt:{cmd:e(stat)}}test statistics for all pairwise comparisons{p_end}
 {synopt:{cmd:e(pval)}}p values for all pairwise comparisons{p_end}
-
+{synopt:{cmd:e(imse_var_rot)}}variance constant in IMSE, ROT selection{p_end}
+{synopt:{cmd:e(imse_bsq_rot)}}bias constant in IMSE, ROT selection{p_end}
+{synopt:{cmd:e(imse_var_dpi)}}variance constant in IMSE, DPI selection{p_end}
+{synopt:{cmd:e(imse_bsq_dpi)}}bias constant in IMSE, DPI selection{p_end}
 
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Binscatter.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":On Binscatter}.
 {it:arXiv:1902.09608}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2021b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Binscatter Regressions}.
 {it:arXiv:1902.09615}.
 {p_end}
 
