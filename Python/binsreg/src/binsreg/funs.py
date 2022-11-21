@@ -924,7 +924,7 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
         cutval = norm.pdf(norm.ppf(den_alpha)*sig, loc = 0, scale = sig)
         fz[fz<cutval] = cutval
     if es: s2 = s2 / fz
-    else: s2 = s2 * (fz**(2*deriv))
+    else: s2 = s2 * np.transpose((fz**(2*deriv)))
     s2 = binsreg_summ(s2, w = weights, std=False)[0]
     vcons = imse_vcons(p, deriv)
     imse_v = vcons * s2
