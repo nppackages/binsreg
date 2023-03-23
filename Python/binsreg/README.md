@@ -1,6 +1,6 @@
 # BINSREG
 
-Binscatter provides a flexible, yet parsimonious way of visualizing and summarizing large data sets and has been a popular methodology in applied microeconomics and other social sciences. The `binsreg` package provides tools for statistical analysis using the binscatter methods developed in Cattaneo, Crump, Farrell and Feng (2021a). binsreg implements binscatter least squares regression with robust inference and plots, including curve estimation, pointwise confidence intervals and uniform confidence band. `binsqreg` implements binscatter quantile regression with robust inference and plots, including curve estimation, pointwise confidence intervals and uniform conf idence band. `binsglm` implements binscatter generalized linear regression with robust inference and plots, including curve estimation, pointwise confidence intervals and uniform confidence band. `binstest` implements binscatter-based hypothesis testing procedures for parametric specifications of and shape restrictions on the unknown function of interest. `binspwc` implements hypothesis testing procedures for pairwise group comparison of binscatter estimators. `binsregselect` implements data-driven number of bins selectors for binscatter implementation using either quantile-spaced or evenly-spaced binning/partitioning. All the commands allow for covariate adjustment, smoothness restrictions, and clustering, among other features.
+Binscatter provides a flexible, yet parsimonious way of visualizing and summarizing large data sets and has been a popular methodology in applied microeconomics and other social sciences. The `binsreg` package provides tools for statistical analysis using the binscatter methods developed in Cattaneo, Crump, Farrell and Feng (2022). binsreg implements binscatter least squares regression with robust inference and plots, including curve estimation, pointwise confidence intervals and uniform confidence band. `binsqreg` implements binscatter quantile regression with robust inference and plots, including curve estimation, pointwise confidence intervals and uniform conf idence band. `binsglm` implements binscatter generalized linear regression with robust inference and plots, including curve estimation, pointwise confidence intervals and uniform confidence band. `binstest` implements binscatter-based hypothesis testing procedures for parametric specifications of and shape restrictions on the unknown function of interest. `binspwc` implements hypothesis testing procedures for pairwise group comparison of binscatter estimators. `binsregselect` implements data-driven number of bins selectors for binscatter implementation using either quantile-spaced or evenly-spaced binning/partitioning. All the commands allow for covariate adjustment, smoothness restrictions, and clustering, among other features.
 
 
 ## Authors
@@ -56,10 +56,10 @@ For overviews and introductions, see [NP Packages website](https://nppackages.gi
 
 ### Software and Implementation
 
-- Cattaneo, Crump, Farrell and Feng (2021): [Binscatter Regressions](https://arxiv.org/abs/1902.09615).<br>
+- Cattaneo, Crump, Farrell and Feng (2022): [Binscatter Regressions](https://arxiv.org/abs/1902.09615).<br>
 Working paper, prepared for Stata Journal.
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2021): [On Binscatter](https://arxiv.org/abs/1902.09608).<br>
+- Cattaneo, Crump, Farrell and Feng (2022): [On Binscatter](https://arxiv.org/abs/1902.09608).<br>
 Working paper.

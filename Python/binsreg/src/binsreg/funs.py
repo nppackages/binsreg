@@ -14,10 +14,38 @@ import statsmodels.api as sm
 ########## Classes Definitons #########################
 #######################################################
 
+class options_pwc:
+    def __init__(self, deriv, byname,testtype, binspos, binsmethod,
+                 N_by, Ndist_by, Nclust_by, nbins_by,
+                 byvals, pwc_p_by, pwc_s_by,
+                 lp, estmethod, quantile, dist, link):
+        self.deriv = deriv
+        self.byname = byname
+        self.testtype = testtype
+        self.binspos = binspos
+        self.binsmethod = binsmethod
+        self.N_by = N_by
+        self.Ndist_by = Ndist_by
+        self.Nclust_by = Nclust_by
+        self.nbins_by = nbins_by
+        self.pwc_p_by = pwc_p_by
+        self.pwc_s_by = pwc_s_by
+        self.byvals = byvals
+        self.lp = lp
+        self.estmethod = estmethod
+        self.quantile = quantile
+        self.dist = dist
+        self.link = link
+
 class pwc_output:
-    def __init__(self, tstat, pval, options):
+    def __init__(self, tstat, pval, 
+                 imse_v_dpi,imse_b_dpi,imse_v_rot,imse_b_rot,options):
         self.tstat = tstat
         self.pval = pval
+        self.imse_v_dpi = imse_v_dpi
+        self.imse_b_dpi = imse_b_dpi
+        self.imse_v_rot = imse_v_rot
+        self.imse_b_rot = imse_b_rot
         self.options = options
     
     def __repr__(self):
@@ -25,22 +53,44 @@ class pwc_output:
         print("Pairwise Group Comparison")
         fw = 40
         fr = 15
-        print("Group Variable                     =  ", "t")
+        if self.options.byname is not None:
+            print("Group Variable                     =  ", self.options.byname)
+        print("Estimation Method (estmethod)      =  ", self.options.estmethod)
+        print("Derivative (deriv)                 =  ", str(self.options.deriv).ljust(fr))
+        print("Bin/Degree selection:")
+        print("  Method (binsmethod)              =  ", self.options.binsmethod.ljust(fr))
+        print("  Placement (binspos)              =  ", self.options.binspos.ljust(fr))
+        print("")
+        for i in range(len(self.options.byvals)):
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("degree for testing (p)                   = ", str(int(self.options.pwc_p_by[i])).rjust(fr))
+            print("smoothness for testing (s)               = ", str(int(self.options.pwc_s_by[i])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
+            print("\n")
+        return ''
+    
+    def summary(self):
+        print("Call: binspwc\n")
+        print("Pairwise Group Comparison")
+        fw = 40
+        fr = 15
+        if self.options.byname is not None:
+            print("Group Variable                     =  ", self.options.byname)
         print("Estimation Method (estmethod)      =  ", self.options.estmethod)
         if self.options.estmethod=="generalized linear model":
             print("Distribution                       =  ", self.options.dist)
             print("Link                               =  ", self.options.link)
         if self.options.estmethod=="quantile regression":
             print("Quantile                           =  ", self.options.quantile)
-        print("degree (p)                         =  ", str(self.options.pwc_p).ljust(fr))
-        print("smooth (s)                         =  ", str(self.options.pwc_s).ljust(fr))
         print("Derivative (deriv)                 =  ", str(self.options.deriv).ljust(fr))
-        print("Bin selection:")
+        print("Bin/Degree selection:")
         print("  Method (binsmethod)              =  ", self.options.binsmethod.ljust(fr))
         print("  Placement (binspos)              =  ", self.options.binspos.ljust(fr))
-        print("  degree (p)                       =  ", str(self.options.bins_p).ljust(fr))
-        print("  smooth (s)                       =  ", str(self.options.bins_s).ljust(fr))
         print("")
+
         c = (20,12,12)
         cc = sum(c)+2
         for i in range(nrow(self.tstat)):
@@ -54,6 +104,9 @@ class pwc_output:
             print("Sample size".ljust(c[0]), f"{self.options.N_by[g1]}".rjust(c[1]),f"{self.options.N_by[g2]}".rjust(c[2]))
             print("# of distinct values".ljust(c[0]), f"{self.options.Ndist_by[g1]}".rjust(c[1]),f"{self.options.Ndist_by[g2]}".rjust(c[2]))
             print("# of clusters".ljust(c[0]), f"{self.options.Nclust_by[g1]}".rjust(c[1]),f"{self.options.Nclust_by[g2]}".rjust(c[2]))
+            
+            print("degree (p)".ljust(c[0]), f"{self.options.pwc_p_by[g1]}".rjust(c[1]),f"{self.options.pwc_p_by[g2]}".rjust(c[2]))
+            print("smoothness (s)".ljust(c[0]), f"{self.options.pwc_s_by[g1]}".rjust(c[1]),f"{self.options.pwc_s_by[g2]}".rjust(c[2]))
             print("# of bins".ljust(c[0]), f"{self.options.nbins_by[g1]}".rjust(c[1]),f"{self.options.nbins_by[g2]}".rjust(c[2]))
             print("-"*cc)
             print('')
@@ -81,16 +134,19 @@ class pwc_output:
                     print("-"*cc)
                     print("diff=0".ljust(c[0]), "{:3.3f}".format(self.tstat[i,0]).rjust(c[1]),"{:3.3f}".format(self.pval[i,0]).rjust(c[2]))
                     print("-"*cc)
-        return('')
 
 class test_output:
-    def __init__(self,testshapeL,testshapeR,testshape2,
-                testpoly,testmodel,options):
+    def __init__(self,testshapeL,testshapeR,testshape2,testpoly,testmodel,
+                 imse_v_dpi,imse_b_dpi,imse_v_rot,imse_b_rot,options):
         self.testshapeL = testshapeL
         self.testshapeR = testshapeR
         self.testshape2 = testshape2
         self.testpoly = testpoly
         self.testmodel = testmodel
+        self.imse_v_dpi = imse_v_dpi
+        self.imse_b_dpi = imse_b_dpi
+        self.imse_v_rot = imse_v_rot
+        self.imse_b_rot = imse_b_rot
         self.options = options
 
     def __repr__(self):
@@ -102,11 +158,29 @@ class test_output:
         print("# of clusters (Nclust)             =  ", str(self.options.Nclust).ljust(fr))
         print("Estimation Method (estmethod)      =  ", self.options.estmethod)
         print("Derivative (deriv)                 =  ", str(self.options.deriv).ljust(fr))
-        print("Bin selection:")
+        print("Bin/Degree selection:")
         print("  Method (binsmethod)              =  ", self.options.binsmethod.ljust(fr))
         print("  Placement (binspos)              =  ", self.options.binspos.ljust(fr))
-        print("  degree (p)                       =  ", str(self.options.bins_p).ljust(fr))
-        print("  smooth (s)                       =  ", str(self.options.bins_s).ljust(fr))
+        print("  degree (p)                       =  ", str(self.options.binsp).ljust(fr))
+        print("  smooth (s)                       =  ", str(self.options.binss).ljust(fr))
+        print("  # of bins (nbins)                =  ", str(self.options.nbins).ljust(fr))
+        print("")
+        return ''
+    
+    def summary(self):
+        print("Call: binstest\n")
+        fw = 40
+        fr = 15
+        print("Sample size (n)                    =  ", str(self.options.n).ljust(fr))
+        print("# of distinct values (Ndist)       =  ", str(self.options.Ndist).ljust(fr))
+        print("# of clusters (Nclust)             =  ", str(self.options.Nclust).ljust(fr))
+        print("Estimation Method (estmethod)      =  ", self.options.estmethod)
+        print("Derivative (deriv)                 =  ", str(self.options.deriv).ljust(fr))
+        print("Bin/Degree selection:")
+        print("  Method (binsmethod)              =  ", self.options.binsmethod.ljust(fr))
+        print("  Placement (binspos)              =  ", self.options.binspos.ljust(fr))
+        print("  degree (p)                       =  ", str(self.options.binsp).ljust(fr))
+        print("  smooth (s)                       =  ", str(self.options.binss).ljust(fr))
         print("  # of bins (nbins)                =  ", str(self.options.nbins).ljust(fr))
         print("")
 
@@ -194,36 +268,14 @@ class test_str:
         self.stat = stat
         self.pval = pval
 
-class options_pwc:
-    def __init__(self, bins_p, bins_s, deriv, pwc_p, pwc_s, byname,
-                testtype, binspos, binsmethod, N_by, Ndist_by, Nclust_by, nbins_by, byvals,
-                lp, estmethod, quantile, dist, link):
-        self.bins_p = bins_p
-        self.bins_s = bins_s
-        self.deriv = deriv
-        self.pwc_p = pwc_p
-        self.pwc_s = pwc_s
-        self.byname = byname
-        self.testtype = testtype
-        self.binspos = binspos
-        self.binsmethod = binsmethod
-        self.N_by = N_by
-        self.Ndist_by = Ndist_by
-        self.Nclust_by = Nclust_by
-        self.nbins_by = nbins_by
-        self.byvals = byvals
-        self.lp = lp
-        self.estmethod = estmethod
-        self.quantile = quantile
-        self.dist = dist
-        self.link = link
+
 
 class options_test:
-    def __init__(self, bins_p, bins_s, deriv, testshape, testmodel,
+    def __init__(self, binsp, binss, deriv, testshape, testmodel,
                 binspos, binsmethod,n, Ndist, Nclust, nbins, knot,lp,
                 estmethod, quantile, dist, link):
-        self.bins_p = bins_p
-        self.bins_s = bins_s
+        self.binsp = binsp
+        self.binss = binss
         self.deriv = deriv
         self.testshape = testshape
         self.testmodel = testmodel
@@ -241,20 +293,37 @@ class options_test:
         self.link = link
 
 class options_select:
-    def __init__(self, bins_p, bins_s, deriv, binspos, binsmethod,
+    def __init__(self, deriv, selectJ, binspos, binsmethod,
                     n, Ndist, Nclust):
-        self.bins_p = bins_p
-        self.bins_s = bins_s
         self.deriv = deriv
+        self.selectJ = selectJ
         self.binspos = binspos
         self.binsmethod = binsmethod
         self.n = n
         self.Ndist = Ndist
         self.Nclust = Nclust
 
+class inter_result:
+    def __init__(self, vec_nbinsrot_poly, vec_nbinsrot_regul,
+                    vec_nbinsrot_uknot, vec_nbinsdpi, vec_nbinsdpi_uknot,
+                    vec_imse_b_rot, vec_imse_v_rot,
+                    vec_imse_b_dpi, vec_imse_v_dpi,deg_mat):
+        self.vec_nbinsrot_poly = vec_nbinsrot_poly
+        self.vec_nbinsrot_regul = vec_nbinsrot_regul
+        self.vec_nbinsrot_uknot = vec_nbinsrot_uknot
+        self.vec_nbinsdpi = vec_nbinsdpi
+        self.vec_nbinsdpi_uknot = vec_nbinsdpi_uknot
+        self.vec_imse_b_rot = vec_imse_b_rot
+        self.vec_imse_v_rot = vec_imse_v_rot
+        self.vec_imse_b_dpi = vec_imse_b_dpi
+        self. vec_imse_v_dpi = vec_imse_v_dpi
+        self.deg_mat = deg_mat
+
 class binsregselect_output:
     def __init__(self, nbinsrot_poly, nbinsrot_regul, nbinsrot_uknot, nbinsdpi, nbinsdpi_uknot,
-                    imse_b_rot, imse_v_rot, imse_b_dpi, imse_v_dpi, options, knot,data_grid):
+                    imse_b_rot, imse_v_rot, imse_b_dpi, imse_v_dpi, int_result,
+                    prot_poly, srot_poly, prot_regul, srot_regul, prot_uknot, srot_uknot, pdpi, sdpi, pdpi_uknot, sdpi_uknot,
+                    options, knot,data_grid):
         self.nbinsrot_poly = nbinsrot_poly
         self.nbinsrot_regul = nbinsrot_regul
         self.nbinsrot_uknot =nbinsrot_uknot
@@ -264,6 +333,17 @@ class binsregselect_output:
         self.imse_v_rot = imse_v_rot
         self.imse_b_dpi = imse_b_dpi
         self.imse_v_dpi = imse_v_dpi
+        self.int_result = int_result
+        self.prot_poly = prot_poly
+        self.srot_poly = srot_poly
+        self.prot_regul = prot_regul
+        self.srot_regul = srot_regul
+        self.prot_uknot = prot_uknot
+        self.srot_uknot = srot_uknot
+        self.pdpi = pdpi
+        self.sdpi = sdpi
+        self.pdpi_uknot = pdpi_uknot
+        self.sdpi_uknot = sdpi_uknot
         self.options = options
         self.knot = knot
         self.data_grid = data_grid
@@ -276,53 +356,129 @@ class binsregselect_output:
         print("# of distinct values (Ndist)       =  ", str(self.options.Ndist).ljust(fr))
         print("# of clusters (Nclust)             =  ", str(self.options.Nclust).ljust(fr))
         print("Derivative (deriv)                 =  ", str(self.options.deriv).ljust(fr))
-        print("Bin selection:")
+        print("Bin/Degree selection:")
         print("  Method (binsmethod)              =  ", self.options.binsmethod.ljust(fr))
         print("  Placement (binspos)              =  ", self.options.binspos.ljust(fr))
-        print("  degree (p)                       =  ", str(self.options.bins_p).ljust(fr))
-        print("  smooth (s)                       =  ", str(self.options.bins_s).ljust(fr))
-        print("")
+        if self.options.selectJ:
+            print("  degree (p)                       =  ", str(self.prot_poly).ljust(fr))
+            print("  smooth (s)                       =  ", str(self.srot_poly).ljust(fr))
+            print("  # of bins (ROT-POLY)             =  ", str(self.nbinsrot_poly).ljust(fr))
+            print("  # of bins (ROT-REGUL)            =  ", str(self.nbinsrot_regul).ljust(fr))
+            print("  # of bins (ROT-UKNOT)            =  ", str(self.nbinsrot_uknot).ljust(fr))
+            if (self.options.binsmethod == "IMSE direct plug-in (select # of bins)"):
+                print("  # of bins (DPI)                  =  ", str(self.nbinsdpi).ljust(fr))
+                print("  # of bins (DPI-UKNOT)            =  ", str(self.nbinsdpi_uknot).ljust(fr))
+        else:
+            print("  degree (ROT-POLY)                =  ", str(self.prot.poly).ljust(fr))
+            print("  degree (ROT-REGUL)               =  ", str(self.prot.regul).ljust(fr))
+            print("  degree (ROT-UKNOT)               =  ", str(self.prot.uknot).ljust(fr))
+            if (self.options.binsmethod == "IMSE direct plug-in (select degree and smoothness)"):
+                print("  degree (DPI)                     =  ", str(self.pdpi).ljust(fr))
+                print("  degree (DPI-UKNOT)               =  ", str(self.pdpi.uknot).ljust(fr))
+            print("  smoothness (ROT-POLY)            =  ", str(self.srot.poly).ljust(fr))
+            print("  smoothness (ROT-REGUL)           =  ", str(self.srot.regul).ljust(fr))
+            print("  smoothness (ROT-UKNOT)           =  ", str(self.srot.uknot).ljust(fr))
+            if (self.options.binsmethod == "IMSE direct plug-in (select degree and smoothness)"):
+                print("  smoothness (DPI)                  =  ", str(self.sdpi).ljust(fr))
+                print("  smoothness (DPI-UKNOT)            =  ", str(self.sdpi.uknot).ljust(fr))
+        return("")
 
+    def summary(self):
+        print("Call: binsregselect\n")
         fw = 10
         fr = 10
         ft = 55
         n_dec = 3
-        print('='*ft)
-        print("method".ljust(fw),"# bins".rjust(fr),"df".rjust(fr),"imse-bias^2".rjust(fr), "imse-var".rjust(fr))
-        print('-'*ft)
+        print("Sample size (n)                    =  ", str(self.options.n).ljust(fr))
+        print("# of distinct values (Ndist)       =  ", str(self.options.Ndist).ljust(fr))
+        print("# of clusters (Nclust)             =  ", str(self.options.Nclust).ljust(fr))
+        print("Derivative (deriv)                 =  ", str(self.options.deriv).ljust(fr))
+        print("Bin/Degree selection:")
+        print("  Method (binsmethod)              =  ", self.options.binsmethod.ljust(fr))
+        print("  Placement (binspos)              =  ", self.options.binspos.ljust(fr))
+        print("  degree (p)                       =  ", str(self.prot_poly).ljust(fr))
+        print("  smooth (s)                       =  ", str(self.srot_poly).ljust(fr))
+        print("")
 
-        ROT_poly_df = np.nan
-        if not np.isnan(self.nbinsrot_poly):
-            ROT_poly_df = self.options.bins_p+1+(self.nbinsrot_poly-1)*(self.options.bins_p-self.options.bins_s+1)
-        print('ROT-POLY'.ljust(fw),str(self.nbinsrot_poly).rjust(fr),str(ROT_poly_df).rjust(fr),
+        if self.options.selectJ:
+            print('='*ft)
+            print("method".ljust(fw),"# bins".rjust(fr),"df".rjust(fr),"imse-bias^2".rjust(fr), "imse-var".rjust(fr))
+            print('-'*ft)
+
+            ROT_poly_df = np.nan
+            if not np.isnan(self.nbinsrot_poly):
+                ROT_poly_df = self.prot_poly+1+(self.nbinsrot_poly-1)*(self.prot_poly-self.srot_poly+1)
+            print('ROT-POLY'.ljust(fw),str(self.nbinsrot_poly).rjust(fr),str(ROT_poly_df).rjust(fr),
                 ("{:.{}f}".format(self.imse_b_rot, n_dec)).rjust(fr),("{:.{}f}".format(self.imse_v_rot, n_dec)).rjust(fr))
-
-        ROT_regul_df = np.nan
-        if not np.isnan(self.nbinsrot_regul):
-            ROT_regul_df = self.options.bins_p+1+(self.nbinsrot_regul-1)*(self.options.bins_p-self.options.bins_s+1)
-        print('ROT-REGUL'.ljust(fw),str(self.nbinsrot_regul).rjust(fr),str(ROT_regul_df).rjust(fr),
+            
+            ROT_regul_df = np.nan
+            if not np.isnan(self.nbinsrot_regul):
+                ROT_regul_df = self.prot_regul+1+(self.nbinsrot_regul-1)*(self.prot_regul-self.srot_regul+1)
+            print('ROT-REGUL'.ljust(fw),str(self.nbinsrot_regul).rjust(fr),str(ROT_regul_df).rjust(fr),
                 str(np.nan).rjust(fr),str(np.nan).rjust(fr))
 
-        ROT_uknot_df = np.nan
-        if not np.isnan(self.nbinsrot_uknot):
-            ROT_uknot_df = self.options.bins_p+1+(self.nbinsrot_uknot-1)*(self.options.bins_p-self.options.bins_s+1)
-        print('ROT-UKNOT'.ljust(fw),str(self.nbinsrot_uknot).rjust(fr),str(ROT_uknot_df).rjust(fr),
-                str(np.nan).rjust(fr),str(np.nan).rjust(fr))
-
-        if self.options.binsmethod=="IMSE direct plug-in":
-            DPI_df = np.nan
-            if not np.isnan(self.nbinsdpi):
-                DPI_df = self.options.bins_p+1+(self.nbinsdpi-1)*(self.options.bins_p-self.options.bins_s+1)
-            print('DPI'.ljust(fw),str(self.nbinsdpi).rjust(fr),str(DPI_df).rjust(fr),
-                    ("{:.{}f}".format(self.imse_b_dpi, n_dec)).rjust(fr),("{:.{}f}".format(self.imse_v_dpi, n_dec)).rjust(fr))
-
-            DPI_uknot_df = np.nan
-            if not np.isnan(self.nbinsdpi_uknot):
-                DPI_uknot_df = self.options.bins_p+1+(self.nbinsdpi_uknot-1)*(self.options.bins_p-self.options.bins_s+1)
-            print('DPI-UKNOT'.ljust(fw),str(self.nbinsdpi_uknot).rjust(fr),str(DPI_uknot_df).rjust(fr),
+            ROT_uknot_df = np.nan
+            if not np.isnan(self.nbinsrot_uknot):
+                ROT_uknot_df = self.prot_uknot+1+(self.nbinsrot_uknot-1)*(self.prot_uknot-self.srot_uknot+1)
+            print('ROT-UKNOT'.ljust(fw),str(self.nbinsrot_uknot).rjust(fr),str(ROT_uknot_df).rjust(fr),
                     str(np.nan).rjust(fr),str(np.nan).rjust(fr))
-        print('-'*ft)
-        return ''
+
+
+            if self.options.binsmethod=="IMSE direct plug-in (select # of bins)":
+                DPI_df = np.nan
+                if not np.isnan(self.nbinsdpi):
+                    DPI_df = self.pdpi+1+(self.nbinsdpi-1)*(self.pdpi-self.sdpi_uknot+1)
+                print('DPI'.ljust(fw),str(self.nbinsdpi).rjust(fr),str(DPI_df).rjust(fr),
+                        ("{:.{}f}".format(self.imse_b_dpi, n_dec)).rjust(fr),("{:.{}f}".format(self.imse_v_dpi, n_dec)).rjust(fr))
+
+                DPI_uknot_df = np.nan
+                if not np.isnan(self.nbinsdpi_uknot):
+                    DPI_uknot_df = self.pdpi+1+(self.nbinsdpi_uknot-1)*(self.pdpi-self.sdpi+1)
+                print('DPI-UKNOT'.ljust(fw),str(self.nbinsdpi_uknot).rjust(fr),str(DPI_uknot_df).rjust(fr),
+                        str(np.nan).rjust(fr),str(np.nan).rjust(fr))
+            print('-'*ft)
+        else:
+            ft = 67
+            print('='*ft)
+            print("method".ljust(fw),"degree".rjust(fr), "smooth".rjust(fr),"df".rjust(fr),"imse-bias^2".rjust(fr), "imse-var".rjust(fr))
+            print('-'*ft)
+
+            ROT_poly_df = np.nan
+            if not np.isnan(self.nbinsrot_poly):
+                ROT_poly_df = self.prot_poly+1+(self.nbinsrot_poly-1)*(self.prot_poly-self.srot_poly+1)
+            print('ROT-POLY'.ljust(fw),str(self.prot_poly).rjust(fr), str(self.srot_poly).rjust(fr),str(ROT_poly_df).rjust(fr),
+                ("{:.{}f}".format(self.imse_b_rot, n_dec)).rjust(fr),("{:.{}f}".format(self.imse_v_rot, n_dec)).rjust(fr))
+            
+            ROT_regul_df = np.nan
+            if not np.isnan(self.nbinsrot_regul):
+                ROT_regul_df = self.prot_regul+1+(self.nbinsrot_regul-1)*(self.prot_regul-self.srot_regul+1)
+            print('ROT-REGUL'.ljust(fw),str(self.prot_regul).rjust(fr), str(self.srot_regul).rjust(fr),str(ROT_regul_df).rjust(fr),
+                str(np.nan).rjust(fr),str(np.nan).rjust(fr))
+
+            ROT_uknot_df = np.nan
+            if not np.isnan(self.nbinsrot_uknot):
+                ROT_uknot_df = self.prot_uknot+1+(self.nbinsrot_uknot-1)*(self.prot_uknot-self.srot_uknot+1)
+            print('ROT-UKNOT'.ljust(fw),str(self.prot_uknot).rjust(fr), str(self.srot_uknot).rjust(fr),str(ROT_uknot_df).rjust(fr),
+                    str(np.nan).rjust(fr),str(np.nan).rjust(fr))
+            
+            if self.options.binsmethod=="IMSE direct plug-in (select degree and smoothness)":
+                DPI_df = np.nan
+                if not np.isnan(self.nbinsdpi):
+                    DPI_df = self.pdpi+1+(self.nbinsdpi-1)*(self.pdpi-self.sdpi+1)
+                print('DPI'.ljust(fw),str(self.pdpi).rjust(fr), str(self.sdpi).rjust(fr),str(DPI_df).rjust(fr),
+                    ("{:.{}f}".format(self.imse_b_dpi, n_dec)).rjust(fr),("{:.{}f}".format(self.imse_v_dpi, n_dec)).rjust(fr))
+                
+                DPI_uknot_df = np.nan
+                if not np.isnan(self.nbinsdpi_uknot):
+                    DPI_uknot_df = self.pdpi_uknot+1+(self.nbinsdpi_uknot-1)*(self.pdpi_uknot-self.sdpi_uknot+1)
+                print('DPI-UKNOT'.ljust(fw),str(self.pdpi_uknot).rjust(fr), str(self.sdpi_uknot).rjust(fr),str(DPI_uknot_df).rjust(fr),
+                    str(np.nan).rjust(fr),str(np.nan).rjust(fr))
+            print('-'*ft)
+
+        print("")
+
+
+        
 
 class grid_str:
     def __init__(self, eval, bin, isknot, mid):
@@ -359,7 +515,7 @@ class options:
         self.byvals=byvals
 
 class options_glm:
-    def __init__(self,dots,line,ci,cb,polyreg,deriv, dist, link,
+    def __init__(self,dots,line,ci,cb,polyreg,deriv,dist,link, 
                  binspos,binsmethod, N_by, Ndist_by, Nclust_by,
                  nbins_by, byvals):
         self.dots=dots
@@ -398,166 +554,258 @@ class options_qreg:
         self.byvals=byvals
 
 class binsreg_output:
-    def __init__(self,bins_plot, data_plot, cval_by,options):
+    def __init__(self, bins_plot, data_plot, cval_by,
+                imse_v_dpi, imse_b_dpi, imse_v_rot, imse_b_rot,
+                options):
         self.bins_plot=bins_plot
         self.data_plot=data_plot
         self.cval_by=cval_by
-        self.options = options
+        self.imse_v_dpi=imse_v_dpi
+        self.imse_b_dpi=imse_b_dpi
+        self.imse_v_rot=imse_v_rot
+        self.imse_b_rot=imse_b_rot
+        self.options=options
 
     def __repr__(self):
         print("Call: binsreg\n")
-        fw = 35
-        fr = 15
+        fr = 38
         print("Binscatter Plot")
-        print("Bin selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
-        print("Placement (binspos)               = ", str(self.options.binspos).rjust(fr))
-        print("Derivative (deriv)                = ".ljust(fw), str(self.options.deriv).rjust(fr))
+        print("Bin/Degree selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
+        print("Placement (binspos)                      = ", str(self.options.binspos).rjust(fr))
+        print("Derivative (deriv)                       = ", str(self.options.deriv).rjust(fr))
         print(" ")
 
         for i in range(len(self.options.byvals)):
-            print("Group (by)                        = ", str(self.options.byvals[i]).rjust(fr))
-            print("Sample size (n)                   = ", str(self.options.N_by[i]).rjust(fr))
-            print("# of distinct values (Ndist)      = ", str(self.options.Ndist_by[i]).rjust(fr))
-            print("# of clusters (Nclust)            = ", str(self.options.Nclust_by[i]).rjust(fr))
-            print("dots, degree (p)                  = ", str(self.options.dots[0]).rjust(fr))
-            print("dots, smooth (s)                  = ", str(self.options.dots[1]).rjust(fr))
-            print("# of bins (nbins)                 = ", str(self.options.nbins_by[i]).rjust(fr))
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("dots, degree (p)                         = ", str(int(self.options.dots[i,0])).rjust(fr))
+            print("dots, smooth (s)                         = ", str(int(self.options.dots[i,1])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
             print("\n")
-            
+        return ''
+
+    def summary(self):
+        print("Call: binsreg\n")
+        fr = 38
+        print("Binscatter Plot")
+        print("Bin/Degree selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
+        print("Placement (binspos)                      = ", str(self.options.binspos).rjust(fr))
+        print("Derivative (deriv)                       = ", str(self.options.deriv).rjust(fr))
+        print(" ")
+        fr = 12
+        for i in range(len(self.options.byvals)):
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("dots, degree (p)                         = ", str(int(self.options.dots[i,0])).rjust(fr))
+            print("dots, smooth (s)                         = ", str(int(self.options.dots[i,1])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
+            if (self.options.binsmethod=="IMSE rule-of-thumb (select # of bins)" or self.options.binsmethod=="IMSE rule-of-thumb (select degree and smoothness)"):
+                print("imse, bias^2                             =  ", str(np.around(self.imse_b_rot[i],3)).rjust(fr))
+                print("imse, var.                               =  ", str(np.around(self.imse_v_rot[i],3)).rjust(fr))
+            elif (self.options.binsmethod=="IMSE direct plug-in (select # of bins)" or self.options.binsmethod=="IMSE direct plug-in (select degree and smoothness)"):
+                print("imse, bias^2                             =  ", str(np.around(self.imse_b_dpi[i],3)).rjust(fr))
+                print("imse, var.                               =  ", str(np.around(self.imse_v_dpi[i],3)).rjust(fr))
+            print("")
             fw = 10
-            fr = 5
             print('='*(fw+4*fr))
             print(" ".ljust(fw),'p'.rjust(fr),'s'.rjust(fr), 'df'.rjust(fr))
             print('-'*(fw+4*fr))
-            dots_df = self.options.dots[0]+1+(self.options.nbins_by[i]-1)*(self.options.dots[0]-self.options.dots[1]+1)
-            print('dots'.rjust(fw),str(self.options.dots[0]).rjust(fr),str(self.options.dots[1]).rjust(fr),str(dots_df).rjust(fr))
+            dots_df = self.options.dots[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.dots[i,0]-self.options.dots[i,1]+1)
+            print('dots'.rjust(fw),str(self.options.dots[i,0]).rjust(fr),str(self.options.dots[i,1]).rjust(fr),str(dots_df).rjust(fr))
             
             if self.options.line is not None:
-                line_df = self.options.line[0]+1+(self.options.nbins_by[i]-1)*(self.options.line[0]-self.options.line[1]+1)
-                print('line'.rjust(fw),str(self.options.line[0]).rjust(fr),str(self.options.line[1]).rjust(fr),str(line_df).rjust(fr))
+                line_df = self.options.line[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.line[i,0]-self.options.line[i,1]+1)
+                print('line'.rjust(fw),str(self.options.line[i,0]).rjust(fr),str(self.options.line[i,1]).rjust(fr),str(line_df).rjust(fr))
             
             if self.options.ci is not None:
-                ci_df = self.options.ci[0]+1+(self.options.nbins_by[i]-1)*(self.options.ci[0]-self.options.ci[1]+1)
-                print('Ci'.rjust(fw),str(self.options.ci[0]).rjust(fr),str(self.options.ci[1]).rjust(fr),str(ci_df).rjust(fr))
+                ci_df = self.options.ci[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.ci[i,0]-self.options.ci[i,1]+1)
+                print('CI'.rjust(fw),str(self.options.ci[i,0]).rjust(fr),str(self.options.ci[i,1]).rjust(fr),str(ci_df).rjust(fr))
 
             if self.options.cb is not None:
-                cb_df = self.options.cb[0]+1+(self.options.nbins_by[i]-1)*(self.options.cb[0]-self.options.cb[1]+1)
-                print('CB'.rjust(fw),str(self.options.cb[0]).rjust(fr),str(self.options.cb[1]).rjust(fr),str(cb_df).rjust(fr))
+                cb_df = self.options.cb[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.cb[i,0]-self.options.cb[i,1]+1)
+                print('CB'.rjust(fw),str(self.options.cb[i,0]).rjust(fr),str(self.options.cb[i,1]).rjust(fr),str(cb_df).rjust(fr))
 
             if self.options.polyreg is not None:
                 polyreg_df = self.options.polyreg + 1
                 print('polyreg'.rjust(fw),str(self.options.polyreg).rjust(fr),'nan'.rjust(fr),str(polyreg_df).rjust(fr))
             print('-'*(fw+4*fr))
-            return ''
-
+        return ''
+    
 class binsglm_output:
-    def __init__(self,bins_plot, data_plot, cval_by, options):
+    def __init__(self, bins_plot, data_plot, cval_by,
+                imse_v_dpi, imse_b_dpi, imse_v_rot, imse_b_rot,
+                options):
         self.bins_plot=bins_plot
         self.data_plot=data_plot
         self.cval_by=cval_by
+        self.imse_v_dpi=imse_v_dpi
+        self.imse_b_dpi=imse_b_dpi
+        self.imse_v_rot=imse_v_rot
+        self.imse_b_rot=imse_b_rot
         self.options=options
 
     def __repr__(self):
         print("Call: binsglm\n")
-        fw = 35
-        fr = 15
+        fr = 38
         print("Binscatter Plot")
-        print("Bin selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
-        print("Placement (binspos)               = ", str(self.options.binspos).rjust(fr))
-        print("Derivative (deriv)                = ", str(self.options.deriv).rjust(fr))
-        print("Distribution Family               = ", self.options.dist.rjust(fr))
-        print("Link Function                     = ", self.options.link.rjust(fr))
+        print("Bin/Degree selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
+        print("Placement (binspos)                      = ", str(self.options.binspos).rjust(fr))
+        print("Derivative (deriv)                       = ", str(self.options.deriv).rjust(fr))
+        print("Distribution Family                      = ", self.options.dist.rjust(fr))
+        print("Link Function                            = ", self.options.link.rjust(fr))
         print(" ")
 
         for i in range(len(self.options.byvals)):
-            print("Group (by)                        = ", str(self.options.byvals[i]).rjust(fr))
-            print("Sample size (n)                   = ", str(self.options.N_by[i]).rjust(fr))
-            print("# of distinct values (Ndist)      = ", str(self.options.Ndist_by[i]).rjust(fr))
-            print("# of clusters (Nclust)            = ", str(self.options.Nclust_by[i]).rjust(fr))
-            print("dots, degree (p)                  = ", str(self.options.dots[0]).rjust(fr))
-            print("dots, smooth (s)                  = ", str(self.options.dots[1]).rjust(fr))
-            print("# of bins (nbins)                 = ", str(self.options.nbins_by[i]).rjust(fr))
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("dots, degree (p)                         = ", str(int(self.options.dots[i,0])).rjust(fr))
+            print("dots, smooth (s)                         = ", str(int(self.options.dots[i,1])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
             print("\n")
-            
+        return ''
+
+    def summary(self):
+        print("Call: binsglm\n")
+        fr = 38
+        print("Binscatter Plot")
+        print("Bin/Degree selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
+        print("Placement (binspos)                      = ", str(self.options.binspos).rjust(fr))
+        print("Derivative (deriv)                       = ", str(self.options.deriv).rjust(fr))
+        print("Distribution Family                      = ", self.options.dist.rjust(fr))
+        print("Link Function                            = ", self.options.link.rjust(fr))
+        print(" ")
+        fr = 12
+        for i in range(len(self.options.byvals)):
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("dots, degree (p)                         = ", str(int(self.options.dots[i,0])).rjust(fr))
+            print("dots, smooth (s)                         = ", str(int(self.options.dots[i,1])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
+            if (self.options.binsmethod=="IMSE rule-of-thumb (select # of bins)" or self.options.binsmethod=="IMSE rule-of-thumb (select degree and smoothness)"):
+                print("imse, bias^2                             =  ", str(np.around(self.imse_b_rot[i],3)).rjust(fr))
+                print("imse, var.                               =  ", str(np.around(self.imse_v_rot[i],3)).rjust(fr))
+            elif (self.options.binsmethod=="IMSE direct plug-in (select # of bins)" or self.options.binsmethod=="IMSE direct plug-in (select degree and smoothness)"):
+                print("imse, bias^2                             =  ", str(np.around(self.imse_b_dpi[i],3)).rjust(fr))
+                print("imse, var.                               =  ", str(np.around(self.imse_v_dpi[i],3)).rjust(fr))
+            print("")
             fw = 10
-            fr = 5
             print('='*(fw+4*fr))
             print(" ".ljust(fw),'p'.rjust(fr),'s'.rjust(fr), 'df'.rjust(fr))
             print('-'*(fw+4*fr))
-            dots_df = self.options.dots[0]+1+(self.options.nbins_by[i]-1)*(self.options.dots[0]-self.options.dots[1]+1)
-            print('dots'.rjust(fw),str(self.options.dots[0]).rjust(fr),str(self.options.dots[1]).rjust(fr),str(dots_df).rjust(fr))
+            dots_df = self.options.dots[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.dots[i,0]-self.options.dots[i,1]+1)
+            print('dots'.rjust(fw),str(self.options.dots[i,0]).rjust(fr),str(self.options.dots[i,1]).rjust(fr),str(dots_df).rjust(fr))
             
             if self.options.line is not None:
-                line_df = self.options.line[0]+1+(self.options.nbins_by[i]-1)*(self.options.line[0]-self.options.line[1]+1)
-                print('line'.rjust(fw),str(self.options.line[0]).rjust(fr),str(self.options.line[1]).rjust(fr),str(line_df).rjust(fr))
+                line_df = self.options.line[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.line[i,0]-self.options.line[i,1]+1)
+                print('line'.rjust(fw),str(self.options.line[i,0]).rjust(fr),str(self.options.line[i,1]).rjust(fr),str(line_df).rjust(fr))
             
             if self.options.ci is not None:
-                ci_df = self.options.ci[0]+1+(self.options.nbins_by[i]-1)*(self.options.ci[0]-self.options.ci[1]+1)
-                print('Ci'.rjust(fw),str(self.options.ci[0]).rjust(fr),str(self.options.ci[1]).rjust(fr),str(ci_df).rjust(fr))
+                ci_df = self.options.ci[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.ci[i,0]-self.options.ci[i,1]+1)
+                print('CI'.rjust(fw),str(self.options.ci[i,0]).rjust(fr),str(self.options.ci[i,1]).rjust(fr),str(ci_df).rjust(fr))
 
             if self.options.cb is not None:
-                cb_df = self.options.cb[0]+1+(self.options.nbins_by[i]-1)*(self.options.cb[0]-self.options.cb[1]+1)
-                print('CB'.rjust(fw),str(self.options.cb[0]).rjust(fr),str(self.options.cb[1]).rjust(fr),str(cb_df).rjust(fr))
+                cb_df = self.options.cb[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.cb[i,0]-self.options.cb[i,1]+1)
+                print('CB'.rjust(fw),str(self.options.cb[i,0]).rjust(fr),str(self.options.cb[i,1]).rjust(fr),str(cb_df).rjust(fr))
 
             if self.options.polyreg is not None:
                 polyreg_df = self.options.polyreg + 1
                 print('polyreg'.rjust(fw),str(self.options.polyreg).rjust(fr),'nan'.rjust(fr),str(polyreg_df).rjust(fr))
             print('-'*(fw+4*fr))
-            return ''
-
+        return ''
+    
 class binsqreg_output:
-    def __init__(self,bins_plot, data_plot, cval_by, options):
+    def __init__(self, bins_plot, data_plot, cval_by,
+                imse_v_dpi, imse_b_dpi, imse_v_rot, imse_b_rot,
+                options):
         self.bins_plot=bins_plot
         self.data_plot=data_plot
         self.cval_by=cval_by
+        self.imse_v_dpi=imse_v_dpi
+        self.imse_b_dpi=imse_b_dpi
+        self.imse_v_rot=imse_v_rot
+        self.imse_b_rot=imse_b_rot
         self.options=options
 
     def __repr__(self):
         print("Call: binsqreg\n")
-        fw = 35
-        fr = 15
+        fr = 38
         print("Binscatter Plot")
-        print("Bin selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
-        print("Placement (binspos)               = ", str(self.options.binspos).rjust(fr))
-        print("Derivative (deriv)                = ", str(self.options.deriv).rjust(fr))
-        print("Quantile                          = ", str(self.options.quantile).rjust(fr))
+        print("Bin/Degree selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
+        print("Placement (binspos)                      = ", str(self.options.binspos).rjust(fr))
+        print("Derivative (deriv)                       = ", str(self.options.deriv).rjust(fr))
+        print("Quantile                                 = ", str(self.options.quantile).rjust(fr))
         print(" ")
 
         for i in range(len(self.options.byvals)):
-            print("Group (by)                        = ", str(self.options.byvals[i]).rjust(fr))
-            print("Sample size (n)                   = ", str(self.options.N_by[i]).rjust(fr))
-            print("# of distinct values (Ndist)      = ", str(self.options.Ndist_by[i]).rjust(fr))
-            print("# of clusters (Nclust)            = ", str(self.options.Nclust_by[i]).rjust(fr))
-            print("dots, degree (p)                  = ", str(self.options.dots[0]).rjust(fr))
-            print("dots, smooth (s)                  = ", str(self.options.dots[1]).rjust(fr))
-            print("# of bins (nbins)                 = ", str(self.options.nbins_by[i]).rjust(fr))
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("dots, degree (p)                         = ", str(int(self.options.dots[i,0])).rjust(fr))
+            print("dots, smooth (s)                         = ", str(int(self.options.dots[i,1])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
             print("\n")
-            
+        return ''
+
+    def summary(self):
+        print("Call: binsqreg\n")
+        fr = 38
+        print("Binscatter Plot")
+        print("Bin/Degree selection method (binsmethod) = ", self.options.binsmethod.rjust(fr))
+        print("Placement (binspos)                      = ", str(self.options.binspos).rjust(fr))
+        print("Derivative (deriv)                       = ", str(self.options.deriv).rjust(fr))
+        print("Quantile                                 = ", str(self.options.quantile).rjust(fr))
+        print(" ")
+        fr = 12
+        for i in range(len(self.options.byvals)):
+            print("Group (by)                               = ", str(self.options.byvals[i]).rjust(fr))
+            print("Sample size (n)                          = ", str(self.options.N_by[i]).rjust(fr))
+            print("# of distinct values (Ndist)             = ", str(self.options.Ndist_by[i]).rjust(fr))
+            print("# of clusters (Nclust)                   = ", str(self.options.Nclust_by[i]).rjust(fr))
+            print("dots, degree (p)                         = ", str(int(self.options.dots[i,0])).rjust(fr))
+            print("dots, smooth (s)                         = ", str(int(self.options.dots[i,1])).rjust(fr))
+            print("# of bins (nbins)                        = ", str(self.options.nbins_by[i]).rjust(fr))
+            if (self.options.binsmethod=="IMSE rule-of-thumb (select # of bins)" or self.options.binsmethod=="IMSE rule-of-thumb (select degree and smoothness)"):
+                print("imse, bias^2                             =  ", str(np.around(self.imse_b_rot[i],3)).rjust(fr))
+                print("imse, var.                               =  ", str(np.around(self.imse_v_rot[i],3)).rjust(fr))
+            elif (self.options.binsmethod=="IMSE direct plug-in (select # of bins)" or self.options.binsmethod=="IMSE direct plug-in (select degree and smoothness)"):
+                print("imse, bias^2                             =  ", str(np.around(self.imse_b_dpi[i],3)).rjust(fr))
+                print("imse, var.                               =  ", str(np.around(self.imse_v_dpi[i],3)).rjust(fr))
+            print("")
             fw = 10
-            fr = 5
             print('='*(fw+4*fr))
             print(" ".ljust(fw),'p'.rjust(fr),'s'.rjust(fr), 'df'.rjust(fr))
             print('-'*(fw+4*fr))
-            dots_df = self.options.dots[0]+1+(self.options.nbins_by[i]-1)*(self.options.dots[0]-self.options.dots[1]+1)
-            print('dots'.rjust(fw),str(self.options.dots[0]).rjust(fr),str(self.options.dots[1]).rjust(fr),str(dots_df).rjust(fr))
+            dots_df = self.options.dots[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.dots[i,0]-self.options.dots[i,1]+1)
+            print('dots'.rjust(fw),str(self.options.dots[i,0]).rjust(fr),str(self.options.dots[i,1]).rjust(fr),str(dots_df).rjust(fr))
             
             if self.options.line is not None:
-                line_df = self.options.line[0]+1+(self.options.nbins_by[i]-1)*(self.options.line[0]-self.options.line[1]+1)
-                print('line'.rjust(fw),str(self.options.line[0]).rjust(fr),str(self.options.line[1]).rjust(fr),str(line_df).rjust(fr))
+                line_df = self.options.line[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.line[i,0]-self.options.line[i,1]+1)
+                print('line'.rjust(fw),str(self.options.line[i,0]).rjust(fr),str(self.options.line[i,1]).rjust(fr),str(line_df).rjust(fr))
             
             if self.options.ci is not None:
-                ci_df = self.options.ci[0]+1+(self.options.nbins_by[i]-1)*(self.options.ci[0]-self.options.ci[1]+1)
-                print('Ci'.rjust(fw),str(self.options.ci[0]).rjust(fr),str(self.options.ci[1]).rjust(fr),str(ci_df).rjust(fr))
+                ci_df = self.options.ci[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.ci[i,0]-self.options.ci[i,1]+1)
+                print('CI'.rjust(fw),str(self.options.ci[i,0]).rjust(fr),str(self.options.ci[i,1]).rjust(fr),str(ci_df).rjust(fr))
 
             if self.options.cb is not None:
-                cb_df = self.options.cb[0]+1+(self.options.nbins_by[i]-1)*(self.options.cb[0]-self.options.cb[1]+1)
-                print('CB'.rjust(fw),str(self.options.cb[0]).rjust(fr),str(self.options.cb[1]).rjust(fr),str(cb_df).rjust(fr))
+                cb_df = self.options.cb[i,0]+1+(self.options.nbins_by[i]-1)*(self.options.cb[i,0]-self.options.cb[i,1]+1)
+                print('CB'.rjust(fw),str(self.options.cb[i,0]).rjust(fr),str(self.options.cb[i,1]).rjust(fr),str(cb_df).rjust(fr))
 
             if self.options.polyreg is not None:
                 polyreg_df = self.options.polyreg + 1
                 print('polyreg'.rjust(fw),str(self.options.polyreg).rjust(fr),'nan'.rjust(fr),str(polyreg_df).rjust(fr))
             print('-'*(fw+4*fr))
-            return ''
+        return ''
+
+
 
 #######################################################
 ########## Functions Definitons #######################
@@ -587,6 +835,13 @@ def nrow(x):
     except: d = 1
     return d
 
+def conc(x,y):
+    if x is None: return y
+    if y is None: return x
+    if np.isscalar(x): x = np.array([x])
+    if np.isscalar(y): y = np.array([y])
+    return np.concatenate((x,y))
+        
 def cbind(x,y):
     if x is not None:
         if y is not None: return np.column_stack((x,y))
@@ -602,6 +857,10 @@ def rbind(x,y):
     else:
         if y is not None: return y
         else: return None
+
+def which_min(x):
+    x = np.asarray(x)
+    return np.where(x == np.min(x))[0][0]
 
 # generalized square root of a  matrix
 def lssqrtm(A):
@@ -659,9 +918,9 @@ def binsreg_grid(knot, ngrid, addmore = False):
 
 # Wrapper for statsmodel.api
 def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile = None,
-                cov_type = None, cluster = None):
+                cov_type = None, cluster = None, **optmize):
     
-    aux0=aux1=aux2=aux3=aux4=''
+    aux0=aux1=aux2=aux3=aux4=aux5=''
     if cov_type=='cluster': 
         aux3 = 'cov_type = cov_type, cov_kwds={\'groups\': cluster}'
     elif cov_type is not None:
@@ -669,10 +928,9 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
 
     if is_qreg: 
         aux0 = 'QuantReg'
-        if aux3=='':
-            aux4 = 'q = quantile'
-        else:
-            aux4 = ', q = quantile'
+        if aux3=='': aux4 = 'q = quantile'
+        else: aux4 = ', q = quantile'
+        if len(optmize)!=0: aux5 = ', **optmize'  
     else:
         if family is None:
             if weights is None:
@@ -685,7 +943,8 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
             aux1 = f', family = {family}'
             if weights is not None:
                 aux2 = ', weights = weights'
-    model = f'sm.{aux0}(y,x{aux1}{aux2}).fit({aux3}{aux4})'
+            if len(optmize)!=0: aux5 = ', **optmize'
+    model = f'sm.{aux0}(y,x{aux1}{aux2}).fit({aux3}{aux4}{aux5})'
     return eval(model)
 
 # check drop, display warning
@@ -923,6 +1182,7 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
         # trim density from below
         cutval = norm.pdf(norm.ppf(den_alpha)*sig, loc = 0, scale = sig)
         fz[fz<cutval] = cutval
+        fz = fz.reshape(-1,)
     if es: s2 = s2 / fz
     else: s2 = s2 * (fz**(2*deriv))
     s2 = binsreg_summ(s2, w = weights, std=False)[0]

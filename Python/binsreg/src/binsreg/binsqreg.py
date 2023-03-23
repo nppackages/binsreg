@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Created on Sat Sep  4 17:39:50 2021
+# Created on Thu Mar 16 17:39:50 2023
 # @author: Ricardo Masini
 
 import numpy as np
@@ -9,37 +9,37 @@ from scipy.stats import norm
 import warnings
 from plotnine import (ggplot,theme_bw,aes,
                       geom_point,geom_line,geom_errorbar,geom_ribbon,
-                      scale_color_manual,guide_legend,theme,labs)
-from .binsregselect import binsregselect
-# from binsregselect import binsregselect
-from .funs import *
-# from funs import *
+                      scale_color_manual,guide_legend,theme,labs,xlim)
+from .binsregselect import binsregselect    # .binsregselect to build package
+from .funs import *   # .funs to build package
 
-def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
-            dots=(0,0), dotsgrid=0, dotsgridmean=True, line=None, linegrid=20,
+def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
+            dots=None, dotsgrid=0, dotsgridmean=True, line=None, linegrid=20,
             ci=None, cigrid=0, cigridmean=True, cb=None, cbgrid=20,
             polyreg=None, polyreggrid=20, polyregcigrid=0,
             by=None, bycolors=None, bysymbols=None, bylpatterns=None,
             legendTitle=None, legendoff=False,
             nbins=None, binspos="qs", binsmethod="dpi", nbinsrot=None, samebinsby=False, randcut=None,
+            pselect=None, sselect=None,
             nsims=500, simsgrid=20, simsseed=None,
-            vce="HC1",cluster=None, asyvar=False, level=95,
-            noplot=False, dfcheck=(20,30), masspoints="on", weights=None, subset=None, plotxrange=None, plotyrange=None):
+            vce="nid",cluster=None, asyvar=False, level=95,
+            noplot=False, dfcheck=(20,30), masspoints="on", weights=None, subset=None, 
+            plotxrange=None, plotyrange=None, **optimize):
 
     '''
-    Data-Driven Binscatter Quantile Regression with Robust Inference Procedures and Plots
-    
+    Data-Driven Binscatter Quantile Regression with Robust Inference Procedures and Plots.
+
     Description
-    ----------- 
-    binsqreg implements binscatter quantile regression with robust inference procedures and plots, following the
-    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+    -----------
+    binsreg implements binscatter quantile regression with robust inference procedures and plots, following the
+    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
     Binscatter provides a flexible way to describe the quantile relationship between two variables, after
     possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
     The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
     uniform confidence band.  If the binning scheme is not set by the user, the companion function
-    binsregselect is used to implement binscatter in a data-driven way. Hypothesis testing about the function of interest
-    can be conducted via the companion function binstest.
-    
+    binsregselect is used to implement binscatter in a data-driven way.
+    Hypothesis testing about the regression function of interest can be conducted via the companion binstest.
+
     Parameters
     ----------
     y : array or str
@@ -60,7 +60,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         at can also be a vector of the same length as the number of columns of w (if w is a matrix) or a data frame
         containing the same variables as specified in w (when data is specified). Note that when at="mean" or at="median",
         all factor variables (if specified) are excluded from the evaluation (set as zero).
-    
+
     quantile : float
         The quantile to be estimated. A number strictly between 0 and 1.
 
@@ -68,10 +68,12 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         Derivative order of the regression function for estimation, testing and plotting.
         The default is deriv=0, which corresponds to the function itself.
 
-    dots: tuple 
-        dots=(p,s) sets a piecewise polynomial of degree p with s smoothness constraints for
+    dots: tuple or bool
+        If dots=(p,s), a piecewise polynomial of degree p with s smoothness constraints is used for
         point estimation and plotting as "dots". The default is dots=(0,0), which corresponds to
-        piecewise constant (canonical binscatter)
+        piecewise constant (canonical binscatter). If dots=True, the default dots=(0,0) is used unless
+        the degree p and smoothness s selection is requested via the option pselect (see more details in the explanation of pselect).
+        If dots=False is specified, the dots are not included in the plot.
 
     dotsgrid : int
         Number of dots within each bin to be plotted. Given the choice, these dots are point estimates
@@ -82,21 +84,21 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         If true, the dots corresponding to the point estimates evaluated at the mean of x within each bin
         are presented. By default, they are presented, i.e., dotsgridmean=True.
 
-    line : tuple 
-        line=(p,s) sets a piecewise polynomial of degree  p with  s smoothness constraints for plotting as a "line".
-        By default, the line is not included in the plot unless explicitly specified.  Recommended specification is
-        line=(3,3), which adds a cubic B-spline estimate of the regression function of interest to the binned scatter plot.
+    line : tuple  or bool
+        If line=(p,s), a piecewise polynomial of degree  p with s smoothness constraints is used for plotting as a "line".
+        If line=True is specified, line=(0,0) is used unless the degree p and smoothness selection is requested via the option
+        pselect (see more details in the explanation of pselect). If line=False or line=None (default) is specified, the line is not included in the plot.
 
     linegrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
         the point estimate set by the line=c(p,s) option. The default is linegrid=20}
         which corresponds to 20 evenly-spaced evaluation points within each bin for fitting/plotting the line.
     
-    ci : tuple 
-        ci=c(p,s) sets a piecewise polynomial of degree  p with  s smoothness constraints used for
-        constructing confidence intervals. By default, the confidence intervals are not included in the plot
-        unless explicitly specified.  Recommended specification is ci=(3,3), which adds confidence
-        intervals based on cubic B-spline estimate of the regression function of interest to the binned scatter plot.
+    ci : tuple or bool
+        If ci=(p,s), a piecewise polynomial of degree  p with  s smoothness constraints is used for
+        constructing confidence intervals. If ci=True is specified, ci=(1,1) is used unless the degree p and smoothness s
+        selection is requested via the option pselect (see more details in the explanation of pselect).
+        If ci=False or ci=None (default) is specified, the confidence intervals are not included in the plot.
     
     cigrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
@@ -107,11 +109,11 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         If true, the confidence intervals corresponding to the point estimates evaluated at the mean of x within each bin
         are presented. The default is cigridmean=True.
     
-    cb : tuple 
-        cb=(p,s) sets a the piecewise polynomial of degree  p with  s smoothness constraints used for
-        constructing the confidence band. By default, the confidence band is not included in the plot unless
-        explicitly specified.  Recommended specification is cb=c(3,3), which adds a confidence band
-        based on cubic B-spline estimate of the regression function of interest to the binned scatter plot.
+    cb : tuple or bool
+        If cb=(p,s), a the piecewise polynomial of degree  p with  s smoothness constraints is used for
+        constructing the confidence band. If the option cb=True is specified, cb=(1,1) is used unless the degree p and smoothness s          
+        selection is requested via the option pselect (see more details in the explanation of pselect).
+        If cb=False or cb=None (default) is specified, the confidence band is not included in the plot.
     
     cbgrid : int 
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
@@ -159,13 +161,15 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     legendoff : bool 
         If true, no legend is added.
     
-    nbins : int 
-        Number of bins for partitioning/binning of x.  If not specified, the number of bins is
-        selected via the companion function binsregselect in a data-driven, optimal way whenever possible.
+    nbins : int or bool or array
+        Number of bins for partitioning/binning of x.  If nbins=True or nbins=None (default) is specified, the number
+        of bins is selected via the companion command binsregselect in a data-driven, optimal way whenever possible.
+        If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command binsregselect.
     
     binspos : array
         Position of binning knots. The default is binspos="qs", which corresponds to quantile-spaced
-        binning (canonical binscatter). The other options is "es" for evenly-spaced binning.
+        binning (canonical binscatter). The other options are "es" for evenly-spaced binning, or
+        a vector for manual specification of the positions of inner knots (which must be within the range of x).
     
     binsmethod : str
         Method for data-driven selection of the number of bins. The default is binsmethod="dpi",
@@ -175,6 +179,19 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     nbinsrot : int
         Initial number of bins value used to construct the DPI number of bins selector.
         If not specified, the data-driven ROT selector is used instead.
+
+    pselect : array
+        vector of numbers within which the degree of polynomial p for point estimation is selected.
+        Piecewise polynomials of the selected optimal degree p are used to construct dots or line if dots=True or line=True is specified,
+        whereas piecewise polynomials of degree p+1 are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        Note: To implement the degree or smoothness selection, in addition to pselect or sselect, nbins=# must be specified.
+    
+    sselect : array
+        vector of numbers within which the number of constrains s for point estimation is selected.
+        Piecewise polynomials of the selected optimal s smoothness constrains are used to construct dots or line if dots=True or line=True is specified,
+        whereas piecewise polynomials of s+1 smoothness constrains are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        If not specified, for each value p supplied in the option pselect, only the piecewise polynomial
+        with the maximum smoothness is considered, i.e., s=p.
     
     samebinsby : bool
         If true, a common partitioning/binning structure across all subgroups specified by the option by is forced.
@@ -183,27 +200,37 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         using the full sample.
         
     randcut : float
-        Upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+        Upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
         Observations for which numpy.random.uniform()<=# are used. # must be between 0 and 1.
-    
+        By default, max(5,000, 0.01n) observations are used if the samples size n>5,000.
+
     nsims : int
         Number of random draws for constructing confidence bands. The default is nsims=500,
         which corresponds to 500 draws from a standard Gaussian random vector of size
-        [(p+1)*J - (J-1)*s].
+        [(p+1)*J - (J-1)*s]. A larger number of draws is recommended to obtain the final results.
     
     simsgrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
-        the supremum (infimum or Lp metric) operation needed to construct confidence bands and hypothesis testing
+        the supremum operation needed to construct confidence bands and hypothesis testing
         procedures. The default is simsgrid=20, which corresponds to 20 evenly-spaced
-        evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+        evaluation points within each bin for approximating the supremum operator.
+        A larger number of draws is recommended to obtain the final results.
     
     simsseed : int 
         Simulation seed.
     
     vce : str
-        Dummy variable to select the variance-covariance matrix estimator.
-        It is currently NOT implemented in statsmodel.api for quantile regression. 
-            
+        Procedure to compute the variance-covariance matrix estimator. Options are
+            * "const" : homoskedastic variance estimator.
+            * "HC0"   : heteroskedasticity-robust plug-in residuals variance estimator
+                        without weights.
+            * "HC1"   : heteroskedasticity-robust plug-in residuals variance estimator
+                        with hc1 weights. Default.
+            * "HC2"   : heteroskedasticity-robust plug-in residuals variance estimator
+                        with hc2 weights.
+            * "HC3"   : heteroskedasticity-robust plug-in residuals variance estimator
+                        with hc3 weights.
+    
     cluster: array 
         Cluster ID. Used for compute cluster-robust standard errors.
     
@@ -215,13 +242,13 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         Nominal confidence level for confidence interval and confidence band estimation. Default is level=95.
     
     noplot : bool
-        If true, no plot produced.
+        If true, no plot is produced.
     
     dfcheck : tuple
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -245,6 +272,10 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     plotyrange : tuple
         plotyrange=(min, max) specifies a range of the y-axis for plotting. Observations outside the range are dropped in the plot.
     
+    **optimize : 
+        Optional arguments to the QuantReg statsmodels.api optimizer. 
+        For futher details \href{https://www.statsmodels.org/dev/generated/statsmodels.regression.quantile_regression.QuantReg.fit.html}{sm.QuantReg.fit()}.
+    
     Returns
     -------
     bins_plot : A ggplot object for binscatter plot.
@@ -267,10 +298,16 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                     data.polyci : Data for confidence intervals based on polynomial regression. It contains:  x, evaluation points;
                                   bin, the indicator of bins; isknot, indicator of inner knots; mid, midpoint of each bin;
                                   polyci_l and polyci_r, left and right boundaries of each confidence intervals.
+                    imse_v_rot : Variance constant in IMSE, ROT selection.
+                    imse_b_rot : Bias constant in IMSE, ROT selection.
+                    imse_v_dpi : Variance constant in IMSE, DPI selection.
+                    imse_b_dpi : Bias constant in IMSE, DPI selection.
                     cval_by : A vector of critical values for constructing confidence band for each group.
                     options : A list containing options passed to the function, as well as N_by (total sample size for each group),
                               Ndist_by (number of distinct values in  x for each group), Nclust_by (number of clusters for each group),
                               and nbins_by (number of bins for each group), and byvals (number of distinct values in by).
+                              The degree and smoothness of polynomials for dots, line, confidence intervals and confidence band for each group are saved
+                              in dots, line, ci, and cb.
     
     See Also
     --------
@@ -280,8 +317,9 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     ------- 
     >>> x = numpy.random.uniform(size = 500)
     >>> y = numpy.sin(x) + numpy.random.normal(size = 500)
-    >>> est = binsqreg(y,x)
-    >>> print(est)
+    >>> out = binsqreg(y,x)
+    >>> print(out)
+    >>> out.summary()
     '''
 
     # param for internal use
@@ -373,30 +411,153 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
 
     xmin = np.min(x)
     xmax = np.max(x)
+    # define the support of plot
+    if plotxrange is not None and len(plotxrange)==2:
+        xsc_min, xsc_max = plotxrange
+    else:
+        xsc_min = xmin
+        xsc_max = xmax
 
     # evaluation point of w
     if at is None: at = "mean"
 
-    ##### Error Checking ##########################
+    if (vce=="iid"): vce_select = "const"
+    else: vce_select = "HC1"
+
+
+    ##########################################
+    # analyze bins- and degree-related options
+    if (isinstance(dots, bool) and not dots):
+            dots = None
+            dotsgrid = 0
+    if (isinstance(line, bool) and not line): line = None
+    if (isinstance(ci, bool) and not ci): ci = None
+    if (isinstance(cb, bool) and not cb): cb = None
+
+    # 4 cases: select J, select p, user specify both, or an error
+    try: 
+        len_nbins = len(nbins)
+    except:
+        if isinstance(nbins,(bool,int)): len_nbins = 1
+        else: len_nbins = 0
+    plist = pselect
+    slist = sselect
+    try: 
+        len_p = len(plist)
+    except: 
+        if isinstance(plist,int): len_p = 1
+        else: len_p = 0
+    try: 
+        len_s = len(slist)
+    except: 
+        if isinstance(slist,int): len_s = 1
+        else: len_s = 0
+    if (len_p==1 and len_s==0):
+        slist = plist.copy()
+        len_s = 1
+    if (len_p==0 and len_s==1):
+        plist = slist.copy()
+        len_p = 1
+
+    if not isinstance(binspos,str):
+        if (nbins is not None or pselect is not None or sselect is not None):
+            raise Exception("binspos not correctly specified")
+        
+    try: 
+        len_dots = len(dots)
+    except:
+        if isinstance(dots,(bool,int)): len_dots = 1
+        else: len_dots = 0
+        
+    # 1st case: select J
+    selection = ""
+    if isinstance(binspos,str):
+        if isinstance(nbins,bool):
+            if nbins: selection = "J"
+        else:
+            if (len_nbins==1 and nbins==0): selection = "J"
+            if nbins is None: selection = "J"
+        if (len_nbins>1): selection = "J"
+    
+    if selection=="J":
+        if (len_p>1 or len_s>1):
+            if nbins is None:
+                raise Exception("nbins must be specified for degree/smoothness selection.")
+            else:
+                raise Exception("Only one p and one s are allowed to select # of bins.")
+        if plist is None: plist = deriv
+        if slist is None: slist = plist
+        if (not isinstance(dots, bool) and dots is not None):
+            plist, slist = dots
+            if np.isnan(slist): slist = plist.copy()
+        
+        if dots is None: dots = conc(plist, slist)
+        if (isinstance(dots,bool) and dots): dots = conc(plist, slist)
+        if (isinstance(line,bool) and line): line = conc(plist, slist)
+        if (isinstance(ci,bool) and ci): ci = conc(plist+1, slist+1)
+        if (isinstance(cb,bool) and cb): cb = conc(plist+1, slist+1)
+        len_p = 1
+        len_s = 1
+    
+
+    # 2nd case: select p (at least for one object)
+    pselectOK = False
+    if selection!="J":
+        if dots is None: pselectOK  = True
+        if (isinstance(dots,bool) and dots): pselectOK  = True
+        if (isinstance(line,bool) and line): pselectOK  = True
+        if (isinstance(ci,bool) and ci): pselectOK  = True
+        if (isinstance(cb,bool) and cb): pselectOK  = True
+    
+    if (pselectOK and len_nbins==1 and (len_p>1 or len_s>1)):
+        selection = "P"
+
+    # 3rd case: user specified
+    if ((len_p<=1 and len_s<=1) and selection!="J"):
+        selection = "U"
+        if dots is None:
+            if (len_p==1 and len_s==1): dots = conc(plist, slist)
+            else: dots = conc(deriv, deriv)
+        
+        if (isinstance(dots,bool) and dots):
+            if (len_p==1 and len_s==1): dots = conc(plist, slist)
+            else: dots = conc(deriv, deriv)
+        
+        if (np.isnan(dots[1])): dots[1] = dots[0].copy()
+
+        if (isinstance(line,bool) and line):
+            if (len_p==1 and len_s==1): line = conc(plist, slist)
+            else: line = dots.copy()
+        
+        if (isinstance(ci,bool) and ci):
+            if (len_p==1 and len_s==1): ci = conc(plist+1, slist+1)
+            else: ci = conc(dots[0]+1, dots[1]+1)
+        
+        if (isinstance(cb,bool) and cb):
+            if (len_p==1 and len_s==1): cb = conc(plist+1, slist+1)
+            else: cb = conc(dots[0]+1, dots[1]+1)
+        
+    if (selection==""):
+        raise Exception("Degree, smoothness, or # of bins not correctly specified")
+
+    ##################################################
+    ######## Error Checking ##########################
+    ##################################################
 
     if deriv < 0:
         raise Exception("derivative incorrectly specified.")
 
     if dotsgrid<0 or linegrid<0 or cigrid<0 or cbgrid<0 or polyreggrid<0 or polyregcigrid<0:
         raise Exception("# of evaluation points incorrectly specified.")
-
-    if nbins is not None:
-        if nbins < 0:
-            raise Exception("# of bins incorrectly specified.")
         
     if not isinstance(binspos, str):
         if np.min(binspos)<=xmin or np.max(binspos)>=xmax:
-            raise Exception("knots out of allowed range")
+            raise Exception("Knots out of allowed range.")
     else:
         if binspos!="es" and binspos!="qs":
             raise Exception("binspos incorrectly specified.")
         
-    if len(dots)==2:
+    if dots is not None and len(dots)==2:
         if dots[0] < dots[1]:
             raise Exception("p<s not allowed.")
 
@@ -415,24 +576,23 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             if cb[0]<cb[1]:
                 raise Exception("p<s not allowed.")
 
-    if dots[0] < deriv:
-        raise Exception("p<deriv not allowed.")
+    # if dots is not None and dots[0] < deriv:
+    #     raise Exception("p<deriv not allowed.")
 
-    if line is not None:
-        if line[0] < deriv:
-            raise Exception("p<deriv not allowed.")
+    # if line is not None:
+    #     if line[0] < deriv:
+    #         raise Exception("p<deriv not allowed.")
 
-    if ci is not None:
-        if ci[0] < deriv:
-            raise Exception("p<deriv not allowed.")
+    # if ci is not None:
+    #     if ci[0] < deriv:
+    #         raise Exception("p<deriv not allowed.")
 
-    if cb is not None:
-        if cb[0] < deriv:
-            raise Exception("p<deriv not allowed.")
+    # if cb is not None:
+    #     if cb[0] < deriv:
+    #         raise Exception("p<deriv not allowed.")
 
     if binsmethod!="dpi" and binsmethod!="rot":
-        raise Exception("bin selection method incorrectly specified.")
-
+        raise Exception("Bin selection method incorrectly specified.")
 
     if w is not None:
         if isinstance(at,str):
@@ -441,29 +601,71 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         else:
             if not np.isscalar(at):
                 if len(at)!=nwvar:
-                    raise Exception("length of at not equal to # of w variables.")
+                    raise Exception("Length of at not equal to # of w variables.")
             
     ##################################################
-    # Prepare options
-    dots_p, dots_s = dots
+    ####### Prepare options ##########################
+    ##################################################
+    
+    if dots is None:
+        dots_p = None
+        dots_s = None
+    else:
+        dots_p, dots_s = dots
+        if isinstance(dots_p, bool): dots_p = None
+        if np.isnan(dots_s): dots_s = dots_p
     dotsmean = 0
     if dotsgridmean: dotsmean = 1
 
-    if line is None: linegrid = 0
-    elif np.isscalar(line): line_p = line_s =  line
-    elif len(line)==2: line_p, line_s = line
+    if line is None: 
+        linegrid = 0
+        line_p = None
+        line_s = None
+    else:
+        line_p, line_s = line
+        if isinstance(line_p, bool): line_p = None
+        if np.isnan(line_s): line_s = line_p
 
     cimean = 0
     if cigridmean: cimean = 1
-    if ci is None: cigrid  = cimean = 0
-    elif np.isscalar(ci): ci_p = ci_s = ci
-    elif len(ci)==2: ci_p, ci_s = ci
+    if ci is None:
+        cigrid  = 0
+        cimean = 0
+        ci_p = None
+        ci_s = None
+    else:
+        ci_p, ci_s = ci
+        if isinstance(ci_p, bool): ci_p = None
+        if np.isnan(ci_s): ci_s = ci_p
 
-    if cb is None: cbgrid = 0
-    elif np.isscalar(cb): cb_p = cb_s = cb
-    elif len(cb)==2: cb_p, cb_s = cb
+    if cb is None: 
+        cbgrid = 0
+        cb_p = None
+        cb_s = None
+    else:
+        cb_p, cb_s = cb
+        if isinstance(cb_p, bool): cb_p = None
+        if np.isnan(cb_s): cb_s = cb_p 
 
-    if polyreg is None: polyreggrid  = polyregcigrid = 0
+    if polyreg is None:
+        polyreggrid  = 0
+        polyregcigrid = 0
+
+     # Add a warning about degrees for estimation and inference
+    if selection=="J":
+        if ((ci_p is not None) and (ci_p<=dots_p)):
+            ci_p = dots_p+1 
+            ci_s = ci_p
+            warnings.warn("Degree for ci has been changed. It must be greater than the degree for dots.")
+
+        if ((cb_p is not None) and (cb_p<=dots_p)):
+            cb_p = dots.p+1
+            cb_s = cb.p
+            warnings.warn("Degree for cb has been changed. It must be greater than the degree for dots.")
+        
+    if selection=="U":
+        if ((ci is not None) or (cb is not None)):
+            warnings.warn("Confidence intervals/bands are valid when nbins is much larger than the IMSE-optimal choice.")
 
     localcheck = massadj = True
     fewmasspoints = False
@@ -482,8 +684,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     elif masspoints=="veryfew":
         fewmasspoints = True
 
-    #############################
-    # Extract byvals in by ######
+    # Extract byvals in by
     if by is not None:
         byvals = np.unique(by)
         ngroup = len(byvals)
@@ -491,7 +692,6 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         byvals = ["Full Sample"]
         ngroup = 1
 
-    ########################################
     # Default plotting options
     if bycolors is None:
         bycolors = ["navy", "maroon", "forestgreen", "darkorange", "lavenderblush3",
@@ -523,20 +723,22 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         if legendTitle is None: legendTitle = byname + " ="
 
     #########################################
-    if binsmethod=="dpi": selectmethod = "IMSE direct plug-in" 
-    else: selectmethod = "IMSE rule-of-thumb"
-
     nbins_all = nbins         # "nbins" is reserved for use within loop
-    if nbins is not None: selectmethod = "User-specified"
+
+    if selection=="U":  selectmethod = "User-specified"
+    else:
+        if binsmethod=="dpi": selectmethod = "IMSE direct plug-in" 
+        else: selectmethod = "IMSE rule-of-thumb"
+        if selection=="J": selectmethod = selectmethod + " (select # of bins)"
+        if selection=="P": selectmethod = selectmethod + " (select degree and smoothness)"
 
     knot = None
     knotlistON = False
     if not isinstance(binspos, str):
         nbins = len(binspos)+1
-        knot = np.concatenate([[xmin], np.sort(x),[xmax]])
+        knot = np.concatenate([[xmin], np.sort(binspos),[xmax]])
         position = "User-specified"
         es = False
-        selectmethod = "User-specified"
         knotlistON = True
     else:
         if binspos == "es":
@@ -550,12 +752,18 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
 
     ################################################
     ### Bin selection using full sample if needed ##
-    fullfewobs = fewobs = selectfullON = False
-    if fewmasspoints: fullfewobs = fewobs = True
-    if (not fullfewobs and nbins is None and by is None) or (by is not None and samebinsby): 
+    imse_v_rot = np.repeat(np.nan, ngroup)
+    imse_v_dpi = np.repeat(np.nan, ngroup)
+    imse_b_rot = np.repeat(np.nan, ngroup)
+    imse_b_dpi = np.repeat(np.nan, ngroup)
+    fullfewobs = selectfullON = False
+    if fewmasspoints: fullfewobs = True
+    if (not fullfewobs and selection!="U" and by is None) or (by is not None and samebinsby): 
         selectfullON = True
     if selectfullON:
-        eN = N = len(x) # effective size
+        # effective size
+        eN = N = len(x)
+
         if massadj:
             Ndist = len(np.unique(x))
             eN = min(eN, Ndist)
@@ -565,40 +773,104 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
 
         # check if rot can be implemented
         if nbinsrot is None:
-            if eN <= dfcheck[0]+dots_p+1+qrot:
-                warnings.warn("too small effective sample size for bin selection. # of mass of points or clusters used and by option ignored.")
-                fewobs = fullfewobs = True
+            if dots_p is None: dotspcheck = 6
+            else: dotspcheck = dots_p
+            if eN <= dfcheck[0]+dotspcheck+1+qrot:
+                warnings.warn("Too small effective sample size for bin selection. # of mass of points or clusters used and by option ignored.")
+                fullfewobs = True
                 byvals = "Full Sample"
                 es = False
                 position = "Quantile-spaced"
-        if not fewobs:
+        if not fullfewobs:
             if np.isnan(Ndist): Ndist_sel = None
             else: Ndist_sel = Ndist
             if np.isnan(Nclust): Nclust_sel = None
             else: Nclust_sel = Nclust
-            binselect = binsregselect(y, x, w, deriv=deriv,
-                                        bins=dots, binspos=binspos,
+
+            randcut1k = randcut
+            if (randcut is None and  N>5000):
+                randcut1k = max(5000/N, 0.01)
+                warnings.warn("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
+
+            if (selection=="J"):
+                binselect = binsregselect(y, x, w, deriv=deriv,
+                                        bins=dots, binspos=binspos, nbins=nbins_all,
                                         binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                        vce=vce, cluster=cluster, randcut=randcut,
+                                        vce=vce_select, cluster=cluster, randcut=randcut1k,
                                         dfcheck=dfcheck, masspoints=masspoints, weights=weights,
                                         numdist=Ndist_sel, numclust=Nclust_sel)
-            if np.isnan(binselect.nbinsrot_regul):
-                raise Exception("bin selection fails.")
-            if binsmethod == "rot": nbins = binselect.nbinsrot_regul
-            elif binsmethod == "dpi": nbins = binselect.nbinsdpi
-            if np.isnan(nbins):
-                warnings.warn("DPI selection fails. ROT choice used.")
-                nbins = binselect.nbinsrot_regul
+                if np.isnan(binselect.nbinsrot_regul):
+                    raise Exception("Bin selection fails.")
+                if (binsmethod == "rot"):
+                    nbins = binselect.nbinsrot_regul
+                    imse_v_rot = np.repeat(binselect.imse_v_rot, ngroup)
+                    imse_b_rot  = np.repeat(binselect.imse_b_rot, ngroup)
+                elif (binsmethod == "dpi"):
+                    nbins = binselect.nbinsdpi
+                    imse_v_dpi = np.repeat(binselect.imse_v_dpi, ngroup)
+                    imse_b_dpi = np.repeat(binselect.imse_b_dpi, ngroup)
+                    if np.isnan(nbins):
+                        warnings.warn("DPI selection fails. ROT choice used.")
+                        nbins = binselect.nbinsrot_regul
+                        imse_v_rot = np.repeat(binselect.imse_v_rot, ngroup)
+                        imse_b_rot = np.repeat(binselect.imse_b_rot, ngroup)
+            elif (selection=="P"):
+                binselect = binsregselect(y, x, w, deriv=deriv,
+                                            binspos=binspos, nbins=nbins_all,
+                                            pselect=plist, sselect=slist,
+                                            binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                            vce=vce_select, cluster=cluster, randcut=randcut1k,
+                                            dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                            numdist=Ndist_sel, numclust=Nclust_sel)
+                if np.isnan(binselect.prot_regul):
+                    raise Exception("Bin selection fails.")  
+                if (binsmethod == "rot"):
+                    binsp = binselect.prot_regul
+                    binss =  binselect.srot_regul
+                    imse_v_rot = np.repeat(binselect.imse_v_rot, ngroup)
+                    imse_b_rot = np.repeat(binselect.imse_b_rot, ngroup)
+                elif binsmethod == "dpi": 
+                    binsp = binselect.pdpi
+                    binss =  binselect.sdpi
+                    imse_v_dpi= np.repeat(binselect.imse_v_dpi, ngroup)
+                    imse_b_dpi = np.repeat(binselect.imse_b_dpi, ngroup)
+                    if np.isnan(binsp):
+                        warnings.warn("DPI selection fails. ROT choice used.")
+                        binsp  =  binselect.prot_regul
+                        binss = binselect.srot_regul
+                        imse_v_rot = np.repeat(binselect.imse_v.rot, ngroup)
+                        imse_b_rot = np.repeat(binselect.imse_b_rot, ngroup)       
+                if (isinstance(dots,bool) or dots is None):
+                    dots_p = binsp
+                    dots_s = binss
+                if isinstance(line,bool) :
+                    line_p = binsp
+                    line_s = binss
+                if ((ci is not None)  and (not isinstance(ci,bool)) and (ci_p<=binsp)):
+                    ci_p = binsp+1
+                    ci_s = ci.p
+                    warnings.warn("Degree for ci has been changed. It must be greater than the IMSE-optimal degree.")
+                if isinstance(ci,bool):
+                    ci_p = binsp+1
+                    ci_s = binss+1
+                if ((cb is not None) and (not isinstance(cb,bool)) and (cb_p<=binsp)):
+                    cb_p = binsp+1
+                    cb_s = cb_p
+                    warnings.warn("Degree for cb has been changed. It must be greater than the IMSE-optimal degree.")
+                if isinstance(cb,bool):
+                    cb_p = binsp+1
+                    cb_s = binss+1
 
     # Generate knot using the full sample if needed
 
-    if (selectfullON or (nbins is not None and samebinsby)) and not fullfewobs and knot is None:
+    if (selectfullON or (selection=="U" and samebinsby)) and not fullfewobs and knot is None:
         knotlistON = True
+        nbins_full = nbins
         if es: knot = genKnot_es(xmin, xmax, nbins)
         else: knot = genKnot_qs(x, nbins)
 
     knot_all = None
-    if knotlistON: knot_all = knot    # universal knot sequence
+    if knotlistON: knot_all = knot.copy()    # universal knot sequence
 
     ##########################################
     if simsseed is not None: np.random.seed(simsseed)
@@ -608,13 +880,18 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     ##################################################################
     ##################### ENTER the loop #############################
     ##################################################################
+    
     # save results
     N_by = []
     Ndist_by = []
     Nclust_by = []
     nbins_by = []
     cval_by = []
-    data_plot = []   
+    dots_by = nanmat(ngroup,2)
+    line_by = nanmat(ngroup,2)
+    ci_by = nanmat(ngroup,2)
+    cb_by = nanmat(ngroup,2)
+    data_plot = []  # list storing graph data
 
     for i in range(ngroup):
         # Take subsample
@@ -630,7 +907,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         else: cluster_sub = None
         if weights is not None: weights_sub = weights[sub]
         else: weights_sub = None
-
+        
         # Effective size
         xmin = np.min(x_sub)
         xmax = np.max(x_sub)
@@ -652,10 +929,13 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         #######################################################
         ############### Bin selection if needed ###############
         nbins = knot = None                       # initialize again
-        if (nbins_all is None) and (not knotlistON) and (not fullfewobs):
+        fewobs = False
+        if (selection!="U") and (not knotlistON) and (not fullfewobs):
             # check if rot can be implemented
-            if (nbinsrot is None) and (eN <= dfcheck[0]+dots_p+1+qrot):
-                warnings.warn("too small effective sample size for bin selection. # of mass points or clusters used.")
+            if dots_p is None: dotspcheck = 6
+            else: dotspcheck = dots_p
+            if (nbinsrot is None) and (eN <= dfcheck[0]+dotspcheck+1+qrot):
+                warnings.warn("Too small effective sample size for bin selection. # of mass points or clusters used.")
                 fewobs = True
                 nbins = eN
                 es = False
@@ -664,57 +944,122 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                 else: Ndist_sel = Ndist
                 if np.isnan(Nclust): Nclust_sel = None
                 else: Nclust_sel = Nclust
-
-                binselect = binsregselect(y_sub, x_sub, w_sub, deriv=deriv,
-                                            bins=dots, binspos=binspos,
+                randcut1k = randcut
+                if randcut is None and N>5000:
+                    randcut1k = max(5000/N, 0.01)
+                    warnings.warn("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
+                if selection=="J":
+                    binselect = binsregselect(y_sub, x_sub, w_sub, deriv=deriv,
+                                            bins=dots, binspos=binspos, nbins=nbins_all,
                                             binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                            vce=vce, cluster=cluster_sub, randcut=randcut,
+                                            vce=vce_select, cluster=cluster_sub, randcut=randcut1k,
                                             dfcheck=dfcheck, masspoints=masspoints, weights=weights_sub,
                                             numdist=Ndist_sel, numclust=Nclust_sel)
-                
-                if np.isnan(binselect.nbinsrot_regul):
-                    raise Exception("bin selection fails.")
-                if binsmethod == "rot": nbins = binselect.nbinsrot_regul
-                elif binsmethod == "dpi":
-                    nbins = binselect.nbinsdpi
-                    if np.isnan(nbins):
-                        warnings.warn("DPI selection fails. ROT choice used.")
+                    if np.isnan(binselect.nbinsrot_regul):
+                        raise Exception("Bin selection fails.")
+                    if binsmethod == "rot": 
                         nbins = binselect.nbinsrot_regul
+                        imse_v_rot[i] = binselect.imse_v_rot
+                        imse_b_rot[i] = binselect.imse_b_rot
+                    elif binsmethod == "dpi":
+                        nbins = binselect.nbinsdpi
+                        imse_v_dpi[i] = binselect.imse_v_dpi
+                        imse_b_dpi[i] = binselect.imse_b_dpi
+                        if np.isnan(nbins):
+                            warnings.warn("DPI selection fails. ROT choice used.")
+                            nbins = binselect.nbinsrot_regul
+                            imse_v_rot[i] = binselect.imse_v_rot
+                            imse_b_rot[i] = binselect.imse_b_rot
 
-        if nbins_all is not None: nbins = nbins_all
+                elif selection=="P":
+                    binselect = binsregselect(y_sub, x_sub, w_sub, deriv=deriv,
+                                     binspos=binspos, nbins=nbins_all,
+                                     pselect=plist, sselect=slist,
+                                     binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                     vce=vce_select, cluster=cluster_sub, randcut=randcut1k,
+                                     dfcheck=dfcheck, masspoints=masspoints, weights=weights_sub,
+                                     numdist=Ndist_sel, numclust=Nclust_sel)
+                    if np.isnan(binselect.prot_regul):
+                        raise Exception("Bin selection fails.")
+                    binsp = binss = np.nan
+                    if (binsmethod == "rot"):
+                        binsp = binselect.prot_regul
+                        binss = binselect.srot_regul
+                        imse_v_rot[i] = binselect.imse_v_rot
+                        imse_b_rot[i] = binselect.imse_b_rot
+                    elif (binsmethod == "dpi"):
+                        binsp = binselect.pdpi
+                        binss = binselect.sdpi
+                        imse_v_dpi[i] = binselect.imse_v_dpi
+                        imse_b_dpi[i] = binselect.imse_b_dpi
+                        if np.isnan(binsp):
+                            warnings.warn("DPI selection fails. ROT choice used.")
+                            binsp = binselect.prot_regul
+                            binss = binselect.srot_regul
+                            imse_v_rot[i] = binselect.imse_v_rot
+                            imse_b_rot[i] = binselect.imse_b_rot
+                    if (isinstance(dots, bool) or (dots is None)):
+                        dots_p = binsp
+                        dots_s = binss
+                    if isinstance(line, bool):
+                        line_p = binsp
+                        line_s = binss
+                    if ((ci is not None) and (not isinstance(ci, bool)) and (ci_p<=binsp)):
+                        ci_p = binsp+1
+                        ci_s = ci_p.copy()
+                        warnings.warn("Degree for ci has been changed. It must be greater than the IMSE-optimal degree.")
+                    if isinstance(ci, bool):
+                        ci_p = binsp+1
+                        ci_s = binss+1
+                    if ((cb is not None) and (not isinstance(cb, bool)) and (cb_p<=binsp)):
+                        cb_p = binsp+1
+                        cb_s = cb_p
+                        warnings.warn("Degree for ci has been changed. It must be greater than the IMSE-optimal degree.")
+                    if isinstance(cb, bool):
+                        cb_p = binsp+1
+                        cb_s = binss+1
+                    nbins = nbins_all
+
+        if (selection=="U"): nbins = nbins_all
         if knotlistON:
             nbins = len(knot_all)-1
-            knot  = knot_all
+            knot  = knot_all.copy()
         if fullfewobs:
             fewobs = True
             nbins = eN
+        
+        if (dotsmean+dotsgrid !=0): dots_by[i,:] = conc(dots_p, dots_s)
+        if line is not None: line_by[i,:] = conc(line_p, line_s)
+        if ci is not None: ci_by[i,:] = conc(ci_p, ci_s)
+        if cb is not None: cb_by[i,:] = conc(cb_p, cb_s)
+
 
         ###########################################
-        # Checking Error  for each case
+        # Checking Error for each case
         dots_fewobs = line_fewobs = ci_fewobs = cb_fewobs = polyreg_fewobs = False
         if not fewobs:
             if (nbins-1)*(dots_p-dots_s+1)+dots_p+1+dfcheck[1]>=eN: 
                 fewobs = True
                 nbins = eN
                 es = False
-                warnings.warn("too small effective sample size for dots. # of mass points or clusters used.")
+                warnings.warn("Too small effective sample size for dots. # of mass points or clusters used.")
             if line is not None:
                 if ((nbins-1)*(line_p-line_s+1)+line_p+1+dfcheck[1]>=eN):
                     line_fewobs = True
-                    warnings.warn("too small effective sample size for line.")
+                    warnings.warn("Too small effective sample size for line.")
             if ci is not None:
                 if (nbins-1)*(ci_p-ci_s+1)+ci_p+1+dfcheck[1]>=eN:
                     ci_fewobs = True
-                    warnings.warn("too small effective sample size for ci.")
+                    warnings.warn("Too small effective sample size for ci.")
             if cb is not None:
                 if (nbins-1)*(cb_p-cb_s+1)+cb_p+1+dfcheck[1]>=eN:
                     cb_fewobs = True
-                    warnings.warn("too small effective sample size for line.")
+                    warnings.warn("Too small effective sample size for line.")
 
         if polyreg is not None:
             if polyreg+1>eN:
                 polyreg_fewobs = True
-                warnings.warn("too small effective sample size for polynomial fit.")
+                warnings.warn("Too small effective sample size for polynomial fit.")
 
 
         ####################################
@@ -740,7 +1085,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         else:
             knot = np.append(knot[0],np.unique(knot[1:]))
             if nbins != len(knot)-1:
-                warnings.warn("repeated knots. Some bins dropped.")
+                warnings.warn("Repeated knots. Some bins dropped.")
                 nbins = len(knot)-1
 
         # check local mass points
@@ -749,24 +1094,23 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             if dots is not None: 
                 if uniqmin < dots_p+1:
                     dots_fewobs = True
-                    warnings.warn("some bins have too few distinct values of x for dots.")
+                    warnings.warn("Some bins have too few distinct values of x for dots.")
             if line is not None:
                 if uniqmin < line_p+1:
                     line_fewobs = True
-                    warnings.warn("some bins have too few distinct values of x for line.")
+                    warnings.warn("Some bins have too few distinct values of x for line.")
             if ci is not None:
                 if uniqmin < ci_p+1:
                     ci_fewobs = True
-                    warnings.warn("some bins have too few distinct values of x for CI.")
+                    warnings.warn("Some bins have too few distinct values of x for CI.")
             if cb is not None:
                 if uniqmin < cb_p+1:
                     cb_fewobs = True
-                    warnings.warn("some bins have too few distinct values of x for CB.")
+                    warnings.warn("Some bins have too few distinct values of x for CB.")
 
         # NOW, save nbins
         nbins_by += [nbins]
     
-
         #######################################
         ###### Prepare Plots ##################
         #######################################
@@ -785,7 +1129,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         else: eval_w = None
 
         ##################################
-        # Dots and CIs for Small eN case
+        # Dots and CI for Small eN case
         ##################################
 
         if dotsmean+dotsgrid != 0 and fewobs:
@@ -806,25 +1150,26 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             design = binsreg_spdes(x=x_sub, p=0, s=0, deriv=0, knot=xcat_few)
             if w_sub is not None: design = np.column_stack((design,w_sub))
             model = binsreg_fit(y=y, x=design, is_qreg = True, quantile = quantile,
-                                weights = weights_sub, cov_type = vce, cluster = cluster_sub)
+                                weights = weights_sub, cov_type = vce,
+                                cluster = cluster_sub, **optimize)
             beta = model.params[:k].values
             beta[np.isnan(beta)] = 0
             vcv = model.cov_params()
 
             dots_fit = beta.copy()
-            dots_fit_0 = beta.copy()
             if eval_w is not None:
                 coeff_w = model.params[k:]
                 coeff_w[np.isnan(coeff_w)] = 0
-                dots_fit += dots_fit + np.sum(eval_w * coeff_w)
-            
+                dots_fit = dots_fit + np.sum(eval_w * coeff_w)
             data_dots = pd.DataFrame({'group': str(byvals[i]),
                                       'x': dots_x,
                                       'fit': dots_fit})
             data_by.dots = data_dots
             if cigrid+cimean!=0:
                 warnings.warn("ci=(0,0) used.")
-                basis_all = np.column_stack((np.identity(len(dots_x)), np.outer(np.ones(dots_x), eval_w)))
+                basis_all = np.identity(len(dots_x))
+                if eval_w is not None:
+                    basis_all = np.column_stack((basis_all, np.outer(np.repeat(1, len(dots_x)), eval_w)))
                 dots_se  = np.sqrt(np.sum(np.matmul(basis_all,vcv) * basis_all,0))
                 ci_arm = norm.ppf(alpha)*dots_se
                 ci_l = dots_fit - ci_arm
@@ -867,12 +1212,9 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             B = binsreg_spdes(x=x_sub, p=dots_p, s=dots_s, deriv=0, knot=knot)
             if w_sub is not None: design = np.column_stack((B, w_sub))
             else: design = B
-            model_dots = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile = quantile, weights = weights_sub)
-            check_drop(model_dots.params, ncol(B))
-
-            basis = binsreg_spdes(x=dots_x, p=dots_p, s=dots_s, knot=knot, deriv=deriv)
+            model_dots = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile = quantile, weights = weights_sub, **optimize)
+            basis = binsreg_spdes(x=dots_x, p=dots_p, s=dots_s, knot=knot, deriv=deriv) 
             dots_fit, dots_se  = binsreg_pred(basis, model_dots, type = "xb", deriv=deriv, wvec=eval_w)
-            
             dots_fit[dots_isknot==1] = np.nan
             data_dots = pd.DataFrame({'group':str(byvals[i]),
                                       'x':dots_x,
@@ -883,7 +1225,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             data_by.dots = data_dots    
 
         ################ Line ####################
-        if linegrid !=0 and not line_fewobs and not fewobs:
+        if linegrid !=0  and not line_fewobs and not fewobs:
             lineON = True
         if lineON:
             grid = binsreg_grid(knot, linegrid, addmore=True)
@@ -901,12 +1243,11 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                 B  = binsreg_spdes(x=x_sub, p=line_p, s=line_s, deriv=0, knot=knot)
                 if w_sub is not None: design = np.column_stack((B, w_sub))
                 else: design = B
-                model_line = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub)
+                model_line = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub, **optimize)
                 check_drop(model_line.params, ncol(B))
 
             basis = binsreg_spdes(x=line_x, p=line_p, s=line_s, knot=knot, deriv=deriv)
-            line_fit, line_se = binsreg_pred(basis, model_line, type = "xb", deriv=deriv, wvec=eval_w)
-
+            line_fit, line_se = binsreg_pred(basis, model_line, type = "xb",deriv=deriv, wvec=eval_w)
             if line_s == 0 or line_s-deriv <= 0: line_fit[line_isknot==1] = np.nan
             data_line = pd.DataFrame({'group': str(byvals[i]),
                                       'x': line_x,
@@ -917,9 +1258,11 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             data_by.line = data_line
 
         ############### Poly fit #########################
-        if polyreggrid!=0 and not polyreg_fewobs:
+        if ((polyreggrid!=0) and (not noplot) and (not polyreg_fewobs)):
             polyON = True
         if polyON:
+            if w_sub is not None:
+                print("Note: When additional covariates w are included, the polynomial fit may not always be close to the binscatter fit.")
             grid = binsreg_grid(knot, polyreggrid, addmore=True)
             poly_x = grid.eval
             poly_bin = grid.bin
@@ -931,15 +1274,14 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             for j in range(polyreg+1):  x_p[:,j] = (x_sub**j).reshape(-1)
             if w_sub is not None: design = np.column_stack((x_p, w_sub))
             else: design = x_p
-            model_poly = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub)
+            model_poly = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub, **optimize)
             beta_poly = model_poly.params
             beta_poly[np.isnan(beta_poly)] = 0
             poly_fit  = 0
             for j in range(deriv,polyreg+1):
-                poly_fit +=  poly_x**(j-deriv)*beta_poly[j]*factorial(j)/factorial(j-deriv)
+                poly_fit = poly_fit + poly_x**(j-deriv)*beta_poly[j]*factorial(j)/factorial(j-deriv)
             if eval_w is not None and deriv==0:
-                poly_fit += np.sum(beta_poly[polyreg+1:]*eval_w)
-    
+                poly_fit = poly_fit + np.sum(beta_poly[polyreg+1:]*eval_w)
             data_poly = pd.DataFrame({'group': str(byvals[i]),
                                       'x': poly_x,
                                       'bin': poly_bin,
@@ -962,7 +1304,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                     if j>=deriv:
                         basis_polyci[:,j] = polyci_x^(j-deriv)*factorial(j)/factorial(j-deriv)
                     else:
-                        basis_polyci[:,j] = np.zeros(npolyci_x)
+                        basis_polyci[:,j] = np.repeat(0, npolyci_x)
                 
                 if eval_w is not None:
                     if deriv==0:
@@ -971,7 +1313,6 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                         basis_polyci = np.column_stack((basis_polyci, np.outer(np.ones(basis_polyci.shape[0]), np.zeros(nwvar))))
 
                 polyci_fit, polyci_se = binsreg_pred(basis_polyci, model=model_poly, type="all", avar=True)
-
                 polyci_arm = norm.ppf(alpha)*polyci_se
                 polyci_l = polyci_fit - polyci_arm
                 polyci_r = polyci_fit + polyci_arm
@@ -1008,7 +1349,6 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                 ci_bin = np.concatenate((ci_bin, grid.bin))
                 ci_isknot = np.concatenate((ci_isknot, grid.isknot))
                 ci_mid = np.concatenate((ci_mid, grid.mid))
-            
             ci_reg_ON = True
             if lineON: 
                 if ci_p==line_p and ci_s==line_s:
@@ -1023,12 +1363,10 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                 B  = binsreg_spdes(x=x_sub, p=ci_p, s=ci_s, deriv=0, knot=knot)
                 if w_sub is not None: design = np.column_stack((B, w_sub))
                 else: design = B
-                model_ci = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub)
+                model_ci = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub, **optimize)
                 check_drop(model_ci.params, ncol(B))
-            
             basis = binsreg_spdes(x=ci_x, p=ci_p, s=ci_s, knot=knot, deriv=deriv)
             ci_fit, ci_se = binsreg_pred(X=basis, model=model_ci, type="all", deriv=deriv, wvec=eval_w, avar=asyvar)
-            
             ci_arm = norm.ppf(alpha)*ci_se
             ci_l = ci_fit - ci_arm
             ci_r = ci_fit + ci_arm
@@ -1048,11 +1386,14 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
         if cbgrid !=0 and not cb_fewobs and not fewobs:
             cbON = True
         if cbON:
+            if (nsims<2000 or simsgrid<50):
+                print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
             grid = binsreg_grid(knot, cbgrid, addmore=True)
             cb_x = grid.eval
             cb_bin = grid.bin
             cb_isknot = grid.isknot
             cb_mid = grid.mid
+            
             cb_reg_ON = True
             if ciON:
                 if cb_p==ci_p & cb_s==ci_s:
@@ -1072,9 +1413,8 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                 B = binsreg_spdes(x=x_sub, p=cb_p, s=cb_s, deriv=0, knot=knot)
                 if w_sub is not None: design = np.column_stack((B, w_sub))
                 else: design = B
-                model_cb = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub)
+                model_cb = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub, **optimize)
                 check_drop(model_cb.params, ncol(B))
-            
             basis = binsreg_spdes(x=cb_x, p=cb_p, s=cb_s, knot=knot, deriv=deriv)
             pos = np.invert(np.isnan(model_cb.params[:ncol(basis)]))
             k_new = np.sum(pos)
@@ -1083,11 +1423,10 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             ### Compute cval ####
             x_grid = binsreg_grid(knot, simsgrid).eval
             basis_sim = binsreg_spdes(x=x_grid, p=cb_p, s=cb_s, knot=knot, deriv=deriv)
-            sim_fit, sim_se = binsreg_pred(X=basis_sim, model=model_cb, type="all", avar=True)
+            sim_fit,sim_se = binsreg_pred(X=basis_sim, model=model_cb, type="all", avar=True)
             vcv = model_cb.cov_params()[:k_new,:k_new]
             Sigma_root = lssqrtm(vcv)
             num = np.matmul(basis_sim[:,pos], Sigma_root)
-            
             
             pval, cval = binsreg_pval(num, sim_se, rep=nsims, tstat=None, side="two", alpha=level)
             cb_arm = cval*cb_se
@@ -1115,7 +1454,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
     #############
 
     ########################################
-    ############# Plotting ? ################
+    ############# Plotting ? ###############
     binsplot = None
     if not noplot:
         binsplot = ggplot() + theme_bw()
@@ -1149,12 +1488,12 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
             if data_by.poly is not None:
                 index = ((data_by.poly["x"]>=xr_min) & (data_by.poly["x"]<=xr_max) &
                          (data_by.poly["fit"]>=yr_min) & (data_by.poly["fit"]<=yr_max))
-                binsplot = binsplot + geom_line(aes(x='x', y='fit'), data_by.poly.loc[index], color=bycolors[i], inetype=bylpatterns[i])         
+                binsplot = binsplot + geom_line(aes(x='x', y='fit'), data_by.poly.loc[index], color=bycolors[i], linetype=bylpatterns[i])         
             
             if data_by.polyci is not None:
                 index = ((data_by.polyci["x"]>=xr_min) & (data_by.polyci["x"]<=xr_max) &
                          (data_by.polyci["polyci_l"]>=yr_min) & (data_by.polyci["polyci_r"]<=yr_max))
-                binsplot = binsplot + geom_errorbar(aes(x='x', ymin='polyci_l', ymax='polyci_r'), data_by.polyci.loc[index], alpha=1, color=bycolors[i], linetype=bylpatterns[i])
+                binsplot = binsplot + geom_errorbar(aes(x='x', ymin='polyci_l', ymax='polyci_r'), data_by.polyci.loc[index], alpha=1, width = 0.05, color=bycolors[i], linetype=bylpatterns[i])
             
             if data_by.ci is not None:
                 index = (complete_cases(data_by.ci[["x", "ci_l", "ci_r"]]) & (data_by.ci["x"]>=xr_min) &
@@ -1172,16 +1511,21 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile = 0.5, deriv=0,
                                                     guide = guide_legend(override_aes ={"linetype":bylpatterns,"shape":bysymbols}))
         else:
             binsplot = binsplot + theme(legend_position="none")
-        binsplot = binsplot + labs(x=xname, y=yname)
+        binsplot = binsplot + labs(x=xname, y=yname) + xlim(xsc_min, xsc_max)
+        print(binsplot)
 
     ######################################
     ########### Output ###################
     ######################################
 
-    opt = options_qreg(dots=dots, line=line, ci=ci, cb=cb, polyreg=polyreg, deriv=deriv, 
-                        quantile=quantile,binspos=position, binsmethod=selectmethod,
+    opt = options_qreg(dots=dots_by, line=line_by, ci=ci_by, cb=cb_by,
+                        polyreg=polyreg, deriv=deriv, quantile=quantile,
+                        binspos=position, binsmethod=selectmethod,
                         N_by=N_by, Ndist_by=Ndist_by, Nclust_by=Nclust_by,
                         nbins_by=nbins_by, byvals=byvals)
 
-    out = binsqreg_output(bins_plot=binsplot, data_plot=data_plot, cval_by=cval_by, options=opt)
+    out = binsqreg_output(bins_plot=binsplot, data_plot=data_plot, cval_by=cval_by,
+                            imse_v_dpi=imse_v_dpi, imse_b_dpi=imse_b_dpi,
+                            imse_v_rot=imse_v_rot, imse_b_rot=imse_b_rot,
+                            options = opt)
     return out

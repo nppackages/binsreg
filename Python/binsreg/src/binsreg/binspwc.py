@@ -5,19 +5,19 @@
 
 import numpy as np
 import warnings
-from .binsregselect import binsregselect
-# from binsregselect import binsregselect
-from .funs import *
-# from funs import *
+from .binsregselect import binsregselect # from .binsregselect import binsregselect
+from .funs import * # from funs import *
 
 def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
                     quantile=None, deriv=0, at=None, nolink=False, by=None,
-                    pwc=(3,3), testtype="two-sided", lp=np.inf,
-                    bins=(2,2), bynbins=None, binspos="qs",
+                    pwc=None, testtype="two-sided", lp=np.inf,
+                    bins=None, bynbins=None, binspos="qs",
+                    pselect=None, sselect=None,
                     binsmethod="dpi", nbinsrot=None, samebinsby=False, randcut=None,
                     nsims=500, simsgrid=20, simsseed=None,
                     vce=None, cluster=None, asyvar=False,
-                    dfcheck=(20,30), masspoints="on", weights=None, subset=None):
+                    dfcheck=(20,30), masspoints="on", weights=None, subset=None,
+                    numdist=None, numclust=None, estmethodopt=None, **optmize):
 
     '''
     Data-Driven Pairwise Group Comparison using Binscatter Methods.
@@ -25,11 +25,11 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     Description
     -----------
     binspwc implements hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the
-    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
     If the binning scheme is not set by the user, the companion function binsregselect is used to implement binscatter in a
-    data-driven way and inference procedures are based on robust bias correction.
-    Binned scatter plots based on different methods can be constructed using the companion functions binsreg,
-    binsqreg or binsglm.
+    data-driven way. Binned scatter plots based on different methods can be constructed using the companion functions binsreg, binsqreg or binsglm.
+    Hypothesis testing for parametric functional forms of and shape restrictions on the regression function of interest 
+    can be conducted via the companion function binstest.
 
     Parameters
     ----------
@@ -83,9 +83,10 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         separately, but produces a common binned scatter plot. By default, the binning structure is selected for each
         subgroup separately, but see the option samebinsby below for imposing a common binning structure across subgroups.
 
-    pwc : tuple
-        pwc=(p,s) sets a piecewise polynomial of degree p with s smoothness constraints for testing the difference between groups. 
-        The default is pwc=(3,3), which corresponds to a cubic B-spline estimate of the function of interest for each group.
+    pwc : tuple or bool
+        If pwc=(p,s), a piecewise polynomial of degree p with s smoothness constraints is used for testing the difference between groups. 
+        If pwc=True or pwc=None (default) is specified, pwc=(1,1) is used unless the degree p and smoothness s selection
+        is requested via the option pselect (see more details in the explanation of pselect).
 
     testtype : str
         Type of pairwise comparison test. The default is testtype="two-sided", which corresponds to a two-sided test of the form 
@@ -98,17 +99,35 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         Other options are lp= p for a positive real p.
 
     bins : tuple
-        Degree and smoothness for bin selection. The default is bins=c(2,2), which corresponds to a quadratic spline estimate.
+        If bins=(p,s), it sets the piecewise polynomial of degree p with s smoothness constraints
+        for data-driven (IMSE-optimal) selection of the partitioning/binning scheme. 
+        The default is bins=(0,0), which corresponds to the piecewise constant.
     
     bynbins : array of int 
-        A vector of the number of bins for partitioning/binning of x}, which is applied to the binscatter estimation for each group.
-        If not specified, the number of bins is selected via the companion function binsregselect in a data-driven way whenever possible.
+        Containing the number of bins for partitioning/binning of x, which is applied to the binscatter estimation for each group.
+        If a single number is specified, it is applied to the estimation for all groups.
+        If bynbins=True or bynbins=None (default), the number of bins is selected via the companion function binsregselec in a data-driven way whenever possible.
+        Note: If a vector with more than one number is supplied, it is understood as the number of bins applied to binscatter estimation
+              for each subgroup rather than the range for selecting the number of bins.
     
     binspos : array
         Position of binning knots. The default is binspos="qs", which corresponds to quantile-spaced
         binning (canonical binscatter). The other options is "es" for evenly-spaced binning, or
         a vector for manual specification of the positions of inner knots (which must be within the range of x.
     
+    pselect : array
+        vector of numbers within which the degree of polynomial p for point estimation is selected.
+        Piecewise polynomials of the selected optimal degree p are used to construct dots or line if dots=True or line=True is specified,
+        whereas piecewise polynomials of degree p+1 are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        Note: To implement the degree or smoothness selection, in addition to pselect or sselect, nbins=# must be specified.
+    
+    sselect : array
+        vector of numbers within which the number of constrains s for point estimation is selected.
+        Piecewise polynomials of the selected optimal s smoothness constrains are used to construct dots or line if dots=True or line=True is specified,
+        whereas piecewise polynomials of s+1 smoothness constrains are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        If not specified, for each value p supplied in the option pselect, only the piecewise polynomial
+        with the maximum smoothness is considered, i.e., s=p.
+
     binsmethod : str
         Method for data-driven selection of the number of bins. The default is binsmethod="dpi",
         which corresponds to the IMSE-optimal direct plug-in rule.  The other option is: "rot"
@@ -125,19 +144,21 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         using the full sample.
         
     randcut : float
-        Upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+        Upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
         Observations for which numpy.random.uniform()<=# are used. # must be between 0 and 1.
-    
+        By default, max(5,000, 0.01n) observations are used if the samples size n>5,000.
+
     nsims : int
         Number of random draws for constructing confidence bands. The default is nsims=500,
         which corresponds to 500 draws from a standard Gaussian random vector of size
-        [(p+1)*J - (J-1)*s].
+        [(p+1)*J - (J-1)*s]. A larger number of draws is recommended to obtain the final results.
     
     simsgrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
-        the supremum (infimum or Lp metric) operation needed to construct confidence bands and hypothesis testing
+        the supremum operation needed to construct confidence bands and hypothesis testing
         procedures. The default is simsgrid=20, which corresponds to 20 evenly-spaced
-        evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+        evaluation points within each bin for approximating the supremum operator.
+        A larger number of draws is recommended to obtain the final results.
     
     simsseed : int 
         Simulation seed.
@@ -165,7 +186,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -182,6 +203,16 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     
     subset : array
         Optional rule specifying a subset of observations to be used.
+
+    numdist : int
+        Number of distinct for selection. Used to speed up computation.
+    
+    numclust : int 
+        Number of clusters for selection. Used to speed up computation.
+
+    **optimize : 
+        Optional arguments to the GLM or QuantReg statsmodels.api optimizer. 
+        For futher details refer to binsqreg and binsglm help files.
     
     Returns
     -------
@@ -191,6 +222,14 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
             The group number corresponds to the list of group names given by options_byvals.
     
     pval : A vector of p-values for all pairwise group comparisons.
+
+    imse_v_rot : Variance constant in IMSE, ROT selection.
+
+    imse_b_rot : Bias constant in IMSE, ROT selection.
+
+    imse_v_dpi : Variance constant in IMSE, DPI selection.
+
+    imse_b_dpi : Bias constant in IMSE, DPI selection.
     
     options : A list containing options passed to the function, as well as N_by (total sample size for each group),
               Ndist_by (number of distinct values in x for each group), Nclust_by (number of clusters for each group),
@@ -205,8 +244,9 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     >>> x = numpy.random.uniform(size = 500)
     >>> y = numpy.sin(x)+numpy.random.normal(size = 500)
     >>> t  = 1*(numpy.random.uniform(size = 500)>0.5)
-    >>> est = binstest(y,x, by=t)
-    >>> print(est)
+    >>> out = binstest(y,x, by=t)
+    >>> print(out)
+    >>> out.summary()
     '''
 
     # param for internal use
@@ -341,17 +381,108 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         vce_select = vce
     else:
         raise Exception("estmethod incorrectly specified.")
+    
+    # analyze bins- and degree-related options
+    if isinstance(pwc, bool) and not pwc: pwc = None
+    if isinstance(pwc, bool) and not isinstance(binspos, str): pwc = None
 
+    if not isinstance(binspos, str):
+        if (bynbins is not None) or (pselect is not None) or (sselect is not None):
+            raise Exception("bynbins, pselect or sselect incorrectly specified.")
+
+    # 4 cases: select J, select p, user specify both, or an error
+    try: 
+        len_bins = len(bins)
+    except:
+        if isinstance(bins,int): len_bins = 1
+        else: len_bins = 0
+
+    try: 
+        len_bynbins = len(bynbins)
+    except:
+        if isinstance(bynbins,int): len_bynbins = 1
+        else: len_bynbins = 0
+    
+    if bins is not None:
+        if len_bins==1: binsp = binss = bins
+        elif len_bins==2: binsp, binsp = bins
+        else: raise Exception("Bins not correctly specified.")
+        plist = binsp
+        slist = binss
+        if (len_bynbins>1):
+            raise Exception("Bins or bynbins is incorrectly specified.")
+        if (len_bynbins==1) and (bynbins!=0):
+            raise Exception("Bins or bynbins is incorrectly specified.")
+    else:
+        plist = pselect
+        slist = sselect
+        binsp = binss = None
+
+    try: 
+        len_p = len(plist)
+    except: 
+        if isinstance(plist,int): len_p = 1
+        else: len_p = 0
+
+    try: 
+        len_s = len(slist)
+    except: 
+        if isinstance(slist,int): len_s = 1
+        else: len_s = 0
+
+    if (len_p==1 and len_s==0):
+        slist = plist
+        len_s = 1
+    if (len_p==0 and len_s==1):
+        plist = slist
+        len_p = 1
+
+    # 1st case: select J
+    selection = ""
+    # IMPORTANT: Multiple # in bynbins are J for different groups, not range for selecting J
+    if isinstance(binspos, str):
+        if isinstance(bynbins, bool) and bynbins: selection = "J"
+        if (len_bynbins==1) and (bynbins==0): selection = "J"
+        if (bins is not None) or bynbins is None: selection = "J"          # turn on J selection
+    if (selection=="J"):
+        if (len_p>1 or len_s>1):
+            raise Exception("Only one p and one s are allowed to select # of bins.")
+    
+        if plist is None: plist = deriv
+        if slist is None: slist = plist
+        if bins is None:
+            binsp = plist
+            binss = slist
+        len_p = len_s = 1
+        if pwc is None: pwc = (binsp+1, binss+1)
+        if isinstance(pwc, bool) and pwc: pwc = (binsp+1, binss+1)
+
+    # 2nd case: select p (at least for one object)
+    pselectOK = False
+    if selection!="J" and isinstance(pwc, bool) and pwc: pselectOK = True
+    if selection!="J" and pwc is None: pselectOK = True
+    if pselectOK and (len_p>1 or len_s>1): selection = "P"
+    
+    # 3rd case: user specified
+    if len_p<=1 and len_s<=1 and selection!="J":
+        selection = "U"
+        if pwc is None:
+            if (len_p==1 and len_s==1): pwc = (plist+1, slist+1)
+            else: pwc = (deriv+1, deriv+1)
+    
+    if selection=="":
+        raise Exception("Degree, smoothness, or # of bins not correctly specified.")
+        
     ############################ Error Checking
     
     if not isinstance(binspos, str):
         if np.min(binspos)<=xmin or np.max(binspos)>=xmax:
-            raise Exception("knots out of allowed range")
+            raise Exception("Knots out of allowed range")
     else:
         if binspos!="es" and binspos!="qs":
             raise Exception("binspos incorrectly specified.")
     
-    if len(bins)==2:
+    if bins is not None and len(bins)==2:
         if bins[0] < bins[1]:
             raise Exception("p<s not allowed.")
 
@@ -359,26 +490,39 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         if pwc[0] < pwc[1]:
             raise Exception("p<s not allowed.")
     
-    if len(pwc)>=1:
-        if pwc[0]<deriv:
+    if len(pwc)>=1 and not isinstance(pwc,bool) and pwc[0]<deriv:
             raise Exception("p for test cannot be smaller than deriv.")
 
-    if (len(pwc)>=1) and (len(bins)>=1):
-        if pwc[0]<=bins[0]:
+    if len(pwc)>=1 and (bins is not None and len(bins)>=1) and pwc[0]<=bins[0]:
             warnings.warn("p for testing > p for bin selection is suggested.")
- 
+    
+    if nsims<2000 or simsgrid<50:
+        print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+  
     ##################################################
     # Prepare options
-    bins_p, bins_s = bins
     tsha_p, tsha_s = pwc
+    if isinstance(tsha_p,bool): tsha_p = None
+    if tsha_s is not None and np.isnan(tsha_s): tsha_s = tsha_p
+
+    if selection=="J":
+        if ((tsha_p is not None) and (tsha_p<=plist)):
+            tsha_p = binsp+1 
+            tsha_s = tsha_p
+            warnings.warn("Degree for pwc has been changed. It must be greater than the degree for bin selection.")
+    
+    if selection=="U":
+        warnings.warn("Testing procedures are valid when nbins is much larger than the IMSE-optimal choice.")
 
     #########################################
-    if binsmethod=="dpi": selectmethod = "IMSE direct plug-in" 
-    else: selectmethod = "IMSE rule-of-thumb"
-    
     nbins_all = None
-    if np.isscalar(bynbins): nbins_all = bynbins    # "nbins" is reserved for use within loop
-    if bynbins is not None: selectmethod = "User-specified"
+    if len_bynbins==1: nbins_all = bynbins         # "nbins" is reserved for use within loop
+    if selection=="U": selectmethod = "User-specified"
+    else:
+        if binsmethod=="dpi": selectmethod = "IMSE direct plug-in"
+        else: selectmethod = "IMSE rule-of-thumb"
+        if selection=="J": selectmethod = selectmethod + " (select # of bins)"
+        if selection=="P": selectmethod = selectmethod + " (select degree and smoothness)"
     
     ###############################################
     localcheck = massadj = True
@@ -426,7 +570,6 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         knot = np.concatenate([[xmin], np.sort(binspos),[xmax]])
         position = "User-specified"
         es = False
-        selectmethod = "User-specified"
         knotlistON = True
     else:
         if binspos == "es":
@@ -440,8 +583,14 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
 
     ################################################
     ### Bin selection using full sample if needed ##
+    imse_v_rot = np.repeat(np.nan, ngroup)
+    imse_v_dpi = np.repeat(np.nan, ngroup)
+    imse_b_rot = np.repeat(np.nan, ngroup)
+    imse_b_dpi = np.repeat(np.nan, ngroup)
+    pwc_p_by = np.repeat(np.nan, ngroup)
+    pwc_s_by = np.repeat(np.nan, ngroup)
     selectfullON = False
-    if nbins_all is None and samebinsby:
+    if selection!="U" and samebinsby:
          selectfullON = True
     if selectfullON:
         # effective size
@@ -455,44 +604,79 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
 
         # check if rot can be implemented
         if nbinsrot is None:
-            if eN <= dfcheck[0]+bins_p+1+qrot:
-                warnings.warn("too small effective sample size for bin selection.")
+            if binsp is None: binspcheck = 6
+            else: binspcheck = binsp
+            if eN <= dfcheck[0]+binspcheck+1+qrot:
+                raise Exception("Too small effective sample size for bin selection.")
         if np.isnan(Ndist): Ndist_sel = None
         else: Ndist_sel = Ndist
         if np.isnan(Nclust): Nclust_sel = None
         else: Nclust_sel = Nclust
-        binselect = binsregselect(y, x, w, deriv=deriv,
-                                    bins=bins, binspos=binspos,
+
+        randcut1k = randcut
+        if (randcut is None and  N>5000):
+                randcut1k = max(5000/N, 0.01)
+                warnings.warn("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
+
+        if selection=="J":
+            binselect = binsregselect(y, x, w, deriv=deriv,
+                                    bins=(binsp,binss), binspos=binspos, nbins=True,
                                     binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                    vce=vce_select, cluster=cluster, randcut=randcut,
+                                    vce=vce_select, cluster=cluster, randcut=randcut1k,
                                     dfcheck=dfcheck, masspoints=masspoints, weights=weights,
                                     numdist=Ndist_sel, numclust=Nclust_sel)
-
-        if np.isnan(binselect.nbinsrot_regul):
-                raise Exception("bin selection fails.")
-        if binsmethod == "rot": nbins_all = binselect.nbinsrot_regul
-        elif binsmethod == "dpi": nbins_all = binselect.nbinsdpi
-        if np.isnan(nbins_all):
-            warnings.warn("DPI selection fails. ROT choice used.")
-            nbins_all = binselect.nbinsrot_regul
-
+            if np.isnan(binselect.nbinsrot_regul):
+                raise Exception("Bin selection fails.")
+            if (binsmethod == "rot"):
+                nbins_all = binselect.nbinsrot_regul
+                imse_v_rot = np.repeat(binselect.imse_v_rot, ngroup)
+                imse_b_rot  = np.repeat(binselect.imse_b_rot, ngroup)
+            elif (binsmethod == "dpi"):
+                nbins = binselect.nbinsdpi
+                imse_v_dpi = np.repeat(binselect.imse_v_dpi, ngroup)
+                imse_b_dpi = np.repeat(binselect.imse_b_dpi, ngroup)
+                if np.isnan(nbins):
+                    warnings.warn("DPI selection fails. ROT choice used.")
+                    nbins = binselect.nbinsrot_regul
+                    imse_v_rot = np.repeat(binselect.imse_v_rot, ngroup)
+                    imse_b_rot = np.repeat(binselect.imse_b_rot, ngroup)
+        elif (selection=="P"):
+            binselect = binsregselect(y, x, w, deriv=deriv,
+                                        binspos=binspos, nbins=nbins_all,
+                                        pselect=plist, sselect=slist,
+                                        binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                        vce=vce_select, cluster=cluster, randcut=randcut1k,
+                                        dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                        numdist=Ndist_sel, numclust=Nclust_sel)
+            if np.isnan(binselect.prot_regul):
+                raise Exception("Bin selection fails.")  
+            if (binsmethod == "rot"):
+                binsp = binselect.prot_regul
+                binss =  binselect.srot_regul
+                imse_v_rot = np.repeat(binselect.imse_v_rot, ngroup)
+                imse_b_rot = np.repeat(binselect.imse_b_rot, ngroup)
+            elif binsmethod == "dpi": 
+                binsp = binselect.pdpi
+                binss =  binselect.sdpi
+                imse_v_dpi= np.repeat(binselect.imse_v_dpi, ngroup)
+                imse_b_dpi = np.repeat(binselect.imse_b_dpi, ngroup)
+                if np.isnan(binsp):
+                    warnings.warn("DPI selection fails. ROT choice used.")
+                    binsp  =  binselect.prot_regul
+                    binss = binselect.srot_regul
+                    imse_v_rot = np.repeat(binselect.imse_v.rot, ngroup)
+                    imse_b_rot = np.repeat(binselect.imse_b_rot, ngroup)   
+        tsha_p = binsp+1
+        tsha_s = binss+1           
+        
     # Generate knot using the full sample if needed
-
-    if (selectfullON or (nbins_all is not None and samebinsby)) and knot is None:
+    if (selectfullON or (selection=="U" and samebinsby)) and knot is None:
         knotlistON = True
         if es: knot = genKnot_es(xmin, xmax, nbins_all)
         else: knot = genKnot_qs(x, nbins_all)
 
     knot_all = None
-    if knotlistON: knot_all = knot 
-
-    if selectfullON or (nbins_all is not None and samebinsby) and knot is None:
-        knotlistON = True
-        if es: knot = genKnot_es(xmin, xmax, nbins_all)
-        else: knot = genKnot_qs(x, nbins_all)
-
-    knot_all = None
-    if knotlistON: knot_all = knot    # universal knot sequence
+    if knotlistON: knot_all = knot   # universal knot sequence
 
     ##########################################
     if simsseed is not None: np.random.seed(simsseed)
@@ -568,46 +752,86 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         ############### Bin selection within loop ###############
         nbins = knot = None                  # initialize again
         if nbins_all is not None: nbins = nbins_all
-        if bynbins is not None and not np.isscalar(bynbins): nbins = bynbins[i]
+        if len_bynbins>1: nbins = bynbins[i]
 
-        if nbins is None and not knotlistON:
+        if selection!="U" and not knotlistON:
             # check if rot can be implemented
-            if nbinsrot is None:
-                if eN <= dfcheck[0]+bins_p+1+qrot:
-                    raise Exception("too small effective sample size for bin selection.")
-  
+            if binsp is None: binspcheck = 6
+            else: binspcheck = binsp
+            if (nbinsrot is None) and (eN <= dfcheck[0]+binspcheck+1+qrot):
+                raise Exception("Too small effective sample size for bin selection.")
             if np.isnan(Ndist): Ndist_sel = None
             else: Ndist_sel = Ndist
-        
             if np.isnan(Nclust): Nclust_sel = None
             else: Nclust_sel = Nclust
-        
-            binselect = binsregselect(y_sub, x_sub, w_sub, deriv=deriv,
-                                        bins=bins, binspos=binspos,
+
+            randcut1k = randcut
+            if (randcut is None and  N>5000):
+                    randcut1k = max(5000/N, 0.01)
+                    warnings.warn("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
+
+            if selection=="J":
+                binselect = binsregselect(y_sub, x_sub, w_sub, deriv=deriv,
+                                        bins=(binsp,binss), binspos=binspos, nbins=True,
                                         binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                        vce=vce_select, cluster=cluster_sub, randcut=randcut,
-                                        dfcheck=dfcheck, masspoints=masspoints, weights=weights_sub,
+                                        vce=vce_select, cluster=cluster, randcut=randcut1k,
+                                        dfcheck=dfcheck, masspoints=masspoints, weights=weights,
                                         numdist=Ndist_sel, numclust=Nclust_sel)
-            
-            if np.isnan(binselect.nbinsrot_regul):
-                    raise Exception("bin selection fails.")
-            if binsmethod == "rot": nbins = binselect.nbinsrot_regul
-            elif binsmethod == "dpi":
-                nbins = binselect.nbinsdpi
-                if np.isnan(nbins):
-                    warnings.warn("DPI selection fails. ROT choice used.")
-                    nbins = binselect.nbinsrot_regul
+                if np.isnan(binselect.nbinsrot_regul):
+                    raise Exception("Bin selection fails.")
+                if (binsmethod == "rot"):
+                    nbins_all = binselect.nbinsrot_regul
+                    imse_v_rot = binselect.imse_v_rot
+                    imse_b_rot  = binselect.imse_b_rot
+                elif (binsmethod == "dpi"):
+                    nbins = binselect.nbinsdpi
+                    imse_v_dpi = binselect.imse_v_dpi, ngroup
+                    imse_b_dpi = binselect.imse_b_dpi, ngroup
+                    if np.isnan(nbins):
+                        warnings.warn("DPI selection fails. ROT choice used.")
+                        nbins = binselect.nbinsrot_regul
+                        imse_v_rot = binselect.imse_v_rot
+                        imse_b_rot = binselect.imse_b_rot, ngroup
+            elif (selection=="P"):
+                binselect = binsregselect(y_sub, x_sub, w_sub, deriv=deriv,
+                                            binspos=binspos, nbins=nbins,
+                                            pselect=plist, sselect=slist,
+                                            binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                            vce=vce_select, cluster=cluster_sub, randcut=randcut1k,
+                                            dfcheck=dfcheck, masspoints=masspoints, weights=weights_sub,
+                                            numdist=Ndist_sel, numclust=Nclust_sel)
+                if np.isnan(binselect.prot_regul):
+                    raise Exception("Bin selection fails.")  
+                if (binsmethod == "rot"):
+                    binsp = binselect.prot_regul
+                    binss =  binselect.srot_regul
+                    imse_v_rot = binselect.imse_v_rot
+                    imse_b_rot = binselect.imse_b_rot
+                elif binsmethod == "dpi": 
+                    binsp = binselect.pdpi
+                    binss =  binselect.sdpi
+                    imse_v_dpi = binselect.imse_v_dpi
+                    imse_b_dpi = binselect.imse_b_dpi
+                    if np.isnan(binsp):
+                        warnings.warn("DPI selection fails. ROT choice used.")
+                        binsp  =  binselect.prot_regul
+                        binss = binselect.srot_regul
+                        imse_v_rot = binselect.imse_v.rot
+                        imse_b_rot = binselect.imse_b_rot  
+            tsha_p = binsp+1
+            tsha_s = binss+1  
         
         if knotlistON:
             nbins = len(knot_all)-1
             knot  = knot_all
+        pwc_p_by[i] = tsha_p 
+        pwc_s_by[i] = tsha_s
 
         ###########################################
         # Checking for each case
         if (nbins-1)*(tsha_p-tsha_s+1)+tsha_p+1+dfcheck[1]>=eN:
-            warnings.warn("too small effective sample size for testing shape.")
+            warnings.warn("Too small effective sample size for testing shape.")
         
-
         ####################################
         ########### Generate knot ##########
         ####################################
@@ -618,7 +842,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         # knot for few mass points
         knot = np.append(knot[0],np.unique(knot[1:]))
         if nbins != len(knot)-1:
-            warnings.warn("repeated knots. Some bins dropped.")
+            warnings.warn("Repeated knots. Some bins dropped.")
             nbins = len(knot)-1
 
         # NOW, save nbins
@@ -628,7 +852,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         if localcheck:
             uniqmin = binsreg_checklocalmass(x_sub, nbins, es, knot=knot) # mimic STATA
             if uniqmin < tsha_p+1:
-                warnings.warn("some bins have too few distinct values of x for testing.")
+                warnings.warn("Some bins have too few distinct values of x for testing.")
         
         #######################################
         ###### Estimation #####################
@@ -638,7 +862,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         k = ncol(B)
         P = cbind(B, w_sub)
         model = binsreg_fit(y=y_sub, x=P, weights=weights_sub, family=family_str, is_qreg=is_qreg,
-                                 quantile = quantile, cov_type = vce_select, cluster = cluster_sub)            
+                                 quantile = quantile, cov_type = vce_select, cluster = cluster_sub, **optmize)            
         beta = model.params[:k]
         basis_sha = binsreg_spdes(x=uni_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=deriv)
 
@@ -696,9 +920,14 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     ########### Output ###################
     ######################################
 
-    opt = options_pwc(bins_p=bins_p, bins_s=bins_s, deriv=deriv, pwc_p=tsha_p, pwc_s=tsha_s, byname=None,
-                        testtype=testtype, binspos=position, binsmethod=selectmethod, N_by=N_by,
-                        Ndist_by=Ndist_by, Nclust_by=Nclust_by, nbins_by=nbins_by, byvals=byvals,
-                        lp=lp, estmethod=estmethod_name, quantile=quantile, dist=dist, link=link)
-    out = pwc_output(tstat, pval, opt)
+    opt = options_pwc(deriv=deriv, byname=None, testtype=testtype, binspos=position, binsmethod=selectmethod, 
+                      N_by=N_by, Ndist_by=Ndist_by, Nclust_by=Nclust_by, nbins_by=nbins_by, 
+                      pwc_p_by=pwc_p_by, pwc_s_by=pwc_s_by,
+                      byvals=byvals,lp=lp,
+                      estmethod=estmethod_name, quantile=quantile, dist=dist, link=link)
+    
+    out = pwc_output(tstat=tstat, pval=pval,
+                     imse_v_dpi=imse_v_dpi, imse_b_dpi=imse_b_dpi,
+                     imse_v_rot=imse_v_rot, imse_b_rot=imse_b_rot,
+                     options = opt)
     return out 

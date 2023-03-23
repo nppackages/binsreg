@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Created on Sat Sep  4 17:39:50 2021
+# Created on Thu Mar 16 17:39:50 2023
 # @author: Ricardo Masini
 
 import numpy as np
 import warnings
-from .binsregselect import binsregselect
-# from binsregselect import binsregselect
-from .funs import *
-# from funs import *
+from .binsregselect import binsregselect # from .binsregselect import binsregselect
+from .funs import *  # from .funs import *
 
 def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 quantile=None, deriv=0, at=None, nolink=False,
-                testmodel=(3,3), testmodelparfit=None, testmodelpoly=None,
-                testshape=(3,3), testshapel=None,
+                testmodel=None, testmodelparfit=None, testmodelpoly=None,
+                testshape=None, testshapel=None,
                 testshaper=None, testshape2=None, lp=np.inf,
-                bins=(2,2), nbins=None, binspos="qs",
-                binsmethod="dpi", nbinsrot=None, randcut=None,
+                bins=None, nbins=None, 
+                pselect=None, sselect=None,
+                binspos="qs", binsmethod="dpi", nbinsrot=None, randcut=None,
                 nsims=500, simsgrid=20, simsseed=None,
                 vce=None, cluster=None, asyvar=False,
                 dfcheck=(20,30), masspoints="on", weights=None, subset=None,
-                numdist=None, numclust=None):
+                numdist=None, numclust=None, estmethodopt=None, **optmize):
 
     '''
     Data-Driven Nonparametric Shape Restriction and Parametric Model Specification Testing using Binscatter.
@@ -29,7 +28,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     -----------
     binstest implements binscatter-based hypothesis testing procedures for parametric functional
     forms of and nonparametric shape restrictions on the regression function of interest, following the results
-    in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2021a)}.
+    in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
     If the binning scheme is not set by the user, the companion function binsregselect is used to implement binscatter in a
     data-driven way and inference procedures are based on robust bias correction.
     Binned scatter plots based on different methods can be constructed using the companion functions binsreg,
@@ -81,11 +80,11 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         containing the same variables as specified in w (when data is specified). Note that when at="mean" or at="median",
         all factor variables (if specified) are excluded from the evaluation (set as zero).
     
-    testmodel : tuple
-        testmodel=(p,s) sets a piecewise polynomial of degree p with s
-        smoothness constraints for parametric model specification testing.  The default is
-        testmodel=(3,3), which corresponds to a cubic B-spline estimate of the regression
-        function of interest for testing against the fitting from a parametric model specification.
+    testmodel : tuple or bool
+        It sets the degree of polynomial and the number of smoothness constraints for parametric model specification testing.
+        If testmodel=(p,s) is specified, a piecewise polynomial of degree p with s smoothness constraints is used.
+        If testmodel=True or testmodel=None (default) is specified, testmodel=(1,1) is used unless the degree p and the smoothness s
+        selection is requested via the option pselect (see more details in the explanation of pselect).
     
     testmodelparfit: data frame or matrix 
         Contains the evaluation grid and fitted values of the model(s) to be
@@ -97,26 +96,27 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     testmodelpoly : int
         Degree of a global polynomial model to be tested against.
     
-    testshape : tuple
-        testshape=(p,s) sets a piecewise polynomial of degree p with s
-        smoothness constraints for nonparametric shape restriction testing. The default is
-        testshape=(3,3), which corresponds to a cubic B-spline estimate of the regression
+    testshape : tuple or bool
+        It sets the degree of polynomial and the number of smoothness constraints for parametric shape restriction testing.
+        If testshape=(p,s) is specified, a piecewise polynomial of degree p with s smoothness constraints is used.
+        If testshape=True or testshape=None (default) is specified, testmshape=(1,1) is used unless the degree p and the smoothness s
+        selection is requested via the option pselect (see more details in the explanation of pselect).timate of the regression
         function of interest for one-sided or two-sided testing.
     
     testshapel : array
-        A vector of null boundary values for hypothesis testing. Each number y in the vector
+        A vector of null boundary values for hypothesis testing. Each number a in the vector
         corresponds to one boundary of a one-sided hypothesis test to the left of the form
-        H0: sup_x mu(x)<=y.
+        H0: sup_x mu(x)<=a.
     
     testshaper : array
-        A vector of null boundary values for hypothesis testing. Each number y in the vector
+        A vector of null boundary values for hypothesis testing. Each number a in the vector
         corresponds to one boundary of a one-sided hypothesis test to the right of the form
-        H0: inf_x mu(x)>=y.
+        H0: inf_x mu(x)>=a.
     
     testshape2 : array
-        A vector of null boundary values for hypothesis testing. Each number y in the vector
+        A vector of null boundary values for hypothesis testing. Each number a in the vector
         corresponds to one boundary of a two-sided hypothesis test ofthe form
-        H0: sup_x |mu(x)-y|=0.
+        H0: sup_x |mu(x)-a|=0.
     
     lp : float or numpy.inf
         A Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. 
@@ -124,11 +124,27 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         Other options are lp= p for a positive real p.
 
     bins : tuple
-        Degree and smoothness for bin selection. The default is bins=c(2,2), which corresponds to a quadratic spline estimate.
+        If bins=(p,s), it sets the piecewise polynomial of degree p with s smoothness constraints
+        for data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
+        The default is bins=(0,0), which corresponds to the piecewise constant.
     
-    nbins : int 
-        Number of bins for partitioning/binning of x.  If not specified, the number of bins is
-        selected via the companion function binsregselect in a data-driven, optimal way whenever possible.
+    nbins : int or bool or array
+        Number of bins for partitioning/binning of x.  If nbins=True or nbins=None (default) is specified, the number
+        of bins is selected via the companion command binsregselect in a data-driven, optimal way whenever possible.
+        If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command binsregselect.
+    
+    pselect : array
+        vector of numbers within which the degree of polynomial p for point estimation is selected.
+        Piecewise polynomials of the selected optimal degree p are used to construct dots or line if dots=True or line=True is specified,
+        whereas piecewise polynomials of degree p+1 are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        Note: To implement the degree or smoothness selection, in addition to pselect or sselect, nbins=# must be specified.
+    
+    sselect : array
+        vector of numbers within which the number of constrains s for point estimation is selected.
+        Piecewise polynomials of the selected optimal s smoothness constrains are used to construct dots or line if dots=True or line=True is specified,
+        whereas piecewise polynomials of s+1 smoothness constrains are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        If not specified, for each value p supplied in the option pselect, only the piecewise polynomial
+        with the maximum smoothness is considered, i.e., s=p.
     
     binspos : array
         Position of binning knots. The default is binspos="qs", which corresponds to quantile-spaced
@@ -144,19 +160,21 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         If not specified, the data-driven ROT selector is used instead.
         
     randcut : float
-        Upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+        Upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
         Observations for which numpy.random.uniform()<=# are used. # must be between 0 and 1.
-    
+        By default, max(5,000, 0.01n) observations are used if the samples size n>5,000.
+
     nsims : int
         Number of random draws for constructing confidence bands. The default is nsims=500,
         which corresponds to 500 draws from a standard Gaussian random vector of size
-        [(p+1)*J - (J-1)*s].
+        [(p+1)*J - (J-1)*s]. A larger number of draws is recommended to obtain the final results.
     
     simsgrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
-        the supremum (infimum or Lp metric) operation needed to construct confidence bands and hypothesis testing
+        the supremum operation needed to construct confidence bands and hypothesis testing
         procedures. The default is simsgrid=20, which corresponds to 20 evenly-spaced
-        evaluation points within each bin for approximating the supremum (infimum or Lp metric) operator.
+        evaluation points within each bin for approximating the supremum operator.
+        A larger number of draws is recommended to obtain the final results.
     
     simsseed : int 
         Simulation seed.
@@ -184,7 +202,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2021_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -207,19 +225,36 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     
     numclust : int
         Number of clusters for selection. Used to speed up computation.
-    
+
+    **optimize : 
+        Optional arguments to the GLM or QuantReg statsmodels.api optimizer. 
+        For futher details refer to binsqreg and binsglm help files.
+
     Returns
     -------
     testshapeL : Results for testshapel, including: val , null boundary values;
                  stat, test statistics; and pval, p-value.
+
     testshapeR : Results for testshaper, including: val , null boundary values;
                  stat, test statistics; and pval, p-value.
+
     testshape2 : Results for testshape2, including: val , null boundary values;
                  stat, test statistics; and pval, p-value.
+
     testpoly : Results for testmodelpoly, including: val , null boundary values;
                stat, test statistics; and pval, p-value.
+
     testmodel : Results for testmodelparfir, including: val , null boundary values;
                 stat, test statistics; and pval, p-value.
+
+    imse_v_rot : Variance constant in IMSE, ROT selection.
+
+    imse_b_rot : Bias constant in IMSE, ROT selection.
+
+    imse_v_dpi : Variance constant in IMSE, DPI selection.
+
+    imse_b_dpi : Bias constant in IMSE, DPI selection.
+
     options : A list containing options passed to the function, as well as total sample size (n),
               number of distinct values (Ndist) in x, number of clusters (Nclust), 
               and number of bins (nbins).
@@ -232,8 +267,8 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     ------- 
     >>> x = numpy.random.uniform(size = 500)
     >>> y = numpy.sin(x)+numpy.random.normal(size = 500)
-    >>> est = binstest(y,x, testmodelpoly=1)
-    >>> print(est)
+    >>> out = binstest(y,x, testmodelpoly=1)
+    >>> print(out)
     '''
 
     # param for internal use
@@ -350,18 +385,126 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     if vce is None: vce = "HC1"
     vce_select = vce
 
+    # analyze bins- and degree-related options
+    tshaON = tmodON = False
+    if ((testshapel is not None) or (testshaper is not None) or (testshape2 is not None)):
+        tshaON = True
+    if ((testmodelparfit is not None) or (testmodelpoly is not None)):
+        tmodON = True
+    if (isinstance(testshape, bool) and not testshape):
+        testshape = None
+    if (isinstance(testmodel, bool) and not testmodel):
+        testmodel = None
+    if (isinstance(testshape, bool)  and ((not tshaON) or (not isinstance(binspos, str)))):
+        testshape = None
+    if (isinstance(testmodel, bool)  and ((not tmodON) or (not isinstance(binspos, str)))):
+        testmodel = None
+    
+    if not isinstance(binspos, str):
+        if ((nbins is not None) or (pselect is not None) or (sselect is not None)):
+            raise Exception("nbins, pselect or sselect incorrectly specified.")
+    
+    # 4 cases: select J, select p, user specify both, or an error
+
+    try: 
+        len_nbins = len(nbins)
+    except:
+        if isinstance(nbins,int): len_nbins = 1
+        else: len_nbins = 0
+    
+    if bins is not None:
+        if isinstance(nbins,int): binsp = binss = bins
+        elif len(bins)==2: binsp, binsp = bins
+        else: raise Exception("Bins not correctly specified.")
+        plist = binsp
+        slist = binss
+        if  ((len_nbins==1) and (nbins!=0)):
+            raise Exception("Bins or nbins is incorrectly specified.")
+    else:
+        plist = pselect
+        slist = sselect
+        binsp = binss = None
+
+    try: 
+        len_p = len(plist)
+    except: 
+        if isinstance(plist,int): len_p = 1
+        else: len_p = 0
+
+    try: 
+        len_s = len(slist)
+    except: 
+        if isinstance(slist,int): len_s = 1
+        else: len_s = 0
+
+    if (len_p==1 and len_s==0):
+        slist = plist
+        len_s = 1
+    if (len_p==0 and len_s==1):
+        plist = slist
+        len_p = 1
+
+    # 1st case: select J
+    selection = ""
+    if isinstance(binspos,str):
+        if (isinstance(nbins,bool) and nbins): selection = "J"
+        if (len_nbins==1 and nbins==0): selection = "J"
+        if nbins is None or len_nbins>1 or bins is not None: selection = "J"
+    
+    if selection=="J":
+        if (len_p>1 or len_s>1):
+            if nbins is None:
+                raise Exception("nbins must be specified for degree/smoothness selection.")
+            else:
+                raise Exception("Only one p and one s are allowed to select # of bins.")
+        if plist is None: plist = deriv
+        if slist is None: slist = plist
+        if bins is None:
+            binsp = plist
+            binss = slist
+        len_p = 1
+        len_s = 1
+        if testshape is None: testshape = conc(plist+1, slist+1)
+        if (isinstance(testshape,bool) and testshape):
+            testshape = conc(plist+1, slist+1)
+        if testmodel is None: testmodel = conc(plist+1, slist+1)
+        if (isinstance(testmodel,bool) and testmodel):
+            testmodel = conc(plist+1, slist+1)
+
+    # 2nd case: select p (at least for one object)
+    pselectOK = False
+    if (selection!="J" and (isinstance(testshape,bool) or testshape is None) and tshaON):
+        pselectOK  = True
+    if (selection!="J" and (isinstance(testmodel,bool) or testmodel is None) and tmodON):
+        pselectOK  = True
+    if (pselectOK and len_nbins==1 and (len_p>1 or len_s>1)):
+        selection = "P"
+
+    # 3rd case: user specified
+    if ((len_p<=1 and len_s<=1) and selection!="J"):
+        selection = "U"
+        if testshape is None:
+            if (len_p==1 and len_s==1): testshape = conc(plist+1, slist+1)
+            else: testshape = conc(deriv+1, deriv+1)
+        if testmodel is None:
+            if (len_p==1 and len_s==1): testmodel = conc(plist+1, slist+1)
+            else: testmodel = conc(deriv+1, deriv+1)
+
+    if (selection==""):
+        raise Exception("Degree, smoothness, or # of bins not correctly specified.")
+
     ##################################################
     ######## Error Checking ##########################
     ##################################################
 
     if not isinstance(binspos, str):
         if np.min(binspos)<=xmin or np.max(binspos)>=xmax:
-            raise Exception("knots out of allowed range")
+            raise Exception("Knots out of allowed range")
     else:
         if binspos!="es" and binspos!="qs":
             raise Exception("binspos incorrectly specified.")
 
-    if len(bins)==2:
+    if bins is not None and len(bins)==2:
         if bins[0] < bins[1]:
             raise Exception("p<s not allowed.")
 
@@ -373,26 +516,31 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         if testmodel[0] < testmodel[1]:
             raise Exception("p<s not allowed.")
 
-    if testshape[0]<deriv or testmodel[0]<deriv:
+    if len(testshape)>=1 and not isinstance(testshape, bool) and testshape[0]<deriv:
         raise Exception("p<deriv not allowed.")
-
+    
+    if len(testmodel)>=1 and not isinstance(testmodel, bool) and testmodel[0]<deriv:
+        raise Exception("p<deriv not allowed.")
     if deriv < 0:
         raise Exception("derivative incorrectly specified.")
             
     if binsmethod!="dpi" and binsmethod!="rot":
-        raise Exception("bin selection method incorrectly specified.")
+        raise Exception("Bin selection method incorrectly specified.")
     
     if masspoints == "veryfew":
         raise Exception("veryfew not allowed for testing.")
 
-    if (len(testshape)>=1) and (len(bins)>=1):
-        if testshape[0]<=bins[0]:
+    if (testshape is not None and len(testshape)>=1) and (bins is not None and len(bins)>=1):
+        if not isinstance(testshape, bool) and testshape[0]<=bins[0]:
             warnings.warn("p for testing <= p for bin selection not suggested.")
   
-    if (len(testmodel)>=1)  and (len(bins)>=1):
-        if testmodel[0]<=bins[0]:
+    if (testmodel is not None and len(testmodel)>=1)  and (bins is not None and len(bins)>=1):
+        if not isinstance(testmodel, bool) and testmodel[0]<=bins[0]:
             warnings.warn("p for testing <= p for bin selection not suggested.")
-            
+        
+    if (nsims<2000 or simsgrid<50):
+        print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+    
     #################################################
     localcheck = massadj = True
     if masspoints=="on":
@@ -423,9 +571,28 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         eN = min(eN, Nclust)
     
     # prepare params
-    bins_p, bins_s = bins
     tsha_p, tsha_s = testshape
+    if isinstance(tsha_p,bool): tsha_p = None
+    if tsha_s is not None and np.isnan(tsha_s): tsha_s = tsha_p
+
     tmod_p, tmod_s = testmodel
+    if isinstance(tmod_p,bool): tmod_p = None
+    if tmod_s is not None and np.isnan(tmod_s): tmod_s = tmod_p
+
+    if selection=="J":
+        if ((tsha_p is not None) and (tsha_p<=plist)):
+            tsha_p = binsp+1 
+            tsha_s = tsha_p
+            warnings.warn("Degree for testshape has been changed. It must be greater than the degree for bin selection.")
+
+        if ((tmod_p is not None) and (tmod_p<=plist)):
+            tmod_p = binsp+1
+            tmod_s = tmod_p
+            warnings.warn("Degree for testmodel has been changed. It must be greater than the degree for bin selection.")
+    
+    if selection=="U":
+        warnings.warn("Testing procedures are valid when nbins is much larger than the IMSE-optimal choice.")
+
     nL = nR = nT = 0
     if testshapel is not None:
         if isinstance(testshapel,int): 
@@ -441,8 +608,13 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         nT = len(np.array(testshape2))
     ntestshape = nL + nR + nT
 
-    if binsmethod=="dpi": selectmethod = "IMSE direct plug-in" 
-    else: selectmethod = "IMSE rule-of-thumb"
+    if selection=="U":  selectmethod = "User-specified"
+    else:
+        if binsmethod=="dpi": selectmethod = "IMSE direct plug-in" 
+        else: selectmethod = "IMSE rule-of-thumb"
+        if selection=="J": selectmethod = selectmethod + " (select # of bins)"
+        if selection=="P": selectmethod = selectmethod + " (select degree and smoothness)"
+
 
     knot = None
     if not isinstance(binspos, str):
@@ -450,7 +622,6 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         knot = np.concatenate([[xmin], binspos,[xmax]])
         position = "User-specified"
         es = False
-        selectmethod = "User-specified"
     else:
         if binspos == "es":
             es = True
@@ -459,44 +630,100 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             es = False
             position = "Quantile-spaced"
 
-    ### Bin selection  if needed ###################
-    if nbins is None:
+    ### Bin selection if needed ###################
+    imse_v_rot = imse_v_dpi = imse_b_rot = imse_b_dpi = np.nan
+    if selection!="U":
         # check if rot can be implemented
+        if binsp is None: binspcheck = 6
+        else: binspcheck = binsp
         if nbinsrot is None:
-            if eN <= dfcheck[0] + bins_p + 1 + qrot:
-                raise Exception("too small effective sample size for bin selection.")  
+            if eN <= dfcheck[0] + binspcheck + 1 + qrot:
+                raise Exception("Too small effective sample size for bin selection.")  
         if np.isnan(Ndist): Ndist_sel = None
         else: Ndist_sel = Ndist
         if np.isnan(Nclust): Nclust_sel = None
         else: Ndist_sel = Nclust
+        randcut1k = randcut
+        if (randcut is None and  N>5000):
+                randcut1k = max(5000/N, 0.01)
+                warnings.warn("To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut=1.")
+        if (selection=="J"):
+                binselect = binsregselect(y, x, w, deriv=deriv,
+                                        bins=conc(binsp,binss), binspos=binspos, nbins=nbins,
+                                        binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                        vce=vce_select, cluster=cluster, randcut=randcut1k,
+                                        dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                        numdist=Ndist_sel, numclust=Nclust_sel)
+                if np.isnan(binselect.nbinsrot_regul):
+                    raise Exception("Bin selection fails.")
+                if (binsmethod == "rot"):
+                    nbins = binselect.nbinsrot_regul
+                    imse_v_rot = binselect.imse_v_rot
+                    imse_b_rot  = binselect.imse_b_rot
+                elif (binsmethod == "dpi"):
+                    nbins = binselect.nbinsdpi
+                    imse_v_dpi = binselect.imse_v_dpi
+                    imse_b_dpi = binselect.imse_b_dpi
+                    if np.isnan(nbins):
+                        warnings.warn("DPI selection fails. ROT choice used.")
+                        nbins = binselect.nbinsrot_regul
+                        imse_v_rot = binselect.imse_v_rot
+                        imse_b_rot = binselect.imse_b_rot
+        elif (selection=="P"):
+            binselect = binsregselect(y, x, w, deriv=deriv,
+                                        binspos=binspos, nbins=nbins,
+                                        pselect=plist, sselect=slist,
+                                        binsmethod=binsmethod, nbinsrot=nbinsrot,
+                                        vce=vce_select, cluster=cluster, randcut=randcut1k,
+                                        dfcheck=dfcheck, masspoints=masspoints, weights=weights,
+                                        numdist=Ndist_sel, numclust=Nclust_sel)
+            if np.isnan(binselect.prot_regul):
+                raise Exception("Bin selection fails.")  
+            if (binsmethod == "rot"):
+                binsp = binselect.prot_regul
+                binss =  binselect.srot_regul
+                imse_v_rot = binselect.imse_v_rot
+                imse_b_rot = binselect.imse_b_rot
+            elif binsmethod == "dpi": 
+                binsp = binselect.pdpi
+                binss =  binselect.sdpi
+                imse_v_dpi = binselect.imse_v_dpi
+                imse_b_dpi = binselect.imse_b_dpi
+                if np.isnan(binsp):
+                    warnings.warn("DPI selection fails. ROT choice used.")
+                    binsp  =  binselect.prot_regul
+                    binss = binselect.srot_regul
+                    imse_v_rot = binselect.imse_v.rot
+                    imse_b_rot = binselect.imse_b_rot     
+          
+            if (isinstance(testshape,bool) or (testshape is None)):
+                tsha_p = binsp+1
+                tsha_s = binss+1
+            elif tsha_p<=binsp:
+                tsha_p = binsp+1
+                tsha_s = tsha_p
+                warnings.warn("Degree for testshape has been changed. It must be greater than the IMSE-optimal degree.")
 
-        binselect = binsregselect(y, x, w, deriv=deriv,
-                                    bins=bins, binspos=binspos,
-                                    binsmethod=binsmethod, nbinsrot=nbinsrot,
-                                    vce=vce, cluster=cluster, randcut=randcut,
-                                    dfcheck=dfcheck, masspoints=masspoints, weights=weights,
-                                    numdist=Ndist_sel, numclust=Nclust_sel)
-        
-        if np.isnan(binselect.nbinsrot_regul):
-            raise Exception("bin selection fails.")
-        if binsmethod == "rot": nbins = binselect.nbinsrot_regul
-        elif binsmethod == "dpi": nbins = binselect.nbinsdpi
-        if np.isnan(nbins):
-            warnings.warn("DPI selection fails. ROT choice used.")
-            nbins = binselect.nbinsrot_regul
+            if (isinstance(testmodel,bool) or (testmodel is None)):
+                tmod_p = binsp+1
+                tmod_s = binss+1
+            elif tmod_p<=binsp:
+                tmod_p = binsp+1
+                tmod_s = tmod_p
+                warnings.warn("Degree for testmodel has been changed. It must be greater than the IMSE-optimal degree.")        
 
     # check eff size for testing
     tsha_fewobs = False
     if ntestshape!=0:
         if (nbins-1)*(tsha_p-tsha_s+1)+tsha_p+1+dfcheck[1]>=eN:
             tsha_fewobs = True
-            warnings.warn("too small eff. sample size for testing shape.")
+            warnings.warn("Too small eff. sample size for testing shape.")
     
     tmod_fewobs = False
     if testmodelparfit is not None or testmodelpoly is not None:
         if (nbins-1)*(tmod_p-tmod_s+1)+tmod_p+1+dfcheck[1]>=eN:
             tmod_fewobs = True
-            warnings.warn("too small eff. sample size for testing models.")
+            warnings.warn("Too small eff. sample size for testing models.")
 
     # Generate knot
     if knot is None:
@@ -506,7 +733,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     # check local mass points
     knot = np.append(knot[0],np.unique(knot[1:]))
     if nbins != len(knot)-1:
-        warnings.warn("repeated knots. Some bins dropped.")
+        warnings.warn("Repeated knots. Some bins dropped.")
         nbins = len(knot)-1
 
     if localcheck:
@@ -514,11 +741,11 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         if ntestshape != 0:
             if uniqmin < tsha_p+1:
                 tsha_fewobs = True
-                warnings.warn("some bins have too few distinct values of x for testing shape.")
+                warnings.warn("Some bins have too few distinct values of x for testing shape.")
         if testmodelparfit is not None or testmodelpoly is not None:
             if uniqmin < tmod_p+1:
                 tmod_fewobs = True
-                warnings.warn("some bins have too few distinct values of x for testing models.")
+                warnings.warn("Some bins have too few distinct values of x for testing models.")
     
     # adjust w variables
         if w is not None: 
@@ -557,7 +784,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         k = ncol(B)
         P = cbind(B, w)
         model = binsreg_fit(y=y, x=P, weights=weights, family=family_str, is_qreg=is_qreg,
-                                 quantile = quantile, cov_type = vce_select, cluster = cluster)            
+                                 quantile = quantile, cov_type = vce_select, cluster = cluster, **optmize)            
         beta = model.params[:k]
         basis_sha = binsreg_spdes(x=x_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=deriv)
 
@@ -650,7 +877,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             k = ncol(B)
             P = cbind(B, w)
             model = binsreg_fit(y=y, x=P, weights=weights, family=family_str, is_qreg=is_qreg,
-                                 quantile=quantile,cov_type=vce_select,cluster=cluster) 
+                                 quantile=quantile,cov_type=vce_select,cluster=cluster, **optmize) 
             beta = model.params[:k]
             pos = np.invert(np.isnan(beta))
             k_new = np.sum(pos)
@@ -694,7 +921,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             for j in range(testmodelpoly+1):  x_p[:,j] =(x**j).reshape(-1)
             P_poly = cbind(x_p, w)
             model_poly = binsreg_fit(y=y, x=P_poly, weights=weights, family=family_str, is_qreg=is_qreg,
-                                 quantile = quantile, cov_type = vce_select, cluster = cluster) 
+                                 quantile = quantile, cov_type = vce_select, cluster = cluster, **optmize) 
             beta_poly = model_poly.params
             poly_fit = 0
             for j in range(deriv,testmodelpoly+1):
@@ -763,13 +990,15 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     testPoly = test_str(testmodelpoly,stat_poly,pval_poly)
     testModel = test_str(np.nan,stat_mod,pval_mod)
     
-    opt = options_test(bins_p=bins_p, bins_s=bins_s, deriv=deriv,
-                        testshape=testshape, testmodel=testmodel,
+    opt = options_test(binsp=binsp, binss=binss, deriv=deriv,
+                        testshape=(tsha_p, tsha_s), testmodel=(tmod_p, tmod_s),
                         binspos=position, binsmethod=selectmethod,
                         n=N, Ndist=Ndist, Nclust=Nclust,
                         nbins=nbins, knot=knot, lp=lp,
                         estmethod=estmethod_name, quantile=quantile, 
                         dist=dist,link=link)
-    out = test_output(testshapeL,testshapeR,testshape2,
-                        testPoly,testModel,opt)
+    out = test_output(testshapeL,testshapeR,testshape2,testPoly,testModel,
+                        imse_v_dpi=imse_v_dpi, imse_b_dpi=imse_b_dpi,
+                        imse_v_rot=imse_v_rot, imse_b_rot=imse_b_rot,
+                        options = opt)
     return out

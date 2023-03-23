@@ -8,7 +8,21 @@ import pandas as pd
 import numpy as np
 import statsmodels.formula.api as smf
 from plotnine import *
-from binsreg import *
+
+
+########## To run from the source ##################################################
+# (in terminal) pip uninstall binsreg
+import sys
+import numpy as np
+sys.path.insert(0, '/Users/rmasini/Dropbox/binsreg/Python/binsreg/src/binsreg')
+from binsregselect import binsregselect
+from binsreg import binsreg
+from binsglm import binsglm
+from binsqreg import binsqreg
+from binstest import binstest
+from binspwc import binspwc
+from funs import *
+###################################################################################
 
 
 ######################################
@@ -16,7 +30,9 @@ from binsreg import *
 ####### used for STATA ################
 #######################################
 
-data = pd.read_csv("binsreg_sim.csv")
+
+data = pd.read_csv("/Users/rmasini/Dropbox/binsreg/Python/binsreg/test/binsreg_sim.csv")
+
 data.describe().T
 
 ####################################

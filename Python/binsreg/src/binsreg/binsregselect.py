@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Created on Sat Sep  4 17:39:50 2021
+# Created on Thu Mar 16 10:20:24 2023
 # @author: Ricardo Masini
 
 import numpy as np
 import pandas as pd
 import warnings
-from .funs import *
-# from funs import *
+from .funs import *  # .funs to create the package
 
-def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
-                    binsmethod="dpi", nbinsrot=None, simsgrid=20, savegrid=False,
+def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sselect=None,
+                    binspos="qs", nbins=None,binsmethod="dpi", nbinsrot=None, simsgrid=20, savegrid=False,
                     vce="HC1", useeffn=None, randcut=None, cluster=None,
                     dfcheck=(20,30), masspoints="on", weights=None, subset=None,
                     norotnorm=False, numdist=None, numclust=None):
@@ -45,10 +44,25 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
         bins=(p,s) set a piecewise polynomial of degree p with s smoothness constraints
         for data-driven (IMSE-optimal) selection of the partitioning/binning scheme. The default is
         bins=(0,0), which corresponds to piecewise constant (canonical binscatter).
+    
+    pselect: array 
+        Vector of integers within which the degree of polynomial p for point estimation is selected.
+        Note: To implement the degree or smoothness selection, in addition to pselect or sselect
+        nbins=# must be specified.
+
+    sselect: array 
+        Vector of integers within which the number of smoothness constraints s for point estimation is selected.
+        If not specified, for each value p supplied in the option pselect, only the
+        piecewise polynomial with the maximum smoothness is considered, i.e., s=p.
 
     binspos : array
         Position of binning knots. The default is binspos="qs", which corresponds to quantile-spaced
-        binning (canonical binscatter). The other options is "es" for evenly-spaced binning.
+        binning (canonical binscatter). The other options is binspos="es" for evenly-spaced binning.
+    
+    nbins: int
+        Number of bins for degree/smoothness selection. If nbins=True or nbins=None (default) is specified,
+        the function selects the number of bins instead, given the specified degree and smoothness.
+        If a vector with more than one number is specified, the command selects the number of bins within this vector.
     
     binsmethod : str
         Method for data-driven selection of the number of bins. The default is binsmethod="dpi",
@@ -86,7 +100,7 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
         the one used to compute it.
     
     randcut : float
-        Upper bound on a uniformly distributed variable used to draw a subsample for bins selection.
+        Upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
         Observations for which numpy.random.uniform()<=# are used. # must be between 0 and 1.
     
     cluster: array 
@@ -96,7 +110,7 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://arxiv.org/abs/1902.09615}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See \href{https://arxiv.org/abs/1902.09615}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -135,18 +149,46 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
     
     nbinsdpi_uknot : DPI number of bins, unique knots.
     
-    imse_v_rot : variance constant in IMSE expansion, ROT selection.
+    prot_poly : ROT degree of polynomials, unregularized.
+
+    prot_regul : ROT degree of polynomials, regularized.
     
-    imse_b_rot : bias constant in IMSE expansion, ROT selection.
+    prot_uknot : ROT degree of polynomials, unique knots.
     
-    imse_v_dpi : variance constant in IMSE expansion, DPI selection.
+    pdpi : DPI degree of polynomials.
     
-    imse_b_dpi : bias constant in IMSE expansion, DPI selection.
+    pdpi_uknot : DPI degree of polynomials, unique knots.
+
+    srot_poly : ROT number of smoothness constraints, unregularized.
+
+    srot_regul : ROT number of smoothness constraints, regularized.
+
+    srot_uknot : ROT number of smoothness constraints, unique knots.
+
+    sdpi : DPI number of smoothness constraints.
+
+    sdpi_uknot : DPI number of smoothness constraints, unique knots.
+
+    imse_v_rot : Variance constant in IMSE expansion, ROT selection.
+
+    imse_b_rot : Bias constant in IMSE expansion, ROT selection.
+
+    imse_v_dpi : Variance constant in IMSE expansion, DPI selection.
+
+    imse_b_dpi : Bias constant in IMSE expansion, DPI selection.
+
+    int.result : Intermediate results, including a matrix of degree and smoothness (deg_mat),
+                 the selected numbers of bins (vec_nbinsrot_poly, vec_nbinsrot_regul,vec_nbinsrot_uknot,
+                 vec_nbinsdpi, vec_nbinsdpi.uknot), and the bias and variance constants in 
+                 IMSE (vec_imse_b_rot, vec_imse_v_rot, vec_imse_b_dpi, vec_imse_v_dpi) 
+                 under each rule (ROT or DPI), corresponding to each pair of degree and smoothness
+                 each row in deg_mat.
     
     opt :  A list containing options passed to the function, as well as total sample size (n),
            number of distinct values (Ndist) in x, and number of clusters (Nclust).
     
     data_grid : A data frame containing grid.
+
 
     See Also
     --------
@@ -156,8 +198,9 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
     ------- 
     >>> x = numpy.random.uniform(size = 500)
     >>> y = numpy.sin(x) + numpy.random.normal(size = 500)
-    >>> est = binsregselect(y,x)
-    >>> print(est)
+    >>> out = binsregselect(y,x)
+    >>> print(out)
+    >>> out.summary()
     '''
 
     # param for internal use
@@ -231,8 +274,69 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
     if weights is not None: weights = weights[na_ok]
     if cluster is not None: cluster = cluster[na_ok]
 
+    ## analyze bins- and degree-related options
+    if bins is not None:
+        bins_p = bins[1]
+        if (len(bins)==1): bins_s = bins_p
+        elif (len(bins)==2): bins_s = bins[1]
+        else: raise Exception("Bins not correctly specified.")
+        plist = bins[0]; slist = bins[1]
+    else:
+        plist = pselect; slist = sselect
+
+    try: len_p = len(plist)
+    except: len_p=0
+    try: len_s = len(slist)
+    except: len_s=0
+
+    if (len_p==1 & len_s==0):
+        slist = plist
+        len_s = 1
+    if (len_p==0 & len_s==1):
+        plist = slist
+        len_p = 1
+
+    selectJ = None
+    if nbins is True: selectJ = True
+    if nbins is None: selectJ = True
+    else:
+        try: len_nbins = len(nbins)
+        except:
+            if np.isscalar(nbins): len_nbins = 1
+            else: len_nbins = 0
+        if (len_nbins==1 and nbins==0): selectJ = True
+        if (len_nbins>1 or bins is not None or (len_p==1 and len_s==1)): selectJ = True
+    
+    if isinstance(selectJ,bool) and selectJ:
+        if (len_p>1 or len_s>1): raise Exception("Only one p and one s are allowed for J selection.")
+        if (plist is None):
+            plist = deriv
+            len_p = 1
+        if (slist is None):
+            slist = plist
+            len_s = 1
+    
+    if (selectJ is None and (len_p>1 or len_s>1)): selectJ = False
+
+    if selectJ is None: raise Exception("Degree, smoothness, or # of bins are not correctly specified.")
+  
+    # find all compatible pairs
+    if selectJ: deg_mat = cbind(plist, slist)
+    else:
+        if (len_p>0 and len_s==0): deg_mat = cbind(plist, plist)
+        if (len_p==0 and len_s>0): deg_mat = cbind(slist, slist)
+        if (len_p>0 and len_s>0):
+            deg_mat = np.array([(p,s) for p in plist for s in slist])
+            comp_ind = (deg_mat[:,0]>=deg_mat[:,1]) & (deg_mat[:,1]>deriv)   # p>=s and p>deriv
+            if (sum(comp_ind)==0): 
+                raise Exception("Degree and smoothness incompatible")
+            deg_mat = deg_mat[comp_ind,:]
+        
+    # colnames(deg_mat) = = ("degree", "smoothness")
+
     ########################## error checking
-    if len(bins)==2:
+    
+    if bins is not None and len(bins)==2:
         if bins[0] < bins[1]:
             raise Exception("p<s not allowed.")
     
@@ -273,7 +377,6 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
         else: Nclust = len(np.unique(cluster))
         eN = min(eN, Nclust)
     
-
     # take a subsample?
     x_full = x.copy()
     eN_sub = eN
@@ -295,8 +398,18 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
             Nclust_sub =len(np.unique(cluster))
             eN_sub = min(eN_sub, Nclust_sub)
 
+
+    # redefine cluster if needed
+    if massadj:
+        if (cluster is None): cluster = x.copy()
+        # note: clustered at mass point level
+        else:
+            if (Nclust_sub > Ndist_sub):
+                cluster = x.copy()
+                warnings.warn("# mass points < # clusters. Clustered at mass point level.")
+    
     # Prepare params
-    p,s = bins
+    # p,s = bins
 
     if binspos == "es": es = True
     else: es = False
@@ -307,64 +420,127 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
 
     if binsmethod == "dpi": selectmethod = "IMSE direct plug-in"
     else: selectmethod = "IMSE rule-of-thumb"
-    
-    # Run rot selection
-    J_rot_regul = J_rot_poly = imse_v_rot = imse_b_rot = np.nan
-    if nbinsrot is not None: J_rot_regul = nbinsrot
-    if np.isnan(J_rot_regul) and not rot_fewobs:
-        # checking
-        if eN_sub <= dfcheck[0]+p+1+qrot:
-            rot_fewobs = True
-            warnings.warn("too small effective sample size for bin selection.")
-        if not rot_fewobs:
-            J_rot_poly, imse_b_rot, imse_v_rot = binsregselect_rot(y, x, w, p, s, deriv, eN=eN_sub, es=es,
-                                             qrot=qrot, norotnorm=norotnorm, weights=weights)
-        J_rot_regul = max(J_rot_poly, int(np.ceil((2*(p+1-deriv)/(1+2*deriv)*rot_lb*eN_sub)**(1/(2*p+3)))))
 
-    # repeated knots?
-    J_rot_uniq = J_rot_regul
-    if not es and not np.isnan(J_rot_regul):
-        J_rot_uniq = len(np.unique(genKnot_qs(x, J_rot_regul)[1:]))
+    if selectJ: selectmethod = selectmethod + " (select # of bins)"
+    else: selectmethod = selectmethod + " (select degree and smoothness)"
 
-    # Run dpi selection
-    J_dpi = imse_v_dpi = imse_b_dpi = np.nan
-    if binsmethod == "dpi" and not dpi_fewobs:
-        # check if dpi can be implemented
-        if not np.isnan(J_rot_uniq):
-            if (p-s+1)*(J_rot_uniq-1)+p+2+dfcheck[1]>=eN_sub:
-                dpi_fewobs = True
-                warnings.warn("too small effective sample size for DPI selection.")
+    nj = len(deg_mat)
+    vec_J_rot_poly = nanmat(nj)
+    vec_J_rot_regul = nanmat(nj)
+    vec_J_rot_uniq = nanmat(nj)
+    vec_J_dpi = nanmat(nj)
+    vec_J_dpi_uniq = nanmat(nj)
+    vec_imse_v_rot = nanmat(nj)
+    vec_imse_b_rot = nanmat(nj)
+    vec_imse_v_dpi = nanmat(nj)
+    vec_imse_b_dpi = nanmat(nj)
+    #### START loop here #########
+    for j in range(nj):
+        p,s = deg_mat[j,:]
+        # Run rot selection
+        J_rot_regul = J_rot_poly = imse_v_rot = imse_b_rot = np.nan
+        if nbinsrot is not None: J_rot_regul = nbinsrot
+        if np.isnan(J_rot_regul) and not rot_fewobs:
+            # checking
+            if eN_sub <= dfcheck[0]+p+1+qrot:
+                rot_fewobs = True
+                warnings.warn("Too small effective sample size for bin selection.")
+            if not rot_fewobs:
+                J_rot_poly, imse_b_rot, imse_v_rot = binsregselect_rot(y, x, w, p, s, deriv, eN=eN_sub, es=es,
+                                                qrot=qrot, norotnorm=norotnorm, weights=weights)
+            J_rot_regul = max(J_rot_poly, int(np.ceil((2*(p+1-deriv)/(1+2*deriv)*rot_lb*eN_sub)**(1/(2*p+3)))))
 
-            # check empty bins
-            if localcheck:
-                uniqmin = binsreg_checklocalmass(x, J_rot_regul, es, knot = None) # mimic STATA
-                if uniqmin < p+2:
+        # repeated knots?
+        J_rot_uniq = J_rot_regul
+        if not es and not np.isnan(J_rot_regul):
+            J_rot_uniq = len(np.unique(genKnot_qs(x, J_rot_regul)[1:]))
+
+        # Run dpi selection
+        J_dpi = imse_v_dpi = imse_b_dpi = np.nan
+        if binsmethod == "dpi" and not dpi_fewobs:
+            # check if dpi can be implemented
+            if not np.isnan(J_rot_uniq):
+                if (p-s+1)*(J_rot_uniq-1)+p+2+dfcheck[1]>=eN_sub:
                     dpi_fewobs = True
-                    warnings.warn("some bins have too few distinct values of x for DPI selection.")
-        else: dpi_fewobs = True
+                    warnings.warn("Too small effective sample size for DPI selection.")
 
-        if not dpi_fewobs:
-            if massadj:
-                if cluster is None:
-                    cluster = x.copy()
-                    # note: clustered at mass point level
-                else:
-                    if Nclust_sub > Ndist_sub: 
-                        cluster = x.copy()
-                        warnings.warn("# mass points < # clusters. Clustered at mass point level.")
-            J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, p, s, deriv, es=es, vce=vce, cluster=cluster, nbinsrot=J_rot_uniq, weights=weights)
-            imse_v_dpi = imse_v_dpi * eN_sub
-                                                               
-    J_dpi_uniq = J_dpi
+                # check empty bins
+                if localcheck:
+                    uniqmin = binsreg_checklocalmass(x, J_rot_regul, es, knot = None) # mimic STATA
+                    if uniqmin < p+2:
+                        dpi_fewobs = True
+                        warnings.warn("Some bins have too few distinct values of x for DPI selection.")
+            else: dpi_fewobs = True
 
-    if useeffn is not None or randcut is not None:
-        if useeffn is not None: scaling = (useeffn/eN)**(1/(2*p+2+1))
-        if randcut is not None: scaling = (eN/eN_sub)**(1/(2*p+2+1))
-        if not np.isnan(J_rot_poly):  J_rot_poly  =int(np.ceil(J_rot_poly * scaling))
-        if not np.isnan(J_rot_regul): J_rot_regul =int(np.ceil(J_rot_regul * scaling))
-        if not np.isnan(J_rot_uniq):  J_rot_uniq  =int(np.ceil(J_rot_uniq * scaling))
-        if not np.isnan(J_dpi):       J_dpi       =int(np.ceil(J_dpi * scaling))
-        if not np.isnan(J_dpi_uniq):  J_dpi_uniq  =int(np.ceil(J_dpi_uniq * scaling))
+            if not dpi_fewobs:
+                J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, p, s, deriv, es=es, vce=vce, cluster=cluster, nbinsrot=J_rot_uniq, weights=weights)
+                imse_v_dpi = imse_v_dpi * eN_sub
+                                                                
+        J_dpi_uniq = J_dpi
+
+        if useeffn is not None or randcut is not None:
+            if useeffn is not None: scaling = (useeffn/eN)**(1/(2*p+2+1))
+            if randcut is not None: scaling = (eN/eN_sub)**(1/(2*p+2+1))
+            if not np.isnan(J_rot_poly):  J_rot_poly  =int(np.ceil(J_rot_poly * scaling))
+            if not np.isnan(J_rot_regul): J_rot_regul =int(np.ceil(J_rot_regul * scaling))
+            if not np.isnan(J_rot_uniq):  J_rot_uniq  =int(np.ceil(J_rot_uniq * scaling))
+            if not np.isnan(J_dpi):       J_dpi       =int(np.ceil(J_dpi * scaling))
+            if not np.isnan(J_dpi_uniq):  J_dpi_uniq  =int(np.ceil(J_dpi_uniq * scaling))
+
+        # save results
+        vec_J_rot_poly[j] = J_rot_poly
+        vec_J_rot_regul[j] = J_rot_regul
+        vec_J_rot_uniq[j] = J_rot_uniq
+        vec_J_dpi[j] = J_dpi
+        vec_J_dpi_uniq[j] = J_dpi_uniq
+        vec_imse_b_rot[j] = imse_b_rot
+        vec_imse_v_rot[j] = imse_v_rot
+        vec_imse_b_dpi[j] = imse_b_dpi
+        vec_imse_v_dpi[j] = imse_v_dpi
+    ##### END loop here  ########
+
+    # extract results
+    imse_b_dpi_upd = np.nan 
+    imse_v_dpi_upd = np.nan 
+    if selectJ:
+        if  (nbins is not None) and (not isinstance(nbins, bool)) and len(nbins)>1:
+            J_rot_poly  = nbins[which_min(np.abs(vec_J_rot_poly-nbins))]
+            J_rot_regul = nbins[which_min(np.abs(vec_J_rot_regul-nbins))]
+            J_rot_uniq  = nbins[which_min(np.abs(vec_J_rot_uniq-nbins))]
+            J_dpi       = nbins[which_min(np.abs(vec_J_dpi-nbins))]
+            J_dpi_uniq  = nbins[which_min(np.abs(vec_J_dpi_uniq-nbins))]
+        ord_rot_poly = deg_mat.copy().reshape(-1,)
+        ord_rot_regul = deg_mat.copy().reshape(-1,)
+        ord_rot_uniq = deg_mat.copy().reshape(-1,)
+        ord_dpi = deg_mat.copy().reshape(-1,)
+        ord_dpi_uniq = deg_mat.copy().reshape(-1,)
+    else:
+        ind_rot_poly = which_min(np.abs(vec_J_rot_poly-nbins))
+        ind_dpi      = which_min(np.abs(vec_J_dpi-nbins))
+
+        ord_rot_poly  = deg_mat[ind_rot_poly,:]
+        ord_rot_regul = deg_mat[which_min(np.abs(vec_J_rot_regul-nbins)),:]
+        ord_rot_uniq  = deg_mat[which_min(np.abs(vec_J_rot_uniq-nbins)),:]
+        ord_dpi       = deg_mat[ind_dpi,:]
+        ord_dpi_uniq  = deg_mat[which_min(abs(vec_J_dpi_uniq-nbins)),:]
+        J_rot_poly = nbins
+        J_rot_regul = nbins
+        J_rot_uniq = nbins
+        J_dpi = nbins
+        J_dpi_uniq = nbins
+
+        imse_v_rot = vec_imse_v_rot[ind_rot_poly]
+        imse_b_rot = vec_imse_b_rot[ind_rot_poly]
+        imse_v_dpi = vec_imse_v_dpi[ind_dpi]
+        imse_b_dpi = vec_imse_b_dpi[ind_dpi]
+
+        if (nbins!=vec_J_dpi[ind_dpi]):
+            J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, ord_dpi[0], ord_dpi[1], deriv, es=es, vce=vce, cluster=cluster, nbinsrot=nbins, weights=weights)
+            imse_b_dpi_upd = imse_b_dpi
+            imse_v_dpi_upd = imse_v_dpi * eN_sub
+            imse_b_dpi = imse_b_dpi_upd
+            imse_v_dpi = imse_v_dpi_upd
+
     
     # Generate a knot vector
     if binsmethod == "rot": Jselect = J_rot_uniq
@@ -391,11 +567,23 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=(0,0), binspos="qs",
     #######output#########
     ######################
 
-    opt = options_select(bins_p=p, bins_s=s, deriv=deriv, binspos=position, 
+    int_result=inter_result(vec_nbinsrot_poly=vec_J_rot_poly, vec_nbinsrot_regul=vec_J_rot_regul,
+                    vec_nbinsrot_uknot=vec_J_rot_uniq, vec_nbinsdpi=vec_J_dpi, vec_nbinsdpi_uknot=vec_J_dpi_uniq,
+                    vec_imse_b_rot=vec_imse_b_rot, vec_imse_v_rot=vec_imse_v_rot,
+                    vec_imse_b_dpi=vec_imse_b_dpi, vec_imse_v_dpi=vec_imse_v_dpi,
+                    deg_mat=deg_mat)
+
+    opt = options_select(deriv=deriv,selectJ=selectJ, binspos=position, 
                          binsmethod=selectmethod,n=N, Ndist=Ndist, Nclust=Nclust)
     
     out = binsregselect_output(nbinsrot_poly=J_rot_poly, nbinsrot_regul=J_rot_regul, nbinsrot_uknot=J_rot_uniq,
                                 nbinsdpi=J_dpi, nbinsdpi_uknot=J_dpi_uniq, imse_b_rot=imse_b_rot, 
                                 imse_v_rot=imse_v_rot, imse_b_dpi=imse_b_dpi, imse_v_dpi=imse_v_dpi,
+                                int_result = int_result,
+                                prot_poly=ord_rot_poly[0], srot_poly=ord_rot_poly[1],
+                                prot_regul=ord_rot_regul[0], srot_regul=ord_rot_regul[1],
+                                prot_uknot=ord_rot_uniq[0], srot_uknot=ord_rot_uniq[1],
+                                pdpi=ord_dpi[0], sdpi=ord_dpi[1],
+                                pdpi_uknot=ord_dpi_uniq[0], sdpi_uknot=ord_dpi_uniq[1],
                                 options = opt, knot=knot, data_grid=data_grid)
     return out
