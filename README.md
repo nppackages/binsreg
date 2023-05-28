@@ -57,13 +57,17 @@ net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/m
 
 ### Software and Implementation
 
-- Cattaneo, Crump, Farrell and Feng (2022): [Binscatter Regressions](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf).<br>
+- Cattaneo, Crump, Farrell and Feng (2023): [Binscatter Regressions](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf).<br>
 Working paper, prepared for _Stata Journal_.
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2022): [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf).<br>
+- Cattaneo, Crump, Farrell and Feng (2023): [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Binscatter.pdf).<br>
 Working paper.<br>
-[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter--Supplemental.pdf)
+[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Binscatter--Supplemental.pdf)
+
+- Cattaneo, Crump, Farrell and Feng (2023): Generalized Binscatter Methods.<br>
+Working paper.<br>
+Supplemental Appendix
 
 <br><br>
