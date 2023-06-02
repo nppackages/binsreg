@@ -381,6 +381,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
     if by is not None:
         by = np.array(by).reshape(len(by),-1)
     if cluster is not None:
+        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)

@@ -67,7 +67,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         For furher options refer to statsmodels package documentation.
 
     link : str
-        Link function to be used together with dist. Possible values are "identity","logit","log","probit".
+        Link function to be used together with dist. Possible values are "Identity","Logit","Log","Probit".
         The default is link = None, in that case the default link dor the specified dist is used. 
         For furher options and details refer to statsmodels package documentation.
     
@@ -391,6 +391,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     if by is not None:
         by = np.array(by).reshape(len(by),-1)
     if cluster is not None:
+        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)
@@ -436,7 +437,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         family_str = f'sm.families.{dist}()'
         link = 'default'
     else: 
-        family_str = f'sm.families.{dist}(sm.families.links.{link})'
+        family_str = f'sm.families.{dist}(sm.families.links.{link}())'
     
     family = eval(family_str)
     linkinv = family.link.inverse

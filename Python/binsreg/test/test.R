@@ -2,7 +2,6 @@ rm(list=ls(all=TRUE))
 library(ggplot2)
 
 # Load the all functions in the binsreg package
-setwd("~/Dropbox/binsreg/R version/binsreg/R")
 for (fun in dir()) source(fun)
 library(matrixStats)
 library(splines)

@@ -1123,7 +1123,7 @@ def binsreg_summ(x, w = None, std=False):
         mu = np.mean(x)
         if std: sig = np.std(x,ddof = 1)
     else:
-        mu = np.average(x, weights=w)
+        mu = np.average(x,weights = w)
         if std: sig = np.sqrt(np.sum(w*(x-mu)**2)/(np.sum(w)-1))
     return mu, sig
 
@@ -1171,10 +1171,10 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
 
     est = binsreg_fit(y, P, weights = weights)
     beta = est.params
-    est = est.fittedvalues
+    est = est.fittedvalues.reshape(-1,1)
 
     # variance constant
-    s2 =  binsreg_fit(y**2, P, weights = weights).fittedvalues - est**2
+    s2 =  binsreg_fit(y**2, P, weights = weights).fittedvalues.reshape(-1,1) - est**2
     if norotnorm: fz = 1
     else:
         mu, sig = binsreg_summ(x, w=weights, std=True)
@@ -1182,10 +1182,11 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
         # trim density from below
         cutval = norm.pdf(norm.ppf(den_alpha)*sig, loc = 0, scale = sig)
         fz[fz<cutval] = cutval
-        fz = fz.reshape(-1,)
+        fz = fz.reshape(-1,1)
     if es: s2 = s2 / fz
     else: s2 = s2 * (fz**(2*deriv))
-    s2 = binsreg_summ(s2, w = weights, std=False)[0]
+    s2v = s2.reshape(-1,1)
+    s2 = binsreg_summ(s2v, w = weights, std=False)[0]
     vcons = imse_vcons(p, deriv)
     imse_v = vcons * s2
 
@@ -1196,7 +1197,7 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
         mu_m_hat +=  x**(j-p)*beta[j+1]*np.math.factorial(j+1)/np.math.factorial(j-p)
     mu_m_hat = mu_m_hat**2
     if not es:
-        mu_m_hat = mu_m_hat / (fz**(2*ord-2*deriv))
+        mu_m_hat = mu_m_hat/(fz.reshape(-1,1)**(2*ord-2*deriv))
     imse_b = bcons * binsreg_summ(mu_m_hat, w=weights, std=False)[0]
     aux000num = imse_b*2*(ord-deriv)
     aux000dem = imse_v*(1+2*deriv)
@@ -1250,7 +1251,7 @@ def genV(y, x, w, p, s, deriv, knot, vce, cluster=None, weights=None):
     pos = np.invert(np.isnan(model.params[:k]))
     k_new = np.sum(pos)
     vcv = model.cov_params()[:k_new,:k_new]
-    m_s2 = binsreg_summ(np.sum(np.matmul(basis[:,pos], vcv) * basis[:,pos],1), w=weights, std=False)[0]
+    m_s2 = binsreg_summ(np.sum(np.matmul(basis[:,pos], vcv) * basis[:,pos],1).reshape(-1,1), w=weights, std=False)[0]
     return m_s2
 
 

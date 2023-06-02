@@ -249,6 +249,7 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
         nwvar = ncol(w)
     else: nwvar = 0
     if cluster is not None:
+        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)

@@ -308,6 +308,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     if by is not None:
         by = np.array(by).reshape(len(by),-1)
     if cluster is not None:
+        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)

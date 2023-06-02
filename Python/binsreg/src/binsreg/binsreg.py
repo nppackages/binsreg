@@ -374,6 +374,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     if by is not None:
         by = np.array(by).reshape(len(by),-1)
     if cluster is not None:
+        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)
@@ -648,8 +649,8 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
             warnings.warn("Degree for ci has been changed. It must be greater than the degree for dots.")
 
         if ((cb_p is not None) and (cb_p<=dots_p)):
-            cb_p = dots.p+1
-            cb_s = cb.p
+            cb_p = dots_p+1
+            cb_s = cb_p
             warnings.warn("Degree for cb has been changed. It must be greater than the degree for dots.")
         
     if selection=="U":

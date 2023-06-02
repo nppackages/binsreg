@@ -1,5 +1,5 @@
 numpy
-pandas
+pandas>=2.0.0
 scipy
-statsmodels
+statsmodels>=0.14.0
 plotnine
