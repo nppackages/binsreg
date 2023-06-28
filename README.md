@@ -62,12 +62,12 @@ Working paper, prepared for _Stata Journal_.
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2023): [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Binscatter.pdf).<br>
+- Cattaneo, Crump, Farrell and Feng (2023): [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf).<br>
 Working paper.<br>
-[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Binscatter--Supplemental.pdf)
+[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER--Supplemental.pdf)
 
-- Cattaneo, Crump, Farrell and Feng (2023): Generalized Binscatter Methods.<br>
+- Cattaneo, Crump, Farrell and Feng (2023): [Nonlinear Binscatter Methods](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf).<br>
 Working paper.<br>
-Supplemental Appendix
+[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter--Supplemental.pdf)
 
 <br><br>
