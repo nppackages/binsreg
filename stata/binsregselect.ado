@@ -1,4 +1,4 @@
-*! version 1.2 09-Oct-2022
+*! version 1.3 03-Jul-2023
 
 capture program drop binsregselect
 program define binsregselect, eclass

@@ -1,4 +1,4 @@
-*! version 1.2 09-Oct-2022  
+*! version 1.3 06-Jul-2023  
 
 capture program drop binsprobit
 program define binsprobit, eclass
@@ -282,7 +282,7 @@ program define binsprobit, eclass
 	 }
 	 if ("`selection'"=="NA") {
 	    if ("`ci'"!=""|"`cb'"!="") {
-		   di as text "Warning: Confidence intervals/bands are valid when nbins() is much larger than IMSE-optimal choice."
+		   di as text "Warning: Confidence intervals/bands are valid when nbins() is much larger than IMSE-optimal choice. Compare your choice with the IMSE-optimal one obtained by binsregselect."
 	    }
 	 }
 	 * if selection==P, compare ci_p/cb_p with P_opt later
@@ -847,7 +847,7 @@ program define binsprobit, eclass
 		   local ncolplot=`ncolplot'+5
 		}
 	 }
-	 mata: `plotmat'=J(0,`ncolplot',.)
+	 mata: `plotmat'=J(0,`ncolplot'+3,.)
 	 
 	 * mark the (varying) last row (for plotting)
 	 local bylast=0               
@@ -1236,7 +1236,7 @@ program define binsprobit, eclass
 		   local byrange=max(`nbins', `poly_nr'+0, `polyci_nr'+0)
 		}
 		local bylast=`bylast'+`byrange'
-		mata: `plotmatby'=J(`byrange',`ncolplot',.)
+		mata: `plotmatby'=J(`byrange',`ncolplot'+3,.)
 		if ("`byval'"!="noby") {
 		   mata: `plotmatby'[.,1]=J(`byrange',1,`byval')
 		}
@@ -1791,7 +1791,7 @@ program define binsprobit, eclass
 	    scalar `cval'=.
 	    if ("`cbON'"=="T") {
 		   if (`nsims'<2000|`simsgrid'<50) {
-	         di as text "Note: A larger number random draws/evaluation points is recommended to obtain the final results."
+	         di as text "Note: Setting at least nsims(2000) and simsgrid(50) is recommended to obtain the final results."
 	       }
 		   * Prepare grid for plotting
 	       local cb_first=`byfirst'
@@ -1873,6 +1873,20 @@ program define binsprobit, eclass
 		mat `cvallist'=(nullmat(`cvallist') \ `cval')
 		
 		local plotcmd `plotcmd' `plotcmdby'
+		
+		**************************
+		* generate breakpoints
+		local kmat_end1=2
+		local kmat_end2=rowsof(`kmat')
+		if ("`kmat_end2'"=="`nbins'") {
+		   local kmat_end1=1
+		   local kmat_end2=`nbins'
+        }
+		mata: `plotmatby'[|1,`ncolplot'+1 \ `nbins',`ncolplot'+3|] = ///
+		                 (range(1,`nbins',1), /// 
+						  st_matrix("`kmat'")[|1, 1 \ `nbins', 1|], ///
+						  st_matrix("`kmat'")[|`kmat_end1', 1 \ `kmat_end2', 1|])
+		* append graph data
 		mata: `plotmat'=(`plotmat' \ `plotmatby')
 		
 		*********************************
@@ -2009,7 +2023,10 @@ program define binsprobit, eclass
 		   qui gen CB_l=. in 1
 		   qui gen CB_r=. in 1
 		}
-			
+		qui gen binid=. in 1
+		qui gen lef_ep=. in 1
+		qui gen rig_ep=. in 1
+
 		mata: st_store(.,.,`plotmat')
 		
 		* Legend
@@ -2096,6 +2113,9 @@ program define binsprobit, eclass
 			label var CB_l "Confidence band: left boundary"
 			label var CB_r "Confidence band: right boundary"
 		}
+		label var binid "Bin: ID"
+		label var lef_ep "Bin: left endpoint"
+		label var rig_ep "Bin: right endpoint"
 	    qui save `"`savedata'"', `replace'
 	 }
 	 ***************************************************************************

@@ -1,0 +1,24 @@
+{
+    "id": "5AA7040C",
+    "path": "~/Dropbox/binscatter/R/binsreg/R/binsglm.R",
+    "project_path": "R/binsglm.R",
+    "type": "r_source",
+    "hash": "1389402024",
+    "contents": "",
+    "dirty": false,
+    "created": 1647233291766.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "cursorPosition": "906,21",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1647355949,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1647355950003,
+    "read_only": false,
+    "read_only_alternatives": []
+}

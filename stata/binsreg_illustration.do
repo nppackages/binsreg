@@ -1,6 +1,6 @@
 /*******************************************************************************
 BINSCATTER 
-Date: 12-OCT-2022 
+Date: 03-Jul-2023 
 Authors: Matias Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
 *******************************************************************************/
 ** hlp2winpdf, cdn(binsreg) replace

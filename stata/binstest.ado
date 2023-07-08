@@ -1,4 +1,4 @@
-*! version 1.2 09-Oct-2022
+*! version 1.3 03-Jul-2023
 
 capture program drop binstest
 program define binstest, eclass
@@ -302,7 +302,7 @@ program define binstest, eclass
 		}
 	 }
 	 if ("`selection'"=="NA") {
-		di as text "Warning: Testing procedures are valid when nbins() is much larger than the  IMSE-optimal choice."
+		di as text "Warning: Testing procedures are valid when nbins() is much larger than the IMSE-optimal choice. Compare your choice with the IMSE-optimal one obtained by binsregselect."
 	 }
 
 	 * mass check?
@@ -392,7 +392,7 @@ program define binstest, eclass
 		}
 	 }
 	 if (`nsims'<2000|`simsgrid'<50) {
-	    di as text "Note: A larger number random draws/evaluation points is recommended to obtain the final results."
+	    di as text "Note: Setting at least nsims(2000) and simsgrid(50) is recommended to obtain the final results."
 	 }
 	 
 	 * Mark sample

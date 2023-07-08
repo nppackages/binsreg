@@ -1,4 +1,4 @@
-clear all  
+clear all 
 set obs 10000000
 
 local rep=10

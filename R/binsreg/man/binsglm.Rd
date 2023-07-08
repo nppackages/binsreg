@@ -41,8 +41,8 @@ The default is \code{deriv=0}, which corresponds to the function itself. If \cod
 \item{dots}{a vector or a logical value. If \code{dots=c(p,s)}, a piecewise polynomial of degree \code{p} with
 \code{s} smoothness constraints is used for point estimation and plotting as "dots".
 The default is \code{dots=c(0,0)}, which corresponds to piecewise constant (canonical binscatter).
-If \code{dots=T}, the default \code{dots=c(0,0)} is used unless the degree \code{p} and smoothness \code{s} selection
-is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+If \code{dots=T}, the default \code{dots=c(0,0)} is used unless the degree \code{p} or smoothness \code{s} selection
+is requested via the option \code{pselect} or \code{sselect} (see more details in the explanation of \code{pselect} and \code{sselect}).
 If \code{dots=F} is specified, the dots are not included in the plot.}
 
 \item{dotsgrid}{number of dots within each bin to be plotted. Given the choice, these dots are point estimates
@@ -53,8 +53,8 @@ the point estimates at the mean of \code{x} within each bin are presented.}
 are presented. By default, they are presented, i.e., \code{dotsgridmean=T}.}
 
 \item{line}{a vector or a logical value. If \code{line=c(p,s)}, a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
-is used for plotting as a "line". If \code{line=T} is specified, \code{line=c(0,0)} is used unless the degree \code{p} and smoothness \code{s}
-selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+is used for plotting as a "line". If \code{line=T} is specified, \code{line=c(0,0)} is used unless the degree \code{p} or smoothness \code{s}
+selection is requested via the option \code{pselect} or \code{sselect} (see more details in the explanation of \code{pselect} and \code{sselect}).
 If \code{line=F} or \code{line=NULL} is specified, the line is not included in the plot.  The default is \code{line=NULL}.}
 
 \item{linegrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
@@ -62,8 +62,8 @@ the point estimate set by the \code{line=c(p,s)} option. The default is \code{li
 which corresponds to 20 evenly-spaced evaluation points within each bin for fitting/plotting the line.}
 
 \item{ci}{a vector or a logical value. If \code{ci=c(p,s)} a piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used for
-constructing confidence intervals. If \code{ci=T} is specified, \code{ci=c(1,1)} is used unless the degree \code{p} and smoothness \code{s}
-selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+constructing confidence intervals. If \code{ci=T} is specified, \code{ci=c(1,1)} is used unless the degree \code{p} or smoothness \code{s}
+selection is requested via the option \code{pselect} or \code{sselect} (see more details in the explanation of \code{pselect} and \code{sselect}).
 If \code{ci=F} or \code{ci=NULL} is specified, the confidence intervals are not included in the plot.  The default is \code{ci=NULL}.}
 
 \item{cigrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
@@ -74,8 +74,8 @@ evenly-spaced evaluation point within each bin for confidence interval construct
 are presented. The default is \code{cigridmean=T}.}
 
 \item{cb}{a vector or a logical value. If \code{cb=c(p,s)}, a the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints is used for
-constructing the confidence band. If the option \code{cb=T} is specified, \code{cb=c(1,1)} is used unless the degree \code{p} and smoothness \code{s}
-selection is requested via the option \code{pselect} (see more details in the explanation of \code{pselect}).
+constructing the confidence band. If the option \code{cb=T} is specified, \code{cb=c(1,1)} is used unless the degree \code{p} or smoothness \code{s}
+selection is requested via the option \code{pselect} or \code{sselect} (see more details in the explanation of \code{pselect} and \code{sselect}).
 If \code{cb=F} or \code{cb=NULL} is specified, the confidence band is not included in the plot. The default is \code{cb=NULL}.}
 
 \item{cbgrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of the point
@@ -149,17 +149,17 @@ is not specified, then the number of bins is selected via the companion command 
 using the full sample.}
 
 \item{randcut}{upper bound on a uniformly distributed variable used to draw a subsample for bins/degree/smoothness selection.
-Observations for which \code{runif()<=#} are used. # must be between 0 and 1.  By default, \code{max(5,000, 0.01n)} observations
-are used if the samples size \code{n>5,000}.}
+Observations for which \code{runif()<=#} are used. # must be between 0 and 1.  By default, \code{max(5000, 0.01n)} observations
+are used if the samples size \code{n>5000}.}
 
 \item{nsims}{number of random draws for constructing confidence bands. The default is
 \code{nsims=500}, which corresponds to 500 draws from a standard Gaussian random vector of size
-\code{[(p+1)*J - (J-1)*s]}. A larger number of draws is recommended to obtain the final results.}
+\code{[(p+1)*J - (J-1)*s]}. Setting at least \code{nsims=2000} is recommended to obtain the final results.}
 
 \item{simsgrid}{number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
 the supremum operation needed to construct confidence bands. The default is \code{simsgrid=20}, which corresponds to 20 evenly-spaced
 evaluation points within each bin for approximating the supremum operator.
-A larger number of evaluation points is recommended to obtain the final results.}
+Setting at least \code{simsgrid=50} is recommended to obtain the final results.}
 
 \item{simsseed}{seed for simulation.}
 
@@ -188,7 +188,7 @@ variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty r
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2023c)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -232,7 +232,9 @@ a numeric vector. For more details, see \code{\link{lm}}.}
        \item \code{data.polyci} Data for confidence intervals based on polynomial regression. It contains: \code{x}, evaluation points;
                                \code{bin}, the indicator of bins;
                                \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin;
-                               \code{polyci.l} and \code{polyci.r}, left and right boundaries of each confidence intervals.}}
+                               \code{polyci.l} and \code{polyci.r}, left and right boundaries of each confidence intervals.
+       \item \code{data.bin} Data for the binning structure. It contains: \code{bin.id}, ID for each bin;
+                               \code{left.endpoint} and \code{right.endpoint}, left and right endpoints of each bin.}}
        \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
        \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
        \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
@@ -246,7 +248,8 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 }
 \description{
 \code{binsglm} implements binscatter generalized linear regression with robust inference procedures and plots, following the
-            results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
+            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2023a)} and
+            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2023b)}.
             Binscatter provides a flexible way to describe the relationship between two variables, after
             possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
             The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -260,9 +263,11 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  binsglm(d, x, family=binomial())
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a: \href{https://arxiv.org/abs/1902.09608}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf}{On Binscatter}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b: \href{https://arxiv.org/abs/1902.09615}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsregselect}}, \code{\link{binstest}}.
@@ -272,7 +277,7 @@ Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princet
 
 Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
 
-Max H. Farrell, University of Chicago, Chicago, IL. \email{max.farrell@chicagobooth.edu}.
+Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
 
 Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
 }

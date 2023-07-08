@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2 09-OCT-2022}{...}
+{* *! version 1.3 03-JUL-2023}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -46,7 +46,8 @@ satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
 {p 4 8} {cmd:binstest} implements binscatter-based hypothesis testing procedures for parametric functional forms of
 and nonparametric shape restrictions on the regression function estimators, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":Cattaneo, Crump, Farrell and Feng (2022a)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf":Cattaneo, Crump, Farrell and Feng (2023a)} and
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf":Cattaneo, Crump, Farrell and Feng (2023b)}.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used
 to implement binscatter in a data-driven (optimal) way and inference procedures are based on robust bias correction.
 Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg},
@@ -54,7 +55,7 @@ Binned scatter plots based on different models can be constructed using the comp
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2022b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2023c)}.
 Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
@@ -115,8 +116,9 @@ Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this op
 {p 4 8} {opt testmodel(testmodelopt)} sets the degree of polynomial and the number of smoothness constraints for parametric model specification testing. 
 If {cmd:testmodel(p s)} is specified, a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints is used.
 If {cmd:testmodel(T)} or {cmd:testmodel()} is specified, 
-{cmd:testmodel(1 1)} is used unless the degree {it:p} and smoothness {it:s} selection
-is requested via the option {cmd:pselect()} (see more details in the explanation of {cmd:pselect()}). 
+{cmd:testmodel(1 1)} is used unless the degree {it:p} or smoothness {it:s} selection
+is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation 
+of {cmd:pselect()} and {cmd:sselect()}). 
 The default is {cmd:testmodel()}.
 {p_end}
 
@@ -135,8 +137,9 @@ Each parametric model is represented by a variable named as {it:binsreg_fit*}, w
 for nonparametric shape restriction testing. If {cmd:testshape(p s)} is specified, 
 a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints is used. 
 If {cmd:testshape(T)} or {cmd:testshape()} is specified, 
-{cmd:testshape(1 1)} is used unless the degree {it:p} and smoothness {it:s} selection
-is requested via the option {cmd:pselect()} (see more details in the explanation of {cmd:pselect()}). 
+{cmd:testshape(1 1)} is used unless the degree {it:p} or smoothness {it:s} selection
+is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation 
+of {cmd:pselect()} and {cmd:sselect()}). 
 The default is {cmd:testshape()}.
 {p_end}
 
@@ -191,7 +194,7 @@ If not specified, the data-driven ROT selector is used instead.
 {p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample 
 for bins/degree/smoothness selection.
 Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1. 
-By default, max(5,000, 0.01n) observations are used if the samples size n>5,000.
+By default, max(5000, 0.01n) observations are used if the samples size n>5000.
 {p_end}
 
 {p 4 8} {opt pselect(numlist)} specifies a list of numbers within which the degree of polynomial {it:p} for 
@@ -216,14 +219,14 @@ or {cmd:sselect()}, {cmd:nbins(#)} must be specified.
 
 {p 4 8} {opt nsims(#)} specifies the number of random draws for hypothesis testing.
 The default is {cmd:nsims(500)}, which corresponds to 500 draws from a standard Gaussian random vector of size [(p+1)*J - (J-1)*s].
-A large number of random draws is recommended to obtain the final results.
+Setting at least {cmd:nsims(2000)} is recommended to obtain the final results.
 {p_end}
 
 {p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid within each bin used
 for evaluation of the supremum (infimum or Lp metric) operation needed for hypothesis testing procedures.
 The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within
 each bin for approximating the supremum (infimum or Lp metric) operator.
-A large number of evaluation points is recommended to obtain the final results.
+Setting at least {cmd:simsgrid(50)} is recommended to obtain the final results.
 {p_end}
 
 {p 4 8} {opt simsseed(#)} sets the seed for simulations.
@@ -233,7 +236,7 @@ A large number of evaluation points is recommended to obtain the final results.
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar}
 (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2022b) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2023c) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -324,14 +327,19 @@ Default is {cmd:usegtools(off)}.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Binscatter.pdf":On Binscatter}.
-{it:arXiv:1902.09608}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf":On Binscatter}.
+Working Paper.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2022b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf":Binscatter Regressions}.
-{it:arXiv:1902.09615}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf":Nonlinear Binscatter Methods}.
+Working Paper.
+{p_end}
+
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023c.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf":Binscatter Regressions}.
+Working Paper.
 {p_end}
 
 
@@ -346,8 +354,8 @@ Default is {cmd:usegtools(off)}.
 {browse "mailto:richard.crump@ny.frb.org":richard.crump@ny.frb.org}.
 {p_end}
 
-{p 4 8} Max H. Farrell, University of Chicago, Chicago, IL.
-{browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.
+{p 4 8} Max H. Farrell, UC Santa Barbara, Santa Barbara, CA.
+{browse "mailto:mhfarrell@gmail.com":mhfarrell@gmail.com}.
 {p_end}
 
 {p 4 8} Yingjie Feng, Tsinghua University, Beijing, China.
