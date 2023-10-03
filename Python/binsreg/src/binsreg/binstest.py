@@ -5,8 +5,8 @@
 
 import numpy as np
 import warnings
-from .binsregselect import binsregselect # from .binsregselect import binsregselect
-from .funs import *  # from .funs import *
+from binsreg.binsregselect import binsregselect
+from binsreg.funs import *
 
 def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 quantile=None, deriv=0, at=None, nolink=False,
@@ -320,7 +320,6 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         nwvar = ncol(w)
     else: nwvar = 0
     if cluster is not None:
-        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)
@@ -540,7 +539,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             warnings.warn("p for testing <= p for bin selection not suggested.")
         
     if (nsims<2000 or simsgrid<50):
-        print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+        print("Note: Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.")
     
     #################################################
     localcheck = massadj = True
@@ -592,7 +591,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             warnings.warn("Degree for testmodel has been changed. It must be greater than the degree for bin selection.")
     
     if selection=="U":
-        warnings.warn("Testing procedures are valid when nbins is much larger than the IMSE-optimal choice.")
+        warnings.warn("Testing procedures are valid when nbins is much larger than the IMSE-optimal choice. Compare your choice with the IMSE-optimal one obtained by binsregselect().")
 
     nL = nR = nT = 0
     if testshapel is not None:

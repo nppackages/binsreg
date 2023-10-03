@@ -9,7 +9,7 @@ Matias D. Cattaneo (<cattaneo@princeton.edu>)
 
 Richard K. Crump (<richard.crump@ny.frb.org>)
 
-Max H. Farrell (<max.farrell@chicagobooth.edu>)
+Max H. Farrell (<maxhfarrell@ucsb.edu>)
 
 Yingjie Feng (<fengyingjiepku@gmail.com>)
 
@@ -56,10 +56,13 @@ For overviews and introductions, see [NP Packages website](https://nppackages.gi
 
 ### Software and Implementation
 
-- Cattaneo, Crump, Farrell and Feng (2022): [Binscatter Regressions](https://arxiv.org/abs/1902.09615).<br>
+- Cattaneo, Crump, Farrell and Feng (2023c): [Binscatter Regressions](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf).<br>
 Working paper, prepared for Stata Journal.
 
 ### Technical and Methodological
 
-- Cattaneo, Crump, Farrell and Feng (2022): [On Binscatter](https://arxiv.org/abs/1902.09608).<br>
+- Cattaneo, Crump, Farrell and Feng (2023a): [On Binscatter](https://mdcattaneo.github.io/papers/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf).<br>
+Working paper.
+
+- Cattaneo, Crump, Farrell and Feng (2023b): [Nonlinear Binscatter Methods](https://mdcattaneo.github.io/papers/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf).<br>
 Working paper.

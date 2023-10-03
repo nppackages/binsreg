@@ -16,7 +16,7 @@ from binsreg import *
 ####### used for STATA ################
 #######################################
 
-data = pd.read_csv("binsreg_sim.csv")
+data = pd.read_csv("Python/binsreg_sim.csv")
 data.describe().T
 
 ####################################

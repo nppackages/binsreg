@@ -893,11 +893,14 @@ def binsreg_checklocalmass(x, J, es, knot = None):
     return np.min(n)
 
 def colWeightedMeans(x, w = None):
-    if w is not None: x = x*w
-    return x.mean(0)
+    if w is not None: 
+        x = x*(w/np.sum(w))
+        return x.sum(0)
+    else:
+        return x.mean(0)
 
 def colWeightedMedians(x, w = None):
-    if w is not None: x = x*w
+    if w is not None: x = x*(w/np.sum(w))
     return np.quantile(x,0.5,0)
 
 # grid generation
@@ -921,8 +924,8 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
                 cov_type = None, cluster = None, **optmize):
     
     aux0=aux1=aux2=aux3=aux4=aux5=''
-    if cov_type=='cluster': 
-        aux3 = 'cov_type = cov_type, cov_kwds={\'groups\': cluster}'
+    if cluster is not None: 
+        aux3 = 'cov_type = "cluster", cov_kwds={\'groups\': cluster}'
     elif cov_type is not None:
         aux3 = 'cov_type = cov_type'
 
@@ -1247,7 +1250,9 @@ def genV(y, x, w, p, s, deriv, knot, vce, cluster=None, weights=None):
     else: basis = B
     if w is not None: P = np.column_stack((B, w))
     else: P = B
-    model  = binsreg_fit(y, P, weights = weights, cov_type=vce, cluster=cluster)
+    # if weights is None: model = sm.OLS(y, P).fit(cov_type='cluster', cov_kwds = {"groups":cluster})
+    # else: model = sm.WLS(y, P, weights = weights).fit(cov_type='cluster', cov_kwds = {"groups":cluster})
+    model = binsreg_fit(y, P, weights = weights, cov_type = vce, cluster = cluster)
     pos = np.invert(np.isnan(model.params[:k]))
     k_new = np.sum(pos)
     vcv = model.cov_params()[:k_new,:k_new]
@@ -1260,7 +1265,8 @@ def genB(y, x, w, p, s, deriv, knot, weights=None):
     k  = ncol(B)
     if w is not None: P = np.column_stack((B, w))
     else: P = B
-    beta = binsreg_fit(y, P, weights = weights).params[:k]
+    if weights is None: beta = sm.OLS(y, P).fit().params[:k]
+    else: beta = sm.WLS(y, P, weights = weights).fit().params[:k]
     pos  = np.invert(np.isnan(beta))
     basis = binsreg_spdes(x=x, p=p+1, s=s+1, knot=knot, deriv=p+1)
     mu_m_fit  = (np.matmul(basis[:,pos],beta[pos])).reshape(-1,1)
@@ -1294,7 +1300,7 @@ def binsregselect_dpi(y, x, w, p, s, deriv, vce, nbinsrot, es=False, cluster=Non
     imse_b = genB(y, x, w, p, s, deriv, knot, weights=weights) * J_rot**(2*(ord-deriv))
 
     # variance constant
-    imse_v = genV(y, x, w, p, s, deriv, knot, vce, cluster, weights=weights) / (J_rot**(1+2*deriv))
+    genV_val = genV(y, x, w, p, s, deriv, knot, vce, cluster, weights=weights)
+    imse_v = genV_val / (J_rot**(1+2*deriv))
     J_dpi = int(np.ceil((imse_b*2*(ord-deriv)/((1+2*deriv)*imse_v))**(1/(2*ord+1))))
-
     return J_dpi, imse_v, imse_b

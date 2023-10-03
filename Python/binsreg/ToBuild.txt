@@ -13,7 +13,7 @@ python3 -m pip install ./dist/binsreg-X.X.X.tar.gz
 python3 -m twine upload --repository testpypi dist/*
 
 # To upload to PyPI (Official Version)
-python3 -m twine upload dist/*
+python3 -m twine upload dist/binsreg-X.X.X*
 
 # To install (Test Version)
 pip install -i https://test.pypi.org/simple/ binsreg==0.0.XX

@@ -10,8 +10,8 @@ import warnings
 from plotnine import (ggplot,theme_bw,aes,
                       geom_point,geom_line,geom_errorbar,geom_ribbon,
                       scale_color_manual,guide_legend,theme,labs,xlim)
-from .binsregselect import binsregselect    # .binsregselect to build package
-from .funs import *   # .funs to build package
+from binsreg.binsregselect import binsregselect
+from binsreg.funs import *
 
 def binsreg(y, x, w=None, data=None, at=None, deriv=0,
             dots=None, dotsgrid=0, dotsgridmean=True, line=None, linegrid=20,
@@ -84,7 +84,8 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     line : tuple  or bool
         If line=(p,s), a piecewise polynomial of degree  p with s smoothness constraints is used for plotting as a "line".
         If line=True is specified, line=(0,0) is used unless the degree p and smoothness selection is requested via the option
-        pselect (see more details in the explanation of pselect). If line=False or line=None (default) is specified, the line is not included in the plot.
+        pselect (see more details in the explanation of pselect and sselect). If line=False or line=None (default) is specified, the line is not included in the plot.
+        The default is line=None.
 
     linegrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
@@ -204,14 +205,14 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     nsims : int
         Number of random draws for constructing confidence bands. The default is nsims=500,
         which corresponds to 500 draws from a standard Gaussian random vector of size
-        [(p+1)*J - (J-1)*s]. A larger number of draws is recommended to obtain the final results.
+        [(p+1)*J - (J-1)*s]. Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.
     
     simsgrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
         the supremum operation needed to construct confidence bands and hypothesis testing
         procedures. The default is simsgrid=20, which corresponds to 20 evenly-spaced
         evaluation points within each bin for approximating the supremum operator.
-        A larger number of draws is recommended to obtain the final results.
+        Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.
     
     simsseed : int 
         Simulation seed.
@@ -374,7 +375,6 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     if by is not None:
         by = np.array(by).reshape(len(by),-1)
     if cluster is not None:
-        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)
@@ -655,7 +655,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         
     if selection=="U":
         if ((ci is not None) or (cb is not None)):
-            warnings.warn("Confidence intervals/bands are valid when nbins is much larger than the IMSE-optimal choice.")
+            warnings.warn("Confidence intervals/bands are valid when nbins is much larger than the IMSE-optimal choice. Compare your choice with the IMSE-optimal one obtained by binsregselect().")
 
     localcheck = massadj = True
     fewmasspoints = False
@@ -1111,7 +1111,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         if w_sub is not None: 
             if isinstance(at, str):
                 if at=="mean":
-                    eval_w = colWeightedMeans(x=w_sub, w=weights_sub)
+                    eval_w = colWeightedMeans(x=w_sub, w=None)
                 elif at=="median":
                     eval_w = colWeightedMedians(x=w_sub, w=weights_sub)
                 elif at=="zero": eval_w = np.zeros(nwvar)
@@ -1378,7 +1378,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
             cbON = True
         if cbON:
             if (nsims<2000 or simsgrid<50):
-                print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+                print("Note: Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.")
             grid = binsreg_grid(knot, cbgrid, addmore=True)
             cb_x = grid.eval
             cb_bin = grid.bin
@@ -1436,6 +1436,18 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
                                       'cb_r': cb_r})
             data_by.cb = data_cb
         cval_by += [cval]
+
+        # save bin information
+        if nbins==len(knot):
+            data_by.data_bin  = pd.DataFrame({'group' : str(byvals[i]),
+                                              'bin_id' : np.arange(1,nbins+1),
+                                              'left_endpoint' : knot,
+                                              'right.endpoint': knot})
+        else:
+            data_by.data_bin =  pd.DataFrame({'group' : str(byvals[i]),
+                                              'bin_id' : np.arange(1,nbins+1),
+                                              'left_endpoint' : knot[:-1],
+                                              'right.endpoint': knot[1:]})
 
         # Save all data for each group
         data_plot += [data_by]

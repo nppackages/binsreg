@@ -10,8 +10,8 @@ import warnings
 from plotnine import (ggplot,theme_bw,aes,
                       geom_point,geom_line,geom_errorbar,geom_ribbon,
                       scale_color_manual,guide_legend,theme,labs,xlim)
-from .binsregselect import binsregselect  # .binsregselect to build package
-from .funs import *   # .funs to build package
+from binsreg.binsregselect import binsregselect
+from binsreg.funs import *
 
 def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, deriv=0, nolink = False,
             dots=None, dotsgrid=0, dotsgridmean=True, line=None, linegrid=20,
@@ -98,7 +98,8 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     line : tuple  or bool
         If line=(p,s), a piecewise polynomial of degree  p with s smoothness constraints is used for plotting as a "line".
         If line=True is specified, line=(0,0) is used unless the degree p and smoothness selection is requested via the option
-        pselect (see more details in the explanation of pselect). If line=False or line=None (default) is specified, the line is not included in the plot.
+        pselect (see more details in the explanation of pselect and sselect). If line=False or line=None (default) is specified, the line is not included in the plot.
+        The default is line=None.
 
     linegrid : int
         Number of evaluation points of an evenly-spaced grid within each bin used for evaluation of
@@ -391,7 +392,6 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     if by is not None:
         by = np.array(by).reshape(len(by),-1)
     if cluster is not None:
-        warnings.warn("cluster-robust standard error not implemented in statsmodel.api; HC standard error used instead.")
         cluster = np.array(cluster).reshape(len(cluster),-1)
     if weights is not None:
         weights = np.array(weights).reshape(len(weights),-1)
@@ -682,7 +682,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         
     if selection=="U":
         if ((ci is not None) or (cb is not None)):
-            warnings.warn("Confidence intervals/bands are valid when nbins is much larger than the IMSE-optimal choice.")
+            warnings.warn("Confidence intervals/bands are valid when nbins is much larger than the IMSE-optimal choice. Compare your choice with the IMSE-optimal one obtained by binsregselect().")
     
     localcheck = massadj = True
     fewmasspoints = False
@@ -1481,7 +1481,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             cbON = True
         if cbON:
             if (nsims<2000 or simsgrid<50):
-                print("Note: A large number of random draws/evaluation points is recommended to obtain the final results.")
+                print("Note: Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.")
             grid = binsreg_grid(knot, cbgrid, addmore=True)
             cb_x = grid.eval
             cb_bin = grid.bin
@@ -1556,6 +1556,18 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                                       'cb_r': cb_r})
             data_by.cb = data_cb
         cval_by += [cval]
+
+        # save bin information
+        if nbins==len(knot):
+            data_by.data_bin  = pd.DataFrame({'group' : str(byvals[i]),
+                                              'bin_id' : np.arange(1,nbins+1),
+                                              'left_endpoint' : knot,
+                                              'right.endpoint': knot})
+        else:
+            data_by.data_bin =  pd.DataFrame({'group' : str(byvals[i]),
+                                              'bin_id' : np.arange(1,nbins+1),
+                                              'left_endpoint' : knot[:-1],
+                                              'right.endpoint': knot[1:]})
 
         # Save all data for each group
         data_plot += [data_by]
