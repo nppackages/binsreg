@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: binsreg
-Version: 2.1.3
+Version: 2.1.4
 Summary: Implements binscatter methods, including partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures.
 Home-page: https://github.com/nppackages/binsreg
 Author: Ricardo Masini

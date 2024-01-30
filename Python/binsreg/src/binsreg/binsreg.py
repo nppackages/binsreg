@@ -302,6 +302,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
                               and nbins_by (number of bins for each group), and byvals (number of distinct values in by).
                               The degree and smoothness of polynomials for dots, line, confidence intervals and confidence band for each group are saved
                               in dots, line, ci, and cb.
+        NOTE: The 'data_by' pandas dataframe index runs from 0 to nbins-1. However, the variable 'data_by.bin_id' runs from 1 to bins.
     
     See Also
     --------
@@ -1111,7 +1112,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         if w_sub is not None: 
             if isinstance(at, str):
                 if at=="mean":
-                    eval_w = colWeightedMeans(x=w_sub, w=None)
+                    eval_w = colWeightedMeans(x=w_sub, w=weights_sub)
                 elif at=="median":
                     eval_w = colWeightedMedians(x=w_sub, w=weights_sub)
                 elif at=="zero": eval_w = np.zeros(nwvar)
@@ -1149,7 +1150,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
             if eval_w is not None:
                 coeff_w = model.params[k:]
                 coeff_w[np.isnan(coeff_w)] = 0
-                dots_fit = dots_fit + np.sum(eval_w * coeff_w)
+                dots_fit = dots_fit + np.dot(eval_w, coeff_w)
             data_dots = pd.DataFrame({'group': str(byvals[i]),
                                       'x': dots_x,
                                       'fit': dots_fit})

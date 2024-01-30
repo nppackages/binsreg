@@ -1302,5 +1302,7 @@ def binsregselect_dpi(y, x, w, p, s, deriv, vce, nbinsrot, es=False, cluster=Non
     # variance constant
     genV_val = genV(y, x, w, p, s, deriv, knot, vce, cluster, weights=weights)
     imse_v = genV_val / (J_rot**(1+2*deriv))
+    aux_num = (imse_b*2*(ord-deriv)/((1+2*deriv)*imse_v))
+    aux= np.ceil((imse_b*2*(ord-deriv)/((1+2*deriv)*imse_v))**(1/(2*ord+1)))
     J_dpi = int(np.ceil((imse_b*2*(ord-deriv)/((1+2*deriv)*imse_v))**(1/(2*ord+1))))
     return J_dpi, imse_v, imse_b
