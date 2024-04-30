@@ -63,7 +63,7 @@ Working paper, prepared for _Stata Journal_.
 ### Technical and Methodological
 
 - Cattaneo, Crump, Farrell and Feng (2024): [On Binscatter](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf).<br>
-_American Economic Review_, forthcoming.<br>
+_American Economic Review_ 114(5): 1488-1514.<br>
 [Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf)
 
 - Cattaneo, Crump, Farrell and Feng (2024): [Nonlinear Binscatter Methods](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf).<br>
