@@ -1116,7 +1116,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
                 elif at=="median":
                     eval_w = colWeightedMedians(x=w_sub, w=weights_sub)
                 elif at=="zero": eval_w = np.zeros(nwvar)
-            else: eval_w = np.array(at).reshape(-1,1)
+            else: eval_w = np.array(at).reshape(-1)
         else: eval_w = None
 
         ##################################
