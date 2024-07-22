@@ -1,0 +1,26 @@
+{
+    "id": "DB3E3B9B",
+    "path": "~/Dropbox/binscatter/R/binsreg/R/binsqreg.R",
+    "project_path": "R/binsqreg.R",
+    "type": "r_source",
+    "hash": "3593590219",
+    "contents": "",
+    "dirty": false,
+    "created": 1715149484453.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "1,95",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1721118829,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1721118829559,
+    "read_only": false,
+    "read_only_alternatives": []
+}

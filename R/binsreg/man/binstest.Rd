@@ -71,8 +71,9 @@ corresponds to one boundary of a one-sided hypothesis test to the right of the f
 corresponds to one boundary of a two-sided hypothesis test of the form
 \code{H0: sup_x |mu(x)-a|=0}.}
 
-\item{lp}{an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
-corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive integer \code{q}.}
+\item{lp}{an Lp metric used for parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
+corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive number \code{q>=1}. Note that
+\code{lp=Inf} ("sup-norm") has to be used for testing one-sided shape restrictions.}
 
 \item{bins}{a vector. If \code{bins=c(p,s)}, it sets the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
 for data-driven (IMSE-optimal) selection of the partitioning/binning scheme.
@@ -133,7 +134,7 @@ variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty r
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2023c)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -150,13 +151,13 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 
 \item{subset}{optional rule specifying a subset of observations to be used.}
 
-\item{numdist}{number of distinct for selection. Used to speed up computation.}
+\item{numdist}{number of distinct values for selection. Used to speed up computation.}
 
 \item{numclust}{number of clusters for selection. Used to speed up computation.}
 
-\item{estmethodopt}{a list of optional arguments used by \code{\link{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).}
+\item{estmethodopt}{a list of optional arguments used by \code{\link[quantreg]{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).}
 
-\item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link{boot.rq}}.}
+\item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link[quantreg]{boot.rq}}.}
 }
 \value{
 \item{\code{testshapeL}}{Results for \code{testshapel}, including: \code{testvalL}, null boundary values;
@@ -180,8 +181,8 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 \description{
 \code{binstest} implements binscatter-based hypothesis testing procedures for parametric functional
             forms of and nonparametric shape restrictions on the regression function of interest, following the results
-            in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2023a)} and
-            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2023b)}.
+            in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
+            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
             If the binning scheme is not set by the user,
             the companion function \code{\link{binsregselect}} is used to implement binscatter in a
             data-driven way and inference procedures are based on robust bias correction.
@@ -194,11 +195,11 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  summary(est)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}.

@@ -1,0 +1,26 @@
+{
+    "id": "D16147CA",
+    "path": "~/Dropbox/binscatter/R/binsreg/R/binsreg.R",
+    "project_path": "R/binsreg.R",
+    "type": "r_source",
+    "hash": "877706562",
+    "contents": "",
+    "dirty": false,
+    "created": 1715149300510.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "1,100",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1721118822,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1721118822829,
+    "read_only": false,
+    "read_only_alternatives": []
+}

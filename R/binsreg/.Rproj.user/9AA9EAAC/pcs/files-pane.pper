@@ -1,13 +1,9 @@
 {
     "sortOrder": [
         {
-            "columnIndex": 4,
-            "ascending": false
-        },
-        {
             "columnIndex": 2,
             "ascending": true
         }
     ],
-    "path": "~/Dropbox/binscatter/R/binsreg/R"
+    "path": "~/Dropbox/00000_shared--software--binscatter/R/binsreg/R"
 }

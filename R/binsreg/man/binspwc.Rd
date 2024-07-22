@@ -13,7 +13,8 @@ binspwc(y, x, w = NULL, data = NULL, estmethod = "reg",
   simsseed = NULL, vce = NULL, cluster = NULL, asyvar = F,
   dfcheck = c(20, 30), masspoints = "on", weights = NULL,
   subset = NULL, numdist = NULL, numclust = NULL, estmethodopt = NULL,
-  ...)
+  plot = FALSE, dotsngrid = 0, plotxrange = NULL, plotyrange = NULL,
+  colors = NULL, symbols = NULL, level = 95, ...)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -53,8 +54,9 @@ is requested via the option \code{pselect} or \code{sselect} (see more details i
 \item{testtype}{type of pairwise comparison test. The default is \code{testtype="two-sided"}, which corresponds to a two-sided test of the form \code{H0: mu_1(x)=mu_2(x)}.
 Other options are: \code{testtype="left"} for the one-sided test form \code{H0: mu_1(x)<=mu_2(x)} and \code{testtype="right"} for the one-sided test of the form \code{H0: mu_1(x)>=mu_2(x)}.}
 
-\item{lp}{an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. The default is \code{lp=Inf}, which
-corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive integer \code{q}.}
+\item{lp}{an Lp metric used for pairwise comparison tests. The default is \code{lp=Inf}, which
+corresponds to the sup-norm of the t-statistic. Other options are \code{lp=q} for a positive number \code{q>=1}.
+Note that \code{lp=Inf} ("sup-norm") has to be used for one-sided tests (\code{testtype="left"} or \code{testtype="right"}).}
 
 \item{bins}{A vector. If \code{bins=c(p,s)}, it sets the piecewise polynomial of degree \code{p} with \code{s} smoothness constraints
 for data-driven (IMSE-optimal) selection of the partitioning/binning scheme. The default is \code{bins=c(0,0)}, which corresponds to the piecewise constant.}
@@ -120,7 +122,7 @@ variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty r
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2023c)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -137,19 +139,47 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 
 \item{subset}{optional rule specifying a subset of observations to be used.}
 
-\item{numdist}{number of distinct for selection. Used to speed up computation.}
+\item{numdist}{number of distinct values for selection. Used to speed up computation.}
 
 \item{numclust}{number of clusters for selection. Used to speed up computation.}
 
-\item{estmethodopt}{a list of optional arguments used by \code{\link{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).}
+\item{estmethodopt}{a list of optional arguments used by \code{\link[quantreg]{rq}} (for quantile regression) or \code{\link{glm}} (for fitting generalized linear models).}
 
-\item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link{boot.rq}}.}
+\item{plot}{if true, the confidence bands for all pairwise group comparisons (the difference between each pair of groups) are plotted.
+The degree and smoothness of polynomials used to construct the bands are the same as those specified for testing. The default is \code{plot=F}, i.e.,
+no plot is generated.}
+
+\item{dotsngrid}{number of dots to be added to the plot for confidence bands. Given the choice, these dots are point estimates of the difference between groups
+evaluated over an evenly-spaced grid within the common support of all groups. The default is \code{dotsngrid=0}, i.e., no point estimates
+are added. Whenever possible, the degree and smoothness of the polynomial for these point estimates are the same as those for selecting the number of bins;
+otherwise, the degree and smoothness specified for testing are used.}
+
+\item{plotxrange}{a vector. \code{plotxrange=c(min, max)} specifies a range of the x-axis for plotting. Observations outside the range are dropped in the plot.}
+
+\item{plotyrange}{a vector. \code{plotyrange=c(min, max)} specifies a range of the y-axis for plotting. Observations outside the range are dropped in the plot.}
+
+\item{colors}{an ordered list of colors for plotting the difference between each pair of groups.}
+
+\item{symbols}{an ordered list of symbols for plotting the difference between each pair of groups.}
+
+\item{level}{nominal confidence level for confidence band estimation. Default is \code{level=95}.}
+
+\item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link[quantreg]{boot.rq}}.}
 }
 \value{
 \item{\code{stat}}{A matrix. Each row corresponds to the comparison between two groups. The first column is the test statistic. The second and third columns give the corresponding group numbers.
                           The null hypothesis is \code{mu_i(x)<=mu_j(x)}, \code{mu_i(x)=mu_j(x)}, or \code{mu_i(x)>=mu_j(x)} for group i (given in the second column) and group j (given in the third column).
                           The group number corresponds to the list of group names given by \code{opt$byvals}.}
        \item{\code{pval}}{A vector of p-values for all pairwise group comparisons.}
+       \item{\code{bins_plot}}{A \code{ggplot} object for confidence bands plot.}
+       \item{\code{data.plot}}{A list containing data for plotting. Each item is a sublist of data frames for comparison between each pair of groups. Each sublist may contain the following data frames:
+       \itemize{
+       \item \code{data.dots} Data for dots. It contains: \code{pair}, the name for the pair of groups; \code{x}, evaluation points; \code{diff.fit}, point estimates of the group difference;
+       \item \code{data.cb} Data for confidence bands. It contains: \code{pair}, the name for the pair of groups; \code{x}, evaluation points; \code{cb.fit}, point estimates of the group difference;
+                            \code{cb.se}, standard errors; \code{cb.l} and \code{cb.r}, left and right boundaries of the confidence band.
+       }
+       }
+       \item{\code{cval.cb}}{A vector of critical values for all pairwise group comparisons.}
        \item{\code{imse.var.rot}}{Variance constant in IMSE expansion, ROT selection.}
        \item{\code{imse.bsq.rot}}{Bias constant in IMSE expansion, ROT selection.}
        \item{\code{imse.var.dpi}}{Variance constant in IMSE expansion, DPI selection.}
@@ -159,9 +189,10 @@ a numeric vector. For more details, see \code{\link{lm}}.}
                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
 }
 \description{
-\code{binspwc} implements hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the
-            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2023a)} and
-            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2023b)}.
+\code{binspwc} implements hypothesis testing procedures for pairwise group comparison of binscatter estimators
+            and plots confidence bands for the difference in binscatter parameters between each pair of groups, following the
+            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
+            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
             If the binning scheme is not set by the user, the companion function
             \code{\link{binsregselect}} is used to implement binscatter in a data-driven way. Binned scatter plots based on different methods
             can be constructed using the companion functions \code{\link{binsreg}}, \code{\link{binsqreg}} or \code{\link{binsglm}}.
@@ -174,11 +205,11 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  binspwc(y,x, by=t)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf}{On Binscatter}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}, \code{\link{binstest}}.

@@ -1,0 +1,41 @@
+rm(list=ls(all.names = TRUE))
+# install.packages("/Users/max/Library/CloudStorage/Dropbox/Research/00_shared_folders/00_software/00000_shared--software--binscatter/R/binsreg_1.0.2.tar.gz", repos = NULL)
+library(binsreg)
+library(dplyr)
+sessionInfo()
+
+data <- read.csv(file='CCFF_2022_ACS_1.csv')
+data <- subset(data, select=c(uninsuredRate,perCapitaIncome,percentBachelorsEdu,medianAge,percentHsEdu,ueRate))
+# Rescale Uninsured Rate to be between 0 and 1
+data$uninsuredRate = data$uninsuredRate/100
+
+w <- select(data, c('percentBachelorsEdu','medianAge','percentHsEdu','ueRate'))
+
+
+
+## -------------------------------------------------
+## Testing with fractional L_p norms. What should we do here?
+## -------------------------------------------------
+#These tests run and give sensible looking output. Should we put a check into the code or return some error?
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, lp=0.5, testmodelpoly=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, w, lp=0.5, testmodelpoly=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, lp=3.1415, testmodelpoly=0, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+
+
+## -------------------------------------------------
+## Always use sup norm for one sided shapes
+## -------------------------------------------------
+#These seem to work fine, norm changes and test statistic changes
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, testshape2=0, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, lp=2, testshape2=0, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, testshape2=0, deriv=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, lp=2, testshape2=0, deriv=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+
+#This always uses sup
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, testshapel=0, deriv=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, lp=2, testshapel=0, deriv=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, w, testshapel=0, deriv=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+summary(  binstest(data$uninsuredRate, data$perCapitaIncome, w, lp=2, testshapel=0, deriv=1, estmethod="glm", nolink=FALSE, family=binomial(), randcut=1, nsims=1000, simsgrid = 50) )
+
