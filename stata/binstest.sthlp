@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3 03-JUL-2023}{...}
+{* *! version 1.4 15-JUL-2024}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -46,8 +46,8 @@ satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
 {p 4 8} {cmd:binstest} implements binscatter-based hypothesis testing procedures for parametric functional forms of
 and nonparametric shape restrictions on the regression function estimators, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf":Cattaneo, Crump, Farrell and Feng (2023a)} and
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf":Cattaneo, Crump, Farrell and Feng (2023b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":Cattaneo, Crump, Farrell and Feng (2024a)} and
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf":Cattaneo, Crump, Farrell and Feng (2024b)}.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used
 to implement binscatter in a data-driven (optimal) way and inference procedures are based on robust bias correction.
 Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg},
@@ -55,7 +55,7 @@ Binned scatter plots based on different models can be constructed using the comp
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2023c)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2024c)}.
 Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
@@ -158,9 +158,10 @@ form H0: {it:sup_x |mu(x)-a|=0}.
 
 {dlgtab:Metric for Hypothesis Testing}
 
-{p 4 8} {opt lp(metric)} specifies an Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing.
-The default is {cmd:lp(inf)},
-which corresponds to the sup-norm. Other options are {cmd:lp(q)} for a positive integer {cmd:q}.
+{p 4 8} {opt lp(metric)} specifies an Lp metric used for parametric model specification testing and/or shape restriction testing.
+The default is {cmd:lp(inf)}, which corresponds to the sup-norm. 
+Other options are {cmd:lp(q)} for a positive number {cmd:q} no less than 1.
+Note that {cmd:lp(inf)} ("sup norm") has to be used for testing one-sided shape restrictions.
 {p_end}
  
 {dlgtab:Binning/Degree/Smoothness Selection}
@@ -236,7 +237,7 @@ Setting at least {cmd:simsgrid(50)} is recommended to obtain the final results.
 
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks, which take into account the number of unique values of {it:indvar}
 (i.e., adjusting for the number of mass points), number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2023c) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -327,18 +328,18 @@ Default is {cmd:usegtools(off)}.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":On Binscatter}.
+American Economic Review 114(5): 1488-1514.
+{p_end}
+
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf":Nonlinear Binscatter Methods}.
 Working Paper.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf":Nonlinear Binscatter Methods}.
-Working Paper.
-{p_end}
-
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023c.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf":Binscatter Regressions}.
 Working Paper.
 {p_end}
 

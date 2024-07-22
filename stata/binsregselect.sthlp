@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3 03-JUL-2023}{...}
+{* *! version 1.4 15-JUL-2024}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}
@@ -126,7 +126,7 @@ and {it:binsreg_bin}, indicating which bin the evaluation point belongs to.
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks,
 which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points),
 number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2023c) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -216,18 +216,18 @@ Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023a.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_AER.pdf":On Binscatter}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":On Binscatter}.
+American Economic Review 114(5): 1488-1514.
+{p_end}
+
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf":Nonlinear Binscatter Methods}.
 Working Paper.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_NonlinearBinscatter.pdf":Nonlinear Binscatter Methods}.
-Working Paper.
-{p_end}
-
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2023c.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2023_Stata.pdf":Binscatter Regressions}.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf":Binscatter Regressions}.
 Working Paper.
 {p_end}
 

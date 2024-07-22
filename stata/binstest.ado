@@ -1,4 +1,4 @@
-*! version 1.3 03-Jul-2023
+*! version 1.4 15-JUL-2024
 
 capture program drop binstest
 program define binstest, eclass
@@ -337,7 +337,21 @@ program define binstest, eclass
 	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
 	 
 	 * default for lp metric
+	 if ("`lp'"!="") {
+	     capture confirm number `lp'
+		 if (_rc==0) {
+		    if (`lp'<1) {
+			  di as error "lp has to be no less than 1."
+			  exit
+			}
+			if ("`testshapel'"!=""|"`testshaper'"!="") {
+			  di as error "Sup norm lp(inf) has to be used for testing one-sided shape restrictions."
+			  exit
+			}
+		 }
+	 }
 	 if ("`lp'"=="") local lp "inf"
+
 	 
 	 * use gtools commands instead?
 	 if ("`usegtools'"=="off") local usegtools ""

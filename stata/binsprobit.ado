@@ -1,4 +1,4 @@
-*! version 1.3 06-Jul-2023  
+*! version 1.4 15-Jul-2024 
 
 capture program drop binsprobit
 program define binsprobit, eclass
@@ -18,7 +18,7 @@ program define binsprobit, eclass
 			nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
 			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
 			vce(passthru) level(real 95) asyvar(string) ///
-			noplot savedata(string asis) replace ///
+			noplot savedata(string) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
 	 
 	 *********************************************
@@ -1976,7 +1976,7 @@ program define binsprobit, eclass
 	 *******************************************
 	 *************** Plotting ******************
 	 *******************************************
-	 clear
+	 drop _all
 	 if ("`plotcmd'"!="") {
 	    * put data back to STATA
 		mata: st_local("nr", strofreal(rows(`plotmat'))) 
