@@ -58,7 +58,7 @@ net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/m
 ### Software and Implementation
 
 - Cattaneo, Crump, Farrell and Feng (2024): [Binscatter Regressions](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf).<br>
-Working paper, prepared for _Stata Journal_.
+_Stata Journal_, forthcoming.
 
 ### Technical and Methodological
 
