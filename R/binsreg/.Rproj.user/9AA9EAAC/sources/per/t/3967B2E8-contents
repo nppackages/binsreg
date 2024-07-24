@@ -1,7 +1,7 @@
 Package: binsreg
 Type: Package
 Title: Binscatter Estimation and Inference
-Date: 2024-07-16
+Date: 2024-07-23
 Version: 1.1
 Author: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
 Maintainer: Yingjie Feng <fengyingjiepku@gmail.com>

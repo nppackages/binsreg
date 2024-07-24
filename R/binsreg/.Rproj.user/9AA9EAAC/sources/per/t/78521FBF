@@ -1,6 +1,6 @@
 {
     "id": "78521FBF",
-    "path": "~/Dropbox/00000_shared--software--binscatter/R/binsreg/R/binspwc.R",
+    "path": "~/Dropbox/binscatter/R/binsreg/R/binspwc.R",
     "project_path": "R/binspwc.R",
     "type": "r_source",
     "hash": "58690602",
@@ -12,8 +12,8 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "904,25",
-        "scrollLine": "896"
+        "cursorPosition": "102,84",
+        "scrollLine": "0"
     },
     "folds": "",
     "lastKnownWriteTime": 1721642013,

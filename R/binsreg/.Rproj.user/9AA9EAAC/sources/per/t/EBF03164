@@ -1,0 +1,28 @@
+{
+    "id": "EBF03164",
+    "path": "~/Dropbox/binscatter/R/binsreg/man/binspwc.Rd",
+    "project_path": "man/binspwc.Rd",
+    "type": "r_doc",
+    "hash": "1101026794",
+    "contents": "",
+    "dirty": false,
+    "created": 1721739765731.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "145,81",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1721642135,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1721642135,
+    "read_only": true,
+    "read_only_alternatives": [
+        "R/binspwc.R"
+    ]
+}

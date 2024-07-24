@@ -1,9 +1,9 @@
 {
     "id": "3967B2E8",
-    "path": "~/Dropbox/00000_shared--software--binscatter/R/binsreg/DESCRIPTION",
+    "path": "~/Dropbox/binscatter/R/binsreg/DESCRIPTION",
     "project_path": "DESCRIPTION",
     "type": "dcf",
-    "hash": "3547164611",
+    "hash": "3212740105",
     "contents": "",
     "dirty": false,
     "created": 1721639725032.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "10,15",
+        "cursorPosition": "7,388",
         "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1721642132,
+    "lastKnownWriteTime": 1721738027,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1721642132,
+    "last_content_update": 1721738027740,
     "read_only": false,
     "read_only_alternatives": []
 }
