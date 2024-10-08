@@ -1359,7 +1359,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 basis_polyci = nanmat(npolyci_x, polyreg+1)
                 for j in range(polyreg+1):
                     if j>=deriv:
-                        basis_polyci[:,j] = polyci_x^(j-deriv)*factorial(j)/factorial(j-deriv)
+                        basis_polyci[:,j] = polyci_x**(j-deriv)*factorial(j)/factorial(j-deriv)
                     else:
                         basis_polyci[:,j] = np.zeros(npolyci_x)
                 

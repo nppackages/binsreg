@@ -1303,7 +1303,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
                 basis_polyci = nanmat(npolyci_x, polyreg+1)
                 for j in range(polyreg+1):
                     if j>=deriv:
-                        basis_polyci[:,j] = polyci_x^(j-deriv)*factorial(j)/factorial(j-deriv)
+                        basis_polyci[:,j] = polyci_x**(j-deriv)*factorial(j)/factorial(j-deriv)
                     else:
                         basis_polyci[:,j] = np.repeat(0, npolyci_x)
                 
