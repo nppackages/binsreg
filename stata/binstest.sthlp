@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4 15-JUL-2024}{...}
+{* *! version 1.5 19-OCT-2024}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}

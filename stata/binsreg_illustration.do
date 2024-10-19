@@ -3,6 +3,15 @@ BINSCATTER
 Date: 15-Jul-2024 
 Authors: Matias Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
 *******************************************************************************/
+
+ hlp2pdf binsreg, replace
+ hlp2pdf binsqreg, replace
+ hlp2pdf binslogit, replace
+ hlp2pdf binsprobit, replace
+ hlp2pdf binstest, replace
+ hlp2pdf binspwc, replace
+ hlp2pdf binsregselect, replace
+
 ** hlp2winpdf, cdn(binsreg) replace
 ** hlp2winpdf, cdn(binsqreg) replace
 ** hlp2winpdf, cdn(binslogit) replace

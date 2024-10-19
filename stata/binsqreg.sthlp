@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4 15-JUL-2024}{...}
+{* *! version 1.5 19-OCT-2024}{...}
 {viewerjumpto "Syntax" "binsqreg##syntax"}{...}
 {viewerjumpto "Description" "binsqreg##description"}{...}
 {viewerjumpto "Options" "binsqreg##options"}{...}
@@ -374,7 +374,7 @@ Default is {cmd:usegtools(off)}.
 {p 8 8} . {stata binsqreg price weight length foreign, quantile(0.5)}{p_end}
 
 {p 4 8} Add confidence intervals and confidence band{p_end}
-{p 8 8} . {stata binsqreg price weight length foreign, quantile(0.5) ci(3 3) cb(3 3) nbins(5)}{p_end}
+{p 8 8} . {stata binsqreg price weight length foreign, quantile(0.5) ci(T) cb(T) nbins(5)}{p_end}
 
 {marker stored_results}{...}
 {title:Stored results}

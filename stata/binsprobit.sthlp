@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4 15-JUL-2024}{...}
+{* *! version 1.5 19-OCT-2024}{...}
 {viewerjumpto "Syntax" "binsprobit##syntax"}{...}
 {viewerjumpto "Description" "binsprobit##description"}{...}
 {viewerjumpto "Options" "binsprobit##options"}{...}
@@ -369,7 +369,7 @@ Default is {cmd:usegtools(off)}.
 {p 8 8} . {stata binsprobit foreign weight mpg}{p_end}
 
 {p 4 8} Add confidence intervals and confidence band{p_end}
-{p 8 8} . {stata binsprobit foreign weight mpg, ci(1 1) nbins(5)}{p_end}
+{p 8 8} . {stata binsprobit foreign weight mpg, ci(T) cb(T) nbins(5)}{p_end}
 
 
 {marker stored_results}{...}

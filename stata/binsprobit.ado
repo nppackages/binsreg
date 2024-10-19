@@ -1,4 +1,4 @@
-*! version 1.4 15-Jul-2024 
+*! version 1.5 19-OCT-2024 
 
 capture program drop binsprobit
 program define binsprobit, eclass

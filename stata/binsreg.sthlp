@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4 15-JUL-2024}{...}
+{* *! version 1.5 19-Oct-2024}{...}
 {viewerjumpto "Syntax" "binsreg##syntax"}{...}
 {viewerjumpto "Description" "binsreg##description"}{...}
 {viewerjumpto "Options" "binsreg##options"}{...}
@@ -398,7 +398,7 @@ Default is {cmd:usegtools(off)}.
 {p 8 8} . {stata binsreg mpg weight foreign}{p_end}
 
 {p 4 8} Add confidence intervals and confidence band{p_end}
-{p 8 8} . {stata binsreg mpg weight foreign, ci(3 3) cb(3 3) nbins(13)}{p_end}
+{p 8 8} . {stata binsreg mpg weight foreign, ci(T) cb(T) nbins(13)}{p_end}
 
 {p 4 8} Run binscatter regression by group{p_end}
 {p 8 8} . {stata binsreg mpg weight, by(foreign)}{p_end}
