@@ -25,7 +25,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     Description
     -----------
     binspwc implements hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the
-    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
+    results in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
     If the binning scheme is not set by the user, the companion function binsregselect is used to implement binscatter in a
     data-driven way. Binned scatter plots based on different methods can be constructed using the companion functions binsreg, binsqreg or binsglm.
     Hypothesis testing for parametric functional forms of and shape restrictions on the regression function of interest 
@@ -68,7 +68,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     deriv : int 
         Derivative order of the regression function for estimation, testing and plotting.
         The default is deriv=0, which corresponds to the function itself. 
-        If nolink=True, deriv cannot be greater than 1.
+        If nolink=False, deriv cannot be greater than 1.
     
     at: str
         Value of w at which the estimated function is evaluated.  The default is at="mean", which corresponds to
@@ -94,9 +94,10 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         testtype="right" for the one-sided test of the form H0: mu_1(x)>=mu_2(x).
     
     lp : float or numpy.inf
-        A Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. 
+        An Lp metric used for pairwise comparison tests.
         The default is lp=numpy.inf, which corresponds to the sup-norm of the t-statistic. 
-        Other options are lp= p for a positive real p.
+        Other options are lp= p for a positive real number p>=1.
+        Note that lp=numpy.inf ("sup-norm") has to be used for one-sided tests (testtype="left" or testtype="right").
 
     bins : tuple
         If bins=(p,s), it sets the piecewise polynomial of degree p with s smoothness constraints
@@ -117,16 +118,14 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     
     pselect : array
         vector of numbers within which the degree of polynomial p for point estimation is selected.
-        Piecewise polynomials of the selected optimal degree p are used to construct dots or line if dots=True or line=True is specified,
-        whereas piecewise polynomials of degree p+1 are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
-        Note: To implement the degree or smoothness selection, in addition to pselect or sselect, nbins=# must be specified.
+        If the selected optimal degree is p, then piecewise polynomials of degree p+1 are used to conduct pairwise group comparison. 
+        Note: To implement the degree or smoothness selection, in addition to pselect or sselect, bynbins=# must be specified.
     
     sselect : array
-        vector of numbers within which the number of constrains s for point estimation is selected.
-        Piecewise polynomials of the selected optimal s smoothness constrains are used to construct dots or line if dots=True or line=True is specified,
-        whereas piecewise polynomials of s+1 smoothness constrains are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
-        If not specified, for each value p supplied in the option pselect, only the piecewise polynomial
-        with the maximum smoothness is considered, i.e., s=p.
+        vector of numbers within which the number of smoothness constraints s for point estimation is selected. 
+        If the selected optimal smoothness is s, then piecewise polynomials with s+1 smoothness constraints are 
+        used to conduct pairwise group comparison. If not specified, for each value p supplied in the option pselect, 
+        only the piecewise polynomial with the maximum smoothness is considered, i.e., s=p.
 
     binsmethod : str
         Method for data-driven selection of the number of bins. The default is binsmethod="dpi",
@@ -186,7 +185,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.
+        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -405,7 +404,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     
     if bins is not None:
         if len_bins==1: binsp = binss = bins
-        elif len_bins==2: binsp, binsp = bins
+        elif len_bins==2: binsp, binss = bins
         else: raise Exception("Bins not correctly specified.")
         plist = binsp
         slist = binss
@@ -486,22 +485,33 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         if bins[0] < bins[1]:
             raise Exception("p<s not allowed.")
 
-    if len(pwc)==2:
-        if pwc[0] < pwc[1]:
-            raise Exception("p<s not allowed.")
-    
-    if len(pwc)>=1 and not isinstance(pwc,bool) and pwc[0]<deriv:
-            raise Exception("p for test cannot be smaller than deriv.")
-
-    if len(pwc)>=1 and (bins is not None and len(bins)>=1) and pwc[0]<=bins[0]:
-            warnings.warn("p for testing > p for bin selection is suggested.")
+    if ((pwc is not None) and (not isinstance(pwc,bool))):
+        if len(pwc)>=1: 
+            if (bins is not None and len(bins)>=1) and pwc[0]<=bins[0]:
+                warnings.warn("p for testing > p for bin selection is recommended!")
+            if pwc[0]<deriv:
+                raise Exception("p for test cannot be smaller than deriv.")
+        if len(pwc)==2:
+            if pwc[0] < pwc[1]:
+                raise Exception("p<s not allowed.")
     
     if nsims<2000 or simsgrid<50:
         print("Note: Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.")
   
+    if lp < 1:
+        raise Exception("lp has to be no less than 1.")
+    
+    if ((testtype=="left") or (testtype=="right")):
+        if np.isfinite(lp):
+            raise Exception("Sup-norm (lp=numpy.inf) has to be used for one-sided tests.")
+
+
     ##################################################
     # Prepare options
-    tsha_p, tsha_s = pwc
+    if np.isscalar(pwc):
+        tsha_p = tsha_s = pwc    
+    else:
+        tsha_p, tsha_s = pwc
     if isinstance(tsha_p,bool): tsha_p = None
     if tsha_s is not None and np.isnan(tsha_s): tsha_s = tsha_p
 
@@ -882,7 +892,10 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
                 if eval_w is not None:
                     basis_sha_0 = np.column_stack((basis_0, np.outer(np.ones(nrow(basis_0)), eval_w)))
                     basis_sha_1 = np.column_stack((basis_sha_1, np.outer(np.ones(nrow(basis_sha_1)), np.zeros(nwvar))))
-                basis_all = linkinv_2(fit_0)*fit_sha_i*basis_sha_0 + pred_sha_0*basis_sha_1
+                else:
+                    basis_sha_0 = basis_0
+                    basis_sha_1 = basis_sha_1
+                basis_all = ((linkinv_2(fit_0)*fit_sha_i)[:,None])*basis_sha_0 + pred_sha_0[:,None]*basis_sha_1
                 fit_sha_i = pred_sha_0 * fit_sha_i
                 se_sha_i  = binsreg_pred(basis_all, model=model, type="se", avar=True)[1]
         else:

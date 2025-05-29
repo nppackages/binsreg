@@ -33,7 +33,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     Description
     -----------
     binsglm implements binscatter generalized linear regression with robust inference procedures and plots, following the
-    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
+    results in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
     Binscatter provides a flexible way to describe the mean relationship between two variables, after
     possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
     The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -77,7 +77,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     deriv : int 
         Derivative order of the regression function for estimation, testing and plotting.
         The default is deriv=0, which corresponds to the function itself. 
-        If nolink=True, deriv cannot be greater than 1.
+        If nolink=False, deriv cannot be greater than 1.
 
     dots: tuple or bool
         If dots=(p,s), a piecewise polynomial of degree p with s smoothness constraints is used for
@@ -258,7 +258,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -284,7 +284,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
 
     **optimize : 
         Optional arguments to the GLM statsmodels.api optimizer. 
-        For futher details \href{https://www.statsmodels.org/dev/generated/statsmodels.genmod.generalized_linear_model.GLM.fit.html}{sm.GLM.fit()}.
+        For futher details, visit https://www.statsmodels.org/dev/generated/statsmodels.genmod.generalized_linear_model.GLM.fit.html.
         
     
     Returns
@@ -449,6 +449,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     if (isinstance(dots, bool) and not dots):
             dots = None
             dotsgrid = 0
+            dotsgridmean = False
     if (isinstance(line, bool) and not line): line = None
     if (isinstance(ci, bool) and not ci): ci = None
     if (isinstance(cb, bool) and not cb): cb = None
@@ -579,39 +580,33 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         if binspos!="es" and binspos!="qs":
             raise Exception("Binspos incorrectly specified.")
         
-    if len(dots)==2:
-        if dots[0] < dots[1]:
-            raise Exception("p<s not allowed.")
+    if ((dots is not None) and (not isinstance(dots,bool))):
+        if dots[0] < deriv:
+            raise Exception("p<deriv not allowed.")
+        if len(dots)==2:
+           if dots[0] < dots[1]:
+              raise Exception("p<s not allowed.")
 
-    if line is not None:
+    if ((line is not None) and (not isinstance(line,bool))):
+        if line[0] < deriv:
+            raise Exception("p<deriv not allowed.")
         if len(line)==2:
             if line[0]<line[1]:
                 raise Exception("p<s not allowed.")
 
-    if ci is not None:
+    if ((ci is not None) and (not isinstance(ci,bool))):
+        if ci[0] < deriv:
+            raise Exception("p<deriv not allowed.")
         if len(ci)==2:
             if ci[0]<ci[1]:
                 raise Exception("p<s not allowed.")
 
-    if cb is not None:
+    if ((cb is not None) and (not isinstance(cb,bool))):
+        if cb[0] < deriv:
+            raise Exception("p<deriv not allowed.")
         if len(cb)==2:
             if cb[0]<cb[1]:
                 raise Exception("p<s not allowed.")
-
-    # if dots[0] < deriv:
-    #     raise Exception("p<deriv not allowed.")
-
-    # if line is not None:
-    #     if line[0] < deriv:
-    #         raise Exception("p<deriv not allowed.")
-
-    # if ci is not None:
-    #     if ci[0] < deriv:
-    #         raise Exception("p<deriv not allowed.")
-
-    # if cb is not None:
-    #     if cb[0] < deriv:
-    #         raise Exception("p<deriv not allowed.")
 
     if binsmethod!="dpi" and binsmethod!="rot":
         raise Exception("Bin selection method incorrectly specified.")
@@ -628,10 +623,12 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     ##################################################
     # Prepare options
     if dots is None:
-        dots_p, dots_s  = None
+        dots_p = dots_s  = None
     else:
-        if np.isscalar(dots): dots_p = dots_s = line
-        if len(dots)==2: dots_p, dots_s = dots
+        if np.isscalar(dots): 
+            dots_p = dots_s = dots
+        else:
+            dots_p, dots_s = dots
         if isinstance(dots_p,bool): dots_p = None
         if np.isnan(dots_s): dots_s = dots_p
     dotsmean = 0
@@ -641,8 +638,10 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         linegrid = 0
         line_p = line_s = None
     else:
-        if np.isscalar(line): line_p = line_s = line
-        if len(line)==2: line_p, line_s = line
+        if np.isscalar(line): 
+            line_p = line_s = line
+        else:
+            line_p, line_s = line
         if isinstance(line_p,bool): line_p = None
         if np.isnan(line_s): line_s = line_p
 
@@ -652,8 +651,10 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         cigrid  = cimean = 0
         ci_p = ci_s = None
     else:
-        if np.isscalar(ci): ci_p = ci_s = ci
-        if len(ci)==2: ci_p, ci_s = ci
+        if np.isscalar(ci):
+            ci_p = ci_s = ci
+        else:
+            ci_p, ci_s = ci
         if isinstance(ci_p,bool): ci_p = None
         if np.isnan(ci_s): ci_s = ci_p
 
@@ -661,8 +662,10 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         cbgrid = 0
         cb_p = cb_s = None
     else:
-        if np.isscalar(cb): cb_p = cb_s = cb
-        if len(cb)==2: cb_p, cb_s = cb
+        if np.isscalar(cb): 
+            cb_p = cb_s = cb
+        else:
+            cb_p, cb_s = cb
         if isinstance(cb_p,bool): cb_p = None
         if np.isnan(cb_s): cb_s = cb_p
 
@@ -676,8 +679,8 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             warnings.warn("Degree for ci has been changed. It must be greater than the degree for dots.")
 
         if ((cb_p is not None) and (cb_p<=dots_p)):
-            cb_p = dots.p+1
-            cb_s = cb.p
+            cb_p = dots_p+1
+            cb_s = cb_p
             warnings.warn("Degree for cb has been changed. It must be greater than the degree for dots.")
         
     if selection=="U":
@@ -754,7 +757,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     knotlistON = False
     if not isinstance(binspos, str):
         nbins = len(binspos)+1
-        knot = np.concatenate([[xmin], np.sort(x),[xmax]])
+        knot = np.concatenate([[xmin], np.sort(binspos),[xmax]])
         position = "User-specified"
         es = False
         knotlistON = True
@@ -1245,7 +1248,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 if deriv == 0:
                     dots_fit = linkinv(dots_fit)    
                 if deriv == 1:
-                    basis_0  = binsreg_spdes(eval=dots.x, p=dots.p, s=dots.s, knot=knot, deriv=0)
+                    basis_0  = binsreg_spdes(x=dots_x, p=dots_p, s=dots_s, knot=knot, deriv=0)
                     pred_dots_0 = binsreg_pred(basis_0, model_dots, type = "xb", deriv=0, wvec=eval_w)
                     dots_fit = linkinv_1(pred_dots_0[0]) * dots_fit
             
@@ -1288,7 +1291,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 if deriv == 0:
                     line_fit = linkinv(line_fit)
                 if deriv == 1:
-                    basis_0  = binsreg_spdes(eval=dots.x, p=dots.p, s=dots.s, knot=knot, deriv=0)
+                    basis_0  = binsreg_spdes(x=line_x, p=line_p, s=line_s, knot=knot, deriv=0)
                     pred_line_0 = binsreg_pred(basis_0, model_line, type = "xb", deriv=0, wvec=eval_w)
                     line_fit = linkinv_1(pred_line_0[0]) * line_fit
             
@@ -1359,7 +1362,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 basis_polyci = nanmat(npolyci_x, polyreg+1)
                 for j in range(polyreg+1):
                     if j>=deriv:
-                        basis_polyci[:,j] = polyci_x^(j-deriv)*factorial(j)/factorial(j-deriv)
+                        basis_polyci[:,j] = polyci_x**(j-deriv)*factorial(j)/factorial(j-deriv)
                     else:
                         basis_polyci[:,j] = np.zeros(npolyci_x)
                 
@@ -1457,8 +1460,11 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                     if eval_w is not None:
                         basis_ci_0 = np.column_stack((basis_0, np.outer(np.ones(nrow(basis_0)), eval_w)))
                         basis_ci   = np.column_stack((basis, np.outer(np.ones(nrow(basis)), np.zeros(nwvar))))
-                    basis_all = linkinv_2(fit_0)*ci_pred_fit*basis_ci_0 + pred_ci_0*basis_ci
-                    ci_pred_fit = pred_ci_0 * ci_pred_fit
+                    else:
+                        basis_ci_0 = basis_0
+                        basis_ci   = basis
+                    basis_all = ((linkinv_2(fit_0)*ci_fit)[:,None])*basis_ci_0 + pred_ci_0[:,None]*basis_ci
+                    ci_pred_fit = pred_ci_0 * ci_fit
                     ci_pred_se  = binsreg_pred(basis_all, model=model_ci, type="se", avar=True)[1]    
 
             ci_arm = norm.ppf(alpha)*ci_pred_se
@@ -1527,9 +1533,12 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 else:
                     if eval_w is not None:
                         basis_cb_0 = np.column_stack((basis_0, np.outer(np.ones(nrow(basis_0)), eval_w)))
-                        basis_cb = np.column_stack((basis, np.outer(np.ones(nrow(basis)), np.zeros(nwvar))))
-                    basis_all = linkinv_2(fit_0)*cb_pred_fit*basis_cb_0 + pred_cb_0*basis_cb
-                    cb_pred_fit = pred_cb_0 * cb_pred_fit
+                        basis_cb   = np.column_stack((basis, np.outer(np.ones(nrow(basis)), np.zeros(nwvar))))
+                    else:
+                        basis_cb_0 = basis_0
+                        basis_cb   = basis
+                    basis_all = ((linkinv_2(fit_0)*cb_fit)[:,None])*basis_cb_0 + pred_cb_0[:,None]*basis_cb
+                    cb_pred_fit = pred_cb_0 * cb_fit
                     cb_pred_se  = binsreg_pred(basis_all, model=model_cb, type="se", avar=True)[1]
     
             ### Compute cval ####
@@ -1636,13 +1645,12 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
 
         # Add legend ?
         if not legendoff:
-            binsplot = binsplot + scale_color_manual(name=legendTitle, values = bycolors[1:ngroup],
-                                    guide=guide_legend(override_aes = list(
-                                    linetype=bylpatterns[1:ngroup], shape=bysymbols[1:ngroup])))
+            binsplot = binsplot + scale_color_manual(name=legendTitle, values = bycolors,
+                                    guide = guide_legend(override_aes ={"linetype":bylpatterns,"shape":bysymbols}))
         else:
             binsplot = binsplot + theme(legend_position="none")
         binsplot = binsplot + labs(x=xname, y=yname) + xlim(xsc_min, xsc_max)
-        print(binsplot)
+        ggplot.show(binsplot)
 
     ######################################
     ########### Output ###################

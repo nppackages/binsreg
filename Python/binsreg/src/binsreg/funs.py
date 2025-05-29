@@ -7,6 +7,7 @@
 import numpy as np
 from numpy.linalg import solve
 from scipy.stats import norm
+from scipy.special import factorial
 import warnings
 import statsmodels.api as sm
 
@@ -816,7 +817,7 @@ def factorial(n):
 
 # n choose k function
 def comb(n,k):
-    return np.math.factorial(n)//np.math.factorial(k)//np.math.factorial(n-k)
+    return factorial(n)//factorial(k)//factorial(n-k)
 
 def nanmat(n, m = None):
     # Create a (n x m) matrix of NaN
@@ -1138,8 +1139,8 @@ def imse_vcons(p, deriv):
     for r in range(deriv,n):
         for c in range(deriv,n):
             Vderiv[r,c] = (1/(r + c + 1 - 2*deriv)
-                            *(np.math.factorial(r)/np.math.factorial(r-deriv))
-                            *(np.math.factorial(c)/np.math.factorial(c-deriv)))
+                            *(factorial(r)/factorial(r-deriv))
+                            *(factorial(c)/factorial(c-deriv)))
     return np.sum(np.diag(np.linalg.solve(V, Vderiv)))
 
 
@@ -1147,7 +1148,7 @@ def imse_vcons(p, deriv):
 def imse_bcons(p, deriv, s = 0):
     ord = p + 1
     if (s == 0):
-        bcons = 1 / (2*(ord-deriv) + 1) / np.math.factorial(ord-deriv)**2 / comb(2*(ord-deriv), ord-deriv)**2
+        bcons = 1 / (2*(ord-deriv) + 1) / factorial(ord-deriv)**2 / comb(2*(ord-deriv), ord-deriv)**2
     else:
         if p==0: bernum = 1/6
         elif p==1: bernum = 1/30
@@ -1157,7 +1158,7 @@ def imse_bcons(p, deriv, s = 0):
         elif p==5: bernum = 691/2730
         elif p==6: bernum = 7/6
         else: raise Exception ("p>6 not allowed.")
-        bcons = 1 / np.math.factorial(2*(ord-deriv)) * bernum
+        bcons = 1 / factorial(2*(ord-deriv)) * bernum
     return bcons
 
 # ROT selector
@@ -1197,7 +1198,7 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
     bcons = imse_bcons(p, deriv = deriv, s=0)
     mu_m_hat = 0
     for j in range(p,p+qrot):
-        mu_m_hat +=  x**(j-p)*beta[j+1]*np.math.factorial(j+1)/np.math.factorial(j-p)
+        mu_m_hat +=  x**(j-p)*beta[j+1]*factorial(j+1)/factorial(j-p)
     mu_m_hat = mu_m_hat**2
     if not es:
         mu_m_hat = mu_m_hat/(fz.reshape(-1,1)**(2*ord-2*deriv))
@@ -1239,7 +1240,7 @@ def bernpoly(x, p):
 # bias term
 def bias(x, p, s, deriv, knot):
     h, tl = binsreg_locate(x, knot)
-    bern = bernpoly((x-tl)/h, p+1-deriv) / np.math.factorial(p+1-deriv) * (h**(p+1-deriv))
+    bern = bernpoly((x-tl)/h, p+1-deriv) / factorial(p+1-deriv) * (h**(p+1-deriv))
     return bern
 
 # IMSE V cons

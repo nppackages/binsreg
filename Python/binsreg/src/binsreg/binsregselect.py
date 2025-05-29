@@ -110,7 +110,7 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://arxiv.org/abs/1902.09615}{Cattaneo, Crump, Farrell and Feng (2022b)} for more details.
+        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:

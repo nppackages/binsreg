@@ -2,4 +2,4 @@ numpy
 pandas>=2.0.0
 scipy
 statsmodels>=0.14.0
-plotnine
+plotnine>=0.13.0

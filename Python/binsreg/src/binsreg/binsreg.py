@@ -32,7 +32,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     Description
     -----------
     binsreg implements binscatter least squares regression with robust inference procedures and plots, following the
-    results in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
+    results in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
     Binscatter provides a flexible way to describe the mean relationship between two variables, after
     possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
     The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -246,7 +246,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -314,7 +314,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     >>> y = numpy.sin(x) + numpy.random.normal(size = 500)
     >>> out = binsreg(y,x)
     >>> print(out)
-    >>> out.sumary()
+    >>> out.summary()
     '''
 
     # param for internal use
@@ -421,6 +421,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
     if (isinstance(dots, bool) and not dots):
             dots = None
             dotsgrid = 0
+            dotsgridmean = False
     if (isinstance(line, bool) and not line): line = None
     if (isinstance(ci, bool) and not ci): ci = None
     if (isinstance(cb, bool) and not cb): cb = None
@@ -548,39 +549,34 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         if binspos!="es" and binspos!="qs":
             raise Exception("Binspos incorrectly specified.")
         
-    if dots is not None and len(dots)==2:
-        if dots[0] < dots[1]:
-            raise Exception("p<s not allowed.")
+    if ((dots is not None) and (not isinstance(dots,bool))):
+        if dots[0] < deriv:
+            raise Exception("p<deriv not allowed.")
+        if len(dots)==2:
+           if dots[0] < dots[1]:
+              raise Exception("p<s not allowed.")
 
-    if line is not None:
+    if ((line is not None) and (not isinstance(line,bool))):
+        if line[0] < deriv:
+            raise Exception("p<deriv not allowed.")
         if len(line)==2:
             if line[0]<line[1]:
                 raise Exception("p<s not allowed.")
 
-    if ci is not None:
+    if ((ci is not None) and (not isinstance(ci,bool))):
+        if ci[0] < deriv:
+            raise Exception("p<deriv not allowed.")
         if len(ci)==2:
             if ci[0]<ci[1]:
                 raise Exception("p<s not allowed.")
 
-    if cb is not None:
+    if ((cb is not None) and (not isinstance(cb,bool))):
+        if cb[0] < deriv:
+            raise Exception("p<deriv not allowed.")
         if len(cb)==2:
             if cb[0]<cb[1]:
                 raise Exception("p<s not allowed.")
 
-    # if dots is not None and dots[0] < deriv:
-    #     raise Exception("p<deriv not allowed.")
-
-    # if line is not None:
-    #     if line[0] < deriv:
-    #         raise Exception("p<deriv not allowed.")
-
-    # if ci is not None:
-    #     if ci[0] < deriv:
-    #         raise Exception("p<deriv not allowed.")
-
-    # if cb is not None:
-    #     if cb[0] < deriv:
-    #         raise Exception("p<deriv not allowed.")
 
     if binsmethod!="dpi" and binsmethod!="rot":
         raise Exception("Bin selection method incorrectly specified.")
@@ -602,7 +598,10 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         dots_p = None
         dots_s = None
     else:
-        dots_p, dots_s = dots
+        if np.isscalar(dots):
+            dots_p, dots_s = dots, dots
+        else: 
+            dots_p, dots_s = dots
         if isinstance(dots_p, bool): dots_p = None
         if np.isnan(dots_s): dots_s = dots_p
     dotsmean = 0
@@ -613,7 +612,10 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         line_p = None
         line_s = None
     else:
-        line_p, line_s = line
+        if np.isscalar(line):
+            line_p, line_s = line, line
+        else: 
+            line_p, line_s = line
         if isinstance(line_p, bool): line_p = None
         if np.isnan(line_s): line_s = line_p
 
@@ -625,7 +627,10 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         ci_p = None
         ci_s = None
     else:
-        ci_p, ci_s = ci
+        if np.isscalar(ci):
+            ci_p, ci_s = ci, ci
+        else: 
+            ci_p, ci_s = ci
         if isinstance(ci_p, bool): ci_p = None
         if np.isnan(ci_s): ci_s = ci_p
 
@@ -634,7 +639,10 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         cb_p = None
         cb_s = None
     else:
-        cb_p, cb_s = cb
+        if np.isscalar(cb):
+            cb_p, cb_s = cb, cb
+        else:
+            cb_p, cb_s = cb
         if isinstance(cb_p, bool): cb_p = None
         if np.isnan(cb_s): cb_s = cb_p 
 
@@ -1293,7 +1301,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
                 basis_polyci = nanmat(npolyci_x, polyreg+1)
                 for j in range(polyreg+1):
                     if j>=deriv:
-                        basis_polyci[:,j] = polyci_x^(j-deriv)*factorial(j)/factorial(j-deriv)
+                        basis_polyci[:,j] = polyci_x**(j-deriv)*factorial(j)/factorial(j-deriv)
                     else:
                         basis_polyci[:,j] = np.repeat(0, npolyci_x)
                 
@@ -1517,7 +1525,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
         else:
             binsplot = binsplot + theme(legend_position="none")
         binsplot = binsplot + labs(x=xname, y=yname) + xlim(xsc_min, xsc_max)
-        print(binsplot)
+        ggplot.show(binsplot)
 
     ######################################
     ########### Output ###################

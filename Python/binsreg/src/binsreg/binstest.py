@@ -28,7 +28,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     -----------
     binstest implements binscatter-based hypothesis testing procedures for parametric functional
     forms of and nonparametric shape restrictions on the regression function of interest, following the results
-    in \href{https://arxiv.org/abs/1902.09608}{Cattaneo, Crump, Farrell and Feng (2022a)}.
+    in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
     If the binning scheme is not set by the user, the companion function binsregselect is used to implement binscatter in a
     data-driven way and inference procedures are based on robust bias correction.
     Binned scatter plots based on different methods can be constructed using the companion functions binsreg,
@@ -71,7 +71,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     deriv : int 
         Derivative order of the regression function for estimation, testing and plotting.
         The default is deriv=0, which corresponds to the function itself. 
-        If nolink=True, deriv cannot be greater than 1.
+        If nolink=False, deriv cannot be greater than 1.
     
     at: str
         Value of w at which the estimated function is evaluated.  The default is at="mean", which corresponds to
@@ -119,9 +119,10 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         H0: sup_x |mu(x)-a|=0.
     
     lp : float or numpy.inf
-        A Lp metric used for (two-sided) parametric model specification testing and/or shape restriction testing. 
+        An Lp metric used for parametric model specification testing and/or shape restriction testing. 
         The default is lp=numpy.inf, which corresponds to the sup-norm of the t-statistic. 
-        Other options are lp= p for a positive real p.
+        Other options are lp= p for a positive real number p>=1.
+        Note that lp=numpy.inf ("sup-norm") has to be used for testing one-sided shape restrictions.
 
     bins : tuple
         If bins=(p,s), it sets the piecewise polynomial of degree p with s smoothness constraints
@@ -134,16 +135,16 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         If a vector with more than one number is specified, the number of bins is selected within this vector via the companion command binsregselect.
     
     pselect : array
-        vector of numbers within which the degree of polynomial p for point estimation is selected.
-        Piecewise polynomials of the selected optimal degree p are used to construct dots or line if dots=True or line=True is specified,
-        whereas piecewise polynomials of degree p+1 are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
+        vector of numbers within which the degree of polynomial p for point estimation is selected. 
+        If the selected optimal degree is p, then piecewise polynomials of degree p+1 are used to conduct 
+        testing for nonparametric shape restrictions or parametric model specifications. 
         Note: To implement the degree or smoothness selection, in addition to pselect or sselect, nbins=# must be specified.
     
     sselect : array
-        vector of numbers within which the number of constrains s for point estimation is selected.
-        Piecewise polynomials of the selected optimal s smoothness constrains are used to construct dots or line if dots=True or line=True is specified,
-        whereas piecewise polynomials of s+1 smoothness constrains are used to construct confidence intervals or confidence band if ci=True or cb=True is specified.
-        If not specified, for each value p supplied in the option pselect, only the piecewise polynomial
+        vector of numbers within which the number of smoothness constraints s for point estimation is selected. 
+        If the selected optimal smoothness is s, then piecewise polynomials of s+1 smoothness constraints are used 
+        to conduct testing for nonparametric shape restrictions or parametric model specifications. 
+        If not specified, for each value p supplied in the option pselect, only the piecewise polynomial 
         with the maximum smoothness is considered, i.e., s=p.
     
     binspos : array
@@ -202,7 +203,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2022_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2021b)} for more details.
+        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -414,7 +415,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     
     if bins is not None:
         if isinstance(nbins,int): binsp = binss = bins
-        elif len(bins)==2: binsp, binsp = bins
+        elif len(bins)==2: binsp, binss = bins
         else: raise Exception("Bins not correctly specified.")
         plist = binsp
         slist = binss
@@ -508,19 +509,29 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         if bins[0] < bins[1]:
             raise Exception("p<s not allowed.")
 
-    if len(testshape)==2:
-        if testshape[0] < testshape[1]:
+    if lp < 1:
+        raise Exception("lp has to be no less than 1.")
+
+    if ((testshapel is not None) or (testshaper is not None)):
+        if np.isfinite(lp):
+            raise Exception("Sup-norm (lp=numpy.inf) has to be used for testing one-sided restrictions.") 
+
+    if ((testshape is not None) and (not isinstance(testshape,bool))):
+        if (bins is not None and len(bins)>=1) and (testshape[0]<=bins[0]):
+            warnings.warn("p for testing > p for bin selection is suggested!")
+        if testshape[0]<deriv:
+            raise Exception("p<deriv not allowed.")
+        if len(testshape)==2 and testshape[0] < testshape[1]:
             raise Exception("p<s not allowed.")
 
-    if len(testmodel)==2:
-        if testmodel[0] < testmodel[1]:
+    if ((testmodel is not None) and (not isinstance(testmodel,bool))):
+        if (bins is not None and len(bins)>=1) and (testmodel[0]<=bins[0]):
+            warnings.warn("p for testing > p for bin selection is suggested!")
+        if testmodel[0]<deriv:
+            raise Exception("p<deriv not allowed.")
+        if len(testmodel)==2 and testmodel[0] < testmodel[1]:
             raise Exception("p<s not allowed.")
-
-    if len(testshape)>=1 and not isinstance(testshape, bool) and testshape[0]<deriv:
-        raise Exception("p<deriv not allowed.")
     
-    if len(testmodel)>=1 and not isinstance(testmodel, bool) and testmodel[0]<deriv:
-        raise Exception("p<deriv not allowed.")
     if deriv < 0:
         raise Exception("derivative incorrectly specified.")
             
@@ -529,14 +540,6 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     
     if masspoints == "veryfew":
         raise Exception("veryfew not allowed for testing.")
-
-    if (testshape is not None and len(testshape)>=1) and (bins is not None and len(bins)>=1):
-        if not isinstance(testshape, bool) and testshape[0]<=bins[0]:
-            warnings.warn("p for testing <= p for bin selection not suggested.")
-  
-    if (testmodel is not None and len(testmodel)>=1)  and (bins is not None and len(bins)>=1):
-        if not isinstance(testmodel, bool) and testmodel[0]<=bins[0]:
-            warnings.warn("p for testing <= p for bin selection not suggested.")
         
     if (nsims<2000 or simsgrid<50):
         print("Note: Setting at least nsims=2000 and simsgrid=50 is recommended to obtain the final results.")
@@ -571,11 +574,17 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         eN = min(eN, Nclust)
     
     # prepare params
-    tsha_p, tsha_s = testshape
+    if np.isscalar(testshape):
+        tsha_p = tsha_s = testshape    
+    else:
+        tsha_p, tsha_s = testshape
     if isinstance(tsha_p,bool): tsha_p = None
     if tsha_s is not None and np.isnan(tsha_s): tsha_s = tsha_p
 
-    tmod_p, tmod_s = testmodel
+    if np.isscalar(testmodel):
+        tmod_p = tmod_s = testmodel    
+    else:
+        tmod_p, tmod_s = testmodel
     if isinstance(tmod_p,bool): tmod_p = None
     if tmod_s is not None and np.isnan(tmod_s): tmod_s = tmod_p
 
@@ -804,6 +813,9 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 if eval_w is not None:
                     basis_sha_0 = np.column_stack((basis_0, np.outer(np.ones(nrow(basis_0)), eval_w)))
                     basis_sha_1 = np.column_stack((basis_sha_1, np.outer(np.ones(nrow(basis_sha_1)), np.zeros(nwvar))))
+                else:
+                    basis_sha_0 = basis_0
+                    basis_sha_1 = basis_sha_1
                 term1 = linkinv_2(fit_0).reshape(-1,1)*fit_sha.reshape(-1,1)*basis_sha_0
                 term2 = pred_sha_0.reshape(-1,1)*basis_sha_1
                 basis_all = term1 + term2
@@ -826,7 +838,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 stat_shapeR[j-nL,0] = np.min((fit_sha - testshaper[j-nL]) / se_sha)
             else:
                 stat_shape2[j-nL-nR,1] = 3
-                if np.isfinite(lp):
+                if np.isinf(lp):
                     stat_shape2[j-nL-nR,0] = np.max(np.abs((fit_sha - testshape2[j-nL-nR]) / se_sha))
                 else:
                     stat_shape2[j-nL-nR,0] = np.mean(np.abs((fit_sha - testshape2[j-nL-nR]) / se_sha)**lp)**(1/lp)
@@ -892,24 +904,27 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 basis_mod = binsreg_spdes(x=x_grid, p=tmod_p, s=tmod_s, knot=knot, deriv=deriv)
 
                 if estmethod=="glm" and not nolink:
-                    pred_mod_fit, pred_mod_se = binsreg_pred(X=basis_mod, model=model, type="all",
+                    fit_mod, se_mod = binsreg_pred(X=basis_mod, model=model, type="all",
                                                             deriv=deriv, wvec=eval_w, avar=asyvar)
                     basis_0 = binsreg_spdes(x=x_grid, p=tmod_p, s=tmod_s, knot=knot, deriv=0)
                     fit_0 = binsreg_pred(basis_0, model, type = "xb", deriv=0, wvec=eval_w)[0]
                     pred_mod_0  = linkinv_1(fit_0)
 
                     if asyvar or deriv==0:
-                        pred_mod_se  = pred_mod_0 * pred_mod_se
-                        if deriv == 0: pred_mod_fit = linkinv(pred_mod_fit)
-                        if deriv == 1: pred_mod_fit = pred_mod_0 * pred_mod_fit
+                        se_mod  = pred_mod_0 * se_mod
+                        if deriv == 0: fit_mod = linkinv(fit_mod)
+                        if deriv == 1: fit_mod = pred_mod_0 * fit_mod
                     else:
                         basis_mod_1 = basis_mod.copy()
                         if eval_w is not None:
-                            basis_mod_0 = np.column_stack((basis_0, np.outer(np.ones((basis_0)), eval_w)))
+                            basis_mod_0 = np.column_stack((basis_0, np.outer(np.ones(nrow(basis_0)), eval_w)))
                             basis_mod_1 = np.column_stack((basis_mod_1, np.outer(np.ones(nrow(basis_mod_1)), np.zeros(nwvar))))
-                        basis_all = linkinv_2(fit_0)*pred_mod_fit*basis_mod_0 + pred_mod_0*basis_mod_1
-                        pred_mod_fit = pred_mod_0 * pred_mod_fit
-                        pred_mod_se  = binsreg_pred(basis_all, model=model, type="se", avar=True)[1]
+                        else:
+                            basis_mod_0 = basis_0
+                            basis_mod_1 = basis_mod_1
+                        basis_all = ((linkinv_2(fit_0)*fit_mod)[:,None])*basis_mod_0 + pred_mod_0[:,None]*basis_mod_1
+                        fit_mod = pred_mod_0 * fit_mod
+                        se_mod  = binsreg_pred(basis_all, model=model, type="se", avar=True)[1]
                 else:
                     fit_mod, se_mod = binsreg_pred(basis_mod, model, type = "all",  deriv=deriv, wvec=eval_w,
                                                 avar=asyvar)
@@ -945,24 +960,27 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             basis_mod = binsreg_spdes(x=x_grid, p=tmod_p, s=tmod_s, knot=knot, deriv=deriv)
 
             if estmethod=="glm" and not nolink:
-                pred_mod_fit, pred_mod_se = binsreg_pred(X=basis_mod, model=model, type="all",
+                fit_mod, se_mod = binsreg_pred(X=basis_mod, model=model, type="all",
                                                             deriv=deriv, wvec=eval_w, avar=asyvar)
                 basis_0 = binsreg_spdes(x=x_grid, p=tmod_p, s=tmod_s, knot=knot, deriv=0)
                 fit_0 = binsreg_pred(basis_0, model, type = "xb", deriv=0, wvec=eval_w)[0]
                 pred_mod_0 = linkinv_1(fit_0)
 
                 if asyvar or deriv==0:
-                    pred_mod_se  = pred_mod_0 * pred_mod_se
-                    if deriv == 0: pred_mod_fit = linkinv(pred_mod_fit)
-                    if deriv == 1: pred_mod_fit = pred_mod_0 * pred_mod_fit
+                    se_mod  = pred_mod_0 * se_mod
+                    if deriv == 0: fit_mod = linkinv(fit_mod)
+                    if deriv == 1: fit_mod = pred_mod_0 * fit_mod
                 else:
                     basis_mod_1 = basis_mod.copy()
                     if eval_w is not None:
                         basis_mod_0 = np.column_stack((basis_0, np.outer(np.ones(nrow(basis_0)),eval_w)))
                         basis_mod_1 = np.column_stack((basis_mod_1, np.outer(np.ones(nrow(basis_mod_1)), np.zeros(nwvar))))
-                    basis_all = linkinv_2(fit_0)*pred_mod_fit*basis_mod_0 + pred_mod_0*basis_mod_1
-                    pred_mod_fit = pred_mod_0 * pred_mod_fit
-                    pred_mod_se  = binsreg_pred(basis_all, model=model, type="se",
+                    else:
+                        basis_mod_0 = basis_0
+                        basis_mod_1 = basis_mod_1
+                    basis_all = ((linkinv_2(fit_0)*fit_mod)[:,None])*basis_mod_0 + pred_mod_0[:,None]*basis_mod_1
+                    fit_mod = pred_mod_0 * fit_mod
+                    se_mod  = binsreg_pred(basis_all, model=model, type="se",
                                                 avar=True)[1]
             else:
                 fit_mod, se_mod  = binsreg_pred(basis_mod, model, type = "all", deriv=deriv, 
@@ -972,7 +990,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
 
             for j in range(1,ncol(testmodelparfit)):
                 stat_mod[j-1,1] = 3
-                if np.isfinite(lp): stat_mod[j-1,0] = np.max(np.abs((fit_mod - testmodelparfit[:,j]) / se_mod))
+                if np.isinf(lp): stat_mod[j-1,0] = np.max(np.abs((fit_mod - testmodelparfit[:,j]) / se_mod))
                 else: stat_mod[j-1,0] = np.mean(np.abs((fit_mod - testmodelparfit[:,j]) / se_mod)**lp)**(1/lp)
 
             Sigma_root = lssqrtm(vcv_mod)
@@ -987,8 +1005,8 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     testshapeL = test_str(testshapel,stat_shapeL,pval_shapeL)
     testshapeR = test_str(testshaper,stat_shapeR,pval_shapeR)
     testshape2 = test_str(testshape2,stat_shape2,pval_shape2)
-    testPoly = test_str(testmodelpoly,stat_poly,pval_poly)
-    testModel = test_str(np.nan,stat_mod,pval_mod)
+    testPoly   = test_str(testmodelpoly,stat_poly,pval_poly)
+    testModel  = test_str(np.nan,stat_mod,pval_mod)
     
     opt = options_test(binsp=binsp, binss=binss, deriv=deriv,
                         testshape=(tsha_p, tsha_s), testmodel=(tmod_p, tmod_s),
