@@ -66,8 +66,8 @@ _Stata Journal_ 25(1): 3-50.
 _American Economic Review_ 114(5): 1488-1514.<br>
 [Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf)
 
-- Cattaneo, Crump, Farrell and Feng (2024): [Nonlinear Binscatter Methods](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf).<br>
-Working paper.<br>
-[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter--Supplemental.pdf)
+- Cattaneo, Crump, Farrell and Feng (2025): [Nonlinear Binscatter Methods](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_RESTAT.pdf).<br>
+_Review of Economics and Statistics_, revise and resubmit.<br>
+[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_RESTAT--Supplemental.pdf)
 
 <br><br>
