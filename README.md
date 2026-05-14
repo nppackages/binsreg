@@ -1,11 +1,6 @@
-# BINSREG
+# Binscatter Methods
 
 The `binsreg` package provides Python, R and Stata implementations of binscatter methods. It includes partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures for both linear and nonlinear methods.
-
-## Links
-
-- Website: [https://nppackages.github.io/](https://nppackages.github.io/)
-- Source code: [https://github.com/nppackages/binsreg](https://github.com/nppackages/binsreg)
 
 ## Python Implementation
 
