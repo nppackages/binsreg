@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Created on Thu Mar 16 17:39:50 2023
-# @author: Ricardo Masini
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 
 import numpy as np
 import warnings
@@ -28,7 +28,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     -----------
     binstest implements binscatter-based hypothesis testing procedures for parametric functional
     forms of and nonparametric shape restrictions on the regression function of interest, following the results
-    in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
+    in Cattaneo, Crump, Farrell and Feng (2024) and Cattaneo, Crump, Farrell and Feng (2026).
     If the binning scheme is not set by the user, the companion function binsregselect is used to implement binscatter in a
     data-driven way and inference procedures are based on robust bias correction.
     Binned scatter plots based on different methods can be constructed using the companion functions binsreg,
@@ -203,7 +203,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
+        See Cattaneo, Crump, Farrell and Feng (2025) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -245,7 +245,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
     testpoly : Results for testmodelpoly, including: val , null boundary values;
                stat, test statistics; and pval, p-value.
 
-    testmodel : Results for testmodelparfir, including: val , null boundary values;
+    testmodel : Results for testmodelparfit, including: val, null boundary values;
                 stat, test statistics; and pval, p-value.
 
     imse_v_rot : Variance constant in IMSE, ROT selection.
@@ -745,6 +745,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         warnings.warn("Repeated knots. Some bins dropped.")
         nbins = len(knot)-1
 
+    eval_w = None
     if localcheck:
         uniqmin = binsreg_checklocalmass(x, nbins, es, knot=knot) # mimic STATA
         if ntestshape != 0:
@@ -757,15 +758,14 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 warnings.warn("Some bins have too few distinct values of x for testing models.")
     
     # adjust w variables
-        if w is not None: 
-            if isinstance(at, str):
-                if at=="mean":
-                    eval_w = colWeightedMeans(x=w, w=weights)
-                elif at=="median":
-                    eval_w = colWeightedMedians(x=w, w=weights)
-                elif at=="zero": eval_w = np.zeros(nwvar)
-            else: eval_w = np.array(at).reshape(-1,1)
-        else: eval_w = None
+    if w is not None:
+        if isinstance(at, str):
+            if at=="mean":
+                eval_w = colWeightedMeans(x=w, w=weights)
+            elif at=="median":
+                eval_w = colWeightedMedians(x=w, w=weights)
+            elif at=="zero": eval_w = np.zeros(nwvar)
+        else: eval_w = np.array(at).reshape(-1,1)
 
     # seed
     if simsseed is not None: np.random.seed(simsseed)

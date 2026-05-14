@@ -13,8 +13,8 @@ binspwc(y, x, w = NULL, data = NULL, estmethod = "reg",
   simsseed = NULL, vce = NULL, cluster = NULL, asyvar = F,
   dfcheck = c(20, 30), masspoints = "on", weights = NULL,
   subset = NULL, numdist = NULL, numclust = NULL, estmethodopt = NULL,
-  plot = FALSE, dotsngrid = 0, plotxrange = NULL, plotyrange = NULL,
-  colors = NULL, symbols = NULL, level = 95, ...)
+  plot = FALSE, printplot = TRUE, dotsngrid = 0, plotxrange = NULL,
+  plotyrange = NULL, colors = NULL, symbols = NULL, level = 95, ...)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -122,7 +122,7 @@ variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty r
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2025)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -149,6 +149,8 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 The degree and smoothness of polynomials used to construct the bands are the same as those specified for testing. The default is \code{plot=F}, i.e.,
 no plot is generated.}
 
+\item{printplot}{if true, the generated \code{ggplot} object is printed when \code{plot=TRUE}. If false, the plot object is returned without printing.}
+
 \item{dotsngrid}{number of dots to be added to the plot for confidence bands. Given the choice, these dots are point estimates of the difference between groups
 evaluated over an evenly-spaced grid within the common support of all groups. The default is \code{dotsngrid=0}, i.e., no point estimates
 are added. Whenever possible, the degree and smoothness of the polynomial for these point estimates are the same as those for selecting the number of bins;
@@ -167,7 +169,7 @@ otherwise, the degree and smoothness specified for testing are used.}
 \item{...}{optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link[quantreg]{boot.rq}}.}
 }
 \value{
-\item{\code{stat}}{A matrix. Each row corresponds to the comparison between two groups. The first column is the test statistic. The second and third columns give the corresponding group numbers.
+\item{\code{tstat}}{A matrix. Each row corresponds to the comparison between two groups. The first column is the test statistic. The second and third columns give the corresponding group numbers.
                           The null hypothesis is \code{mu_i(x)<=mu_j(x)}, \code{mu_i(x)=mu_j(x)}, or \code{mu_i(x)>=mu_j(x)} for group i (given in the second column) and group j (given in the third column).
                           The group number corresponds to the list of group names given by \code{opt$byvals}.}
        \item{\code{pval}}{A vector of p-values for all pairwise group comparisons.}
@@ -187,12 +189,13 @@ otherwise, the degree and smoothness specified for testing are used.}
        \item{\code{opt}}{ A list containing options passed to the function, as well as \code{N.by} (total sample size for each group),
                           \code{Ndist.by} (number of distinct values in \code{x} for each group), \code{Nclust.by} (number of clusters for each group),
                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
+       \item{\code{call}}{The matched function call.}
 }
 \description{
 \code{binspwc} implements hypothesis testing procedures for pairwise group comparison of binscatter estimators
             and plots confidence bands for the difference in binscatter parameters between each pair of groups, following the
-            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
-            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
+            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024)} and
+            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Cattaneo, Crump, Farrell and Feng (2026)}.
             If the binning scheme is not set by the user, the companion function
             \code{\link{binsregselect}} is used to implement binscatter in a data-driven way. Binned scatter plots based on different methods
             can be constructed using the companion functions \code{\link{binsreg}}, \code{\link{binsqreg}} or \code{\link{binsglm}}.
@@ -205,21 +208,25 @@ otherwise, the degree and smoothness specified for testing are used.}
  binspwc(y,x, by=t)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+Supplemental Appendix for On Binscatter: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf}{Supplemental Appendix}.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Nonlinear Binscatter Methods}. Review of Economics and Statistics, revise and resubmit.
+
+Supplemental Appendix for Nonlinear Binscatter Methods: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf}{Supplemental Appendix}.
+
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Binscatter Regressions}. Stata Journal 25(1): 3-50.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}, \code{\link{binstest}}.
 }
 \author{
-Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+Matias D. Cattaneo (maintainer). \email{matias.d.cattaneo@gmail.com}.
 
-Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+Richard K. Crump. \email{richard.crump@gmail.com}.
 
-Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
+Max H. Farrell. \email{mhfarrell@gmail.com}.
 
-Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+Yingjie Feng. \email{fengyingjiepku@gmail.com}.
 }

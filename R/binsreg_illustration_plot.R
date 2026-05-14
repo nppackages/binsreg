@@ -1,7 +1,7 @@
 ################################################################################
 # Binsreg: illustration file for plot
-# Authors: M. D. Cattaneo, R. Crump, M. Farrell, Y. Feng and Ricardo Masini
-# Last update: Jul 22, 2024
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
+# Last update: May 14, 2026
 ################################################################################
 
 rm(list=ls(all=TRUE))
@@ -32,16 +32,16 @@ fig <- ggplot() + labs(x='X',y ='Y')
 fig <- fig + geom_point(data=result$data.dots, aes(x=x, y=fit), color="blue", size=2, shape='o')
 
 # Add the line
-fig <- fig + geom_line(data=result$data.line, aes(x=x, y=fit), color="blue", size=0.5)
+fig <- fig + geom_line(data=result$data.line, aes(x=x, y=fit), color="blue", linewidth=0.5)
 
 # Add the CI
-fig <- fig + geom_errorbar(data=result$data.ci, aes(x=x, ymin=ci.l, ymax=ci.r), color="blue", size=0.5, width = 0.02, linetype='solid')
+fig <- fig + geom_errorbar(data=result$data.ci, aes(x=x, ymin=ci.l, ymax=ci.r), color="blue", linewidth=0.5, width = 0.02, linetype='solid')
 
 # Add the CB
 fig <- fig + geom_ribbon(data=result$data.cb, aes(x=x, ymin=cb.l, ymax=cb.r), fill="blue", alpha=0.2)
 
 # Add the polyreg
-fig <- fig + geom_line(data=result$data.poly, aes(x=x, y=fit), color="red", size=0.5)
+fig <- fig + geom_line(data=result$data.poly, aes(x=x, y=fit), color="red", linewidth=0.5)
 
 # Display the plot
 print(fig)
@@ -73,10 +73,13 @@ line.1 <- est$data.plot$`Group 1`$data.line
 # point estimates (dots and line) of CATE
 cate.dots <- data.frame(x=dots.0$x, fit=dots.1$fit-dots.0$fit)
 cate.line <- data.frame(x=line.0$x, fit=line.1$fit-line.0$fit)
+cate.dots <- cate.dots[complete.cases(cate.dots), ]
+cate.line <- cate.line[complete.cases(cate.line), ]
 
 # Step 3: get "confidence band" via binspwc()
 pwc <- binspwc(y, x, w, by=t, data=data, pwc=c(3,3), plot=T, simsgrid=100, nbins=20, samebinsby=T)
 cate.cb <- pwc$data.plot$`Group 1 - Group 0`$data.cb 
+cate.cb <- cate.cb[complete.cases(cate.cb), ]
 
 # Step 4: generate the plot for CATE ("dots", "line" and "band")
 fig <- ggplot() + labs(x='X',y ='Y')
@@ -85,7 +88,7 @@ fig <- ggplot() + labs(x='X',y ='Y')
 fig <- fig + geom_point(data=cate.dots, aes(x=x, y=fit), color="blue", size=2, shape='o')
 
 # Add the line
-fig <- fig + geom_line(data=cate.line, aes(x=x, y=fit), color="blue", size=0.5)
+fig <- fig + geom_line(data=cate.line, aes(x=x, y=fit), color="blue", linewidth=0.5)
 
 # Add the CB
 fig <- fig + geom_ribbon(data=cate.cb, aes(x=x, ymin=cb.l, ymax=cb.r), fill="blue", alpha=0.2)

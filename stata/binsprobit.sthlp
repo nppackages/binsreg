@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5 19-OCT-2024}{...}
+{* *! version 2.0 14-MAY-2026}{...}
 {viewerjumpto "Syntax" "binsprobit##syntax"}{...}
 {viewerjumpto "Description" "binsprobit##description"}{...}
 {viewerjumpto "Options" "binsprobit##options"}{...}
@@ -44,8 +44,8 @@ satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 {title:Description}
 
 {p 4 8} {cmd:binsprobit} implements binscatter probit estimation with robust inference procedures and plots, following the results in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":Cattaneo, Crump, Farrell and Feng (2024a)} and
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf":Cattaneo, Crump, Farrell and Feng (2024b)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":Cattaneo, Crump, Farrell and Feng (2024)} and
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf":Cattaneo, Crump, Farrell and Feng (2026)}.
 Binscatter provides a flexible way to describe the mean relationship between two variables, after possibly adjusting for other covariates,
 based on partitioning/binning of the independent variable of interest.
 The main purpose of this command is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and uniform confidence band.
@@ -56,7 +56,7 @@ companion command {help binspwc: binspwc}. Binscatter estimation based on the le
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2024c)}.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf":Cattaneo, Crump, Farrell and Feng (2025)}.
 Companion R and Python packages with the same capabilities are available (see website below).
 {p_end}
 
@@ -298,7 +298,7 @@ Setting at least {cmd:simsgrid(50)} is recommended to obtain the final results.
 {p 4 8} {opt dfcheck(n1 n2)} sets cutoff values for minimum effective sample size checks,
 which take into account the number of unique values of {it:indvar} (i.e., adjusting for the number of mass points),
 number of clusters, and degrees of freedom of the different statistical models considered.
-The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
+The default is {cmd:dfcheck(20 30)}. See Cattaneo, Crump, Farrell and Feng (2025) for more details.
 {p_end}
 
 {p 4 8} {opt masspoints(masspointsoption)} specifies how mass points in {it:indvar} are handled.
@@ -340,10 +340,10 @@ Default is {cmd:usegtools(off)}.
 {p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
 {p_end}
 
-{p 4 8} {opt noplot} omits binscatter plotting.
+{p 4 8} {opt noplot} omits binscatter plotting, but still allows graph data to be saved with {opt savedata()}.
 {p_end}
 
-{p 4 8} {opt savedata(filename)} specifies a filename for saving all data underlying the binscatter plot (and more).
+{p 4 8} {opt savedata(filename)} specifies a filename for saving all data underlying the binscatter plot (and more). It may be combined with {opt noplot}. The saved data include {cmd:bin_n}, the number of observations in each bin, and corresponding {cmd:*_n} variables for plotted series with bin identifiers.
 {p_end}
 
 {p 4 8} {opt replace} overwrites the existing file when saving the graph data.
@@ -401,38 +401,46 @@ Default is {cmd:usegtools(off)}.
 {marker references}{...}
 {title:References}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024.
 {browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":On Binscatter}.
 American Economic Review 114(5): 1488-1514.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf":Nonlinear Binscatter Methods}.
-Working Paper.
+{p 4 8} Supplemental Appendix for On Binscatter.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf":Supplemental Appendix}.
 {p_end}
 
-{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c.
-{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf":Binscatter Regressions}.
-Working Paper.
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf":Nonlinear Binscatter Methods}.
+Review of Economics and Statistics, revise and resubmit.
+{p_end}
+
+{p 4 8} Supplemental Appendix for Nonlinear Binscatter Methods.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf":Supplemental Appendix}.
+{p_end}
+
+{p 4 8} Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025.
+{browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf":Binscatter Regressions}.
+Stata Journal 25(1): 3-50.
 {p_end}
 
 
 {marker authors}{...}
 {title:Authors}
 
-{p 4 8} Matias D. Cattaneo, Princeton University, Princeton, NJ.
-{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.
+{p 4 8} Matias D. Cattaneo (maintainer).
+{browse "mailto:matias.d.cattaneo@gmail.com":matias.d.cattaneo@gmail.com}.
 {p_end}
 
-{p 4 8} Richard K. Crump, Federal Reserve Band of New York, New York, NY.
-{browse "mailto:richard.crump@ny.frb.org":richard.crump@ny.frb.org}.
+{p 4 8} Richard K. Crump.
+{browse "mailto:richard.crump@gmail.com":richard.crump@gmail.com}.
 {p_end}
 
-{p 4 8} Max H. Farrell, UC Santa Barbara, Santa Barbara, CA.
+{p 4 8} Max H. Farrell.
 {browse "mailto:mhfarrell@gmail.com":mhfarrell@gmail.com}.
 {p_end}
 
-{p 4 8} Yingjie Feng, Tsinghua University, Beijing, China.
+{p 4 8} Yingjie Feng.
 {browse "mailto:fengyingjiepku@gmail.com":fengyingjiepku@gmail.com}.
 {p_end}
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Created on Sat Sep  4 17:39:50 2021
-# @author: Ricardo Masini
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 
 import numpy as np
 import pandas as pd

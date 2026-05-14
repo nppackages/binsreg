@@ -1,23 +1,11 @@
 # BINSREG
 
-The `binsreg` package provides Python, R and Stata implementations of binscatter methods, including partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures.
+The `binsreg` package provides Python, R and Stata implementations of binscatter methods. It includes partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures for both linear and nonlinear methods.
 
-This work was supported in part by the National Science Foundation through grants [SES-1947805](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805), [SES-2019432](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2019432), and [SES-2241575](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2241575).
+## Links
 
-## Website
-
-https://nppackages.github.io/binsreg
-
-## Queries and Requests
-
-Please email: [binsreg@googlegroups.com](mailto:binsreg@googlegroups.com)
-
-## Major Upgrades
-
-This package was first released in Winter 2019, and had one major upgrade in Summer 2021.
-
-- _Summer 2021 new features include_: (i) generalized linear models (logit, Probit, etc.) binscatter; (ii) quantile regression binscatter; (iii) new generic specification and shape restriction hypothesis testing function (now including Lp metrics); (iv) multi-group comparison of binscatter estimators; (v) generic point evaluation of covariate-adjusted binscatter; (vi) speed improvements and optimization. A complete list of upgrades is here: [UPGRADES](https://nppackages.github.io/binsreg/binsreg-0.4_upgrades.txt)
-
+- Website: [https://nppackages.github.io/](https://nppackages.github.io/)
+- Source code: [https://github.com/nppackages/binsreg](https://github.com/nppackages/binsreg)
 
 ## Python Implementation
 
@@ -45,7 +33,7 @@ install.packages('binsreg')
 
 To install/update in Stata type:
 ```
-net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/master/stata) replace
+net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/main/stata) replace
 ```
 
 - Help: [binsreg](stata/binsreg.pdf), [binslogit](stata/binslogit.pdf), [binsprobit](stata/binsprobit.pdf), [binsqreg](stata/binsqreg.pdf), [binstest](stata/binstest.pdf), [binspwc](stata/binspwc.pdf), [binsregselect](stata/binsregselect.pdf).
@@ -66,8 +54,14 @@ _Stata Journal_ 25(1): 3-50.
 _American Economic Review_ 114(5): 1488-1514.<br>
 [Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf)
 
-- Cattaneo, Crump, Farrell and Feng (2025): [Nonlinear Binscatter Methods](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_RESTAT.pdf).<br>
+- Cattaneo, Crump, Farrell and Feng (2026): [Nonlinear Binscatter Methods](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf).<br>
 _Review of Economics and Statistics_, revise and resubmit.<br>
-[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_RESTAT--Supplemental.pdf)
+[Supplemental Appendix](https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf)
+
+
+## Funding
+
+This work was supported in part by the National Science Foundation through grants [SES-1947805](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805), [SES-2019432](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2019432), and [SES-2241575](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2241575).
+
 
 <br><br>

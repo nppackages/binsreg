@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Created on Thu Mar 16 10:20:24 2023
-# @author: Ricardo Masini
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 
 import numpy as np
 import pandas as pd
@@ -110,7 +110,7 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
+        See Cattaneo, Crump, Farrell and Feng (2025) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -177,15 +177,17 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
 
     imse_b_dpi : Bias constant in IMSE expansion, DPI selection.
 
-    int.result : Intermediate results, including a matrix of degree and smoothness (deg_mat),
-                 the selected numbers of bins (vec_nbinsrot_poly, vec_nbinsrot_regul,vec_nbinsrot_uknot,
-                 vec_nbinsdpi, vec_nbinsdpi.uknot), and the bias and variance constants in 
+    int_result : Intermediate results, including a matrix of degree and smoothness (deg_mat),
+                 the selected numbers of bins (vec_nbinsrot_poly, vec_nbinsrot_regul, vec_nbinsrot_uknot,
+                 vec_nbinsdpi, vec_nbinsdpi_uknot), and the bias and variance constants in
                  IMSE (vec_imse_b_rot, vec_imse_v_rot, vec_imse_b_dpi, vec_imse_v_dpi) 
                  under each rule (ROT or DPI), corresponding to each pair of degree and smoothness
                  each row in deg_mat.
     
-    opt :  A list containing options passed to the function, as well as total sample size (n),
-           number of distinct values (Ndist) in x, and number of clusters (Nclust).
+    options : A list containing options passed to the function, as well as total sample size (n),
+              number of distinct values (Ndist) in x, and number of clusters (Nclust).
+
+    knot : A vector containing the selected or user-specified knots.
     
     data_grid : A data frame containing grid.
 

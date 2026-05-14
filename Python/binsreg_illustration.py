@@ -1,7 +1,7 @@
 ################################################################################
 # Binsreg: illustration file for Python
-# Authors: M. D. Cattaneo, R. Crump, M. Farrell, Y. Feng and Ricardo Masini
-# Last update: March 17, 2023
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
+# Last update: May 14, 2026
 ################################################################################
 
 import pandas as pd
@@ -16,7 +16,7 @@ from binsreg import *
 ####### used for STATA ################
 #######################################
 
-data = pd.read_csv("/Users/yjfeng/Dropbox/binscatter/Python/binsreg_sim.csv")
+data = pd.read_csv("binsreg_sim.csv")
 data.describe().T
 
 ####################################

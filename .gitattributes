@@ -1,0 +1,29 @@
+* text=auto
+
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.githooks/* text eol=lf
+
+*.R text eol=lf
+*.Rd text eol=lf
+*.ado text eol=lf
+*.cfg text eol=lf
+*.csv text eol=lf
+*.do text eol=lf
+*.md text eol=lf
+*.pkg text eol=lf
+*.py text eol=lf
+*.sthlp text eol=lf
+*.toc text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+DESCRIPTION text eol=lf
+NAMESPACE text eol=lf
+
+*.dta binary
+*.mo binary
+*.pdf binary
+*.png binary
+*.tar.gz binary
+*.whl binary

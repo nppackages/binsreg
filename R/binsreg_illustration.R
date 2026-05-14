@@ -1,7 +1,7 @@
 ################################################################################
 # Binsreg: illustration file
-# Authors: M. D. Cattaneo, R. Crump, M. Farrell and Y. Feng
-# Last update: 10/13/2022
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
+# Last update: May 14, 2026
 rm(list=ls(all=TRUE))
 library(binsreg); library(ggplot2)
 

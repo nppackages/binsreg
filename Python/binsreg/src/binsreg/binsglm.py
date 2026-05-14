@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Created on Thu Mar 16 17:39:50 2023
-# @author: Ricardo Masini
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 
 import numpy as np
 import pandas as pd
@@ -33,7 +33,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     Description
     -----------
     binsglm implements binscatter generalized linear regression with robust inference procedures and plots, following the
-    results in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
+    results in Cattaneo, Crump, Farrell and Feng (2024) and Cattaneo, Crump, Farrell and Feng (2026).
     Binscatter provides a flexible way to describe the mean relationship between two variables, after
     possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
     The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -206,7 +206,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     
     samebinsby : bool
         If true, a common partitioning/binning structure across all subgroups specified by the option by is forced.
-        The knots positions are selected according to the option binspos and using the full sample. If \code{nbins}
+        The knots positions are selected according to the option binspos and using the full sample. If `nbins`
         is not specified, then the number of bins is selected via the companion command binsregselect and
         using the full sample.
         
@@ -252,13 +252,13 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
         Nominal confidence level for confidence interval and confidence band estimation. Default is level=95.
     
     noplot : bool
-        If true, no plot produced.
+        If true, no plot is produced, but requested plotting data are still returned.
     
     dfcheck : tuple
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
+        See Cattaneo, Crump, Farrell and Feng (2025) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -291,24 +291,27 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
     -------
     bins_plot : A ggplot object for binscatter plot.
     
-    data_plot : A list containing data for plotting. Each item is a sublist of data frames for each group. 
-                Each sublist may contain the following data frames:
+    data_plot : A list containing data for plotting. Each item is a sublist of data frames for each group.
+                Each sublist may contain the following pandas DataFrames:
+                DataFrames with a bin indicator include n, the number of observations in the corresponding bin.
    
-                    data_dots : Data for dots. It contains: x, evaluation points; bin, the indicator of bins;
-                                isknot, indicator of inner knots; mid, midpoint of each bin; and fit, fitted values.
-                    data.line : Data for line. It contains: x, evaluation points;  bin, the indicator of bins;
-                                isknot, indicator of inner knots; mid, midpoint of each bin; and fit, fitted values.
-                    data.ci : Data for CI. It contains: x, evaluation points;  bin, the indicator of bins;
-                              isknot, indicator of inner knots; mid, midpoint of each bin;
-                              ci_l and ci_r, left and right boundaries of each confidence intervals.
-                    data.cb : Data for CB. It contains: x, evaluation points;  bin, the indicator of bins;
-                              isknot, indicator of inner knots; mid, midpoint of each bin;
-                              cb_l and cb_r, left and right boundaries of the confidence band.
-                    data.poly : Data for polynomial regression. It contains: x, evaluation points; bin, the indicator of bins;
-                                isknot, indicator of inner knots; mid, midpoint of each bin; and fit, fitted values.
-                    data.polyci : Data for confidence intervals based on polynomial regression. It contains:  x, evaluation points;
-                                  bin, the indicator of bins; isknot, indicator of inner knots; mid, midpoint of each bin;
-                                  polyci_l and polyci_r, left and right boundaries of each confidence intervals.
+                    dots : Data for dots. It contains: x, evaluation points; bin, the indicator of bins;
+                           isknot, indicator of inner knots; mid, midpoint of each bin; and fit, fitted values.
+                    line : Data for line. It contains: x, evaluation points; bin, the indicator of bins;
+                           isknot, indicator of inner knots; mid, midpoint of each bin; and fit, fitted values.
+                    ci : Data for confidence intervals. It contains: x, evaluation points; bin, the indicator of bins;
+                         isknot, indicator of inner knots; mid, midpoint of each bin;
+                         ci_l and ci_r, left and right boundaries of each confidence interval.
+                    cb : Data for the confidence band. It contains: x, evaluation points; bin, the indicator of bins;
+                         isknot, indicator of inner knots; mid, midpoint of each bin;
+                         cb_l and cb_r, left and right boundaries of the confidence band.
+                    poly : Data for polynomial regression. It contains: x, evaluation points; bin, the indicator of bins;
+                           isknot, indicator of inner knots; mid, midpoint of each bin; and fit, fitted values.
+                    polyci : Data for confidence intervals based on polynomial regression. It contains: x, evaluation points;
+                             bin, the indicator of bins; isknot, indicator of inner knots; mid, midpoint of each bin;
+                             polyci_l and polyci_r, left and right boundaries of each confidence interval.
+                    data_bin : Data for the binning structure. It contains: bin_id, group,
+                               left_endpoint, right.endpoint, and n, the number of observations in each bin.
                     imse_v_rot : Variance constant in IMSE, ROT selection.
                     imse_b_rot : Bias constant in IMSE, ROT selection.
                     imse_v_dpi : Variance constant in IMSE, DPI selection.
@@ -1129,6 +1132,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
 
         # NOW, save nbins
         nbins_by += [nbins]
+        bin_counts = binsreg_bin_counts(x_sub, knot, nbins)
     
 
         #######################################
@@ -1185,9 +1189,10 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             
             if not nolink: dots_fit = linkinv(dots_fit)
             
-            data_dots = pd.DataFrame({'group': str(byvals[i]),
-                                      'x': dots_x,
-                                      'fit': dots_fit})
+            data_dots = binsreg_output_frame(byvals[i], {'x': dots_x,
+                                                         'bin': np.arange(nbins),
+                                                         'fit': dots_fit,
+                                                         'n': bin_counts})
             data_by.dots = data_dots
             if cigrid+cimean!=0:
                 warnings.warn("ci=(0,0) used.")
@@ -1199,10 +1204,11 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 ci_arm = norm.ppf(alpha)*dots_se
                 ci_l = dots_fit - ci_arm
                 ci_r = dots_fit + ci_arm
-                data_ci = pd.DataFrame({'group':str(byvals[i]),
-                                      'x':dots_x,
-                                      'ci_l':ci_l,
-                                      'ci_r':ci_r})
+                data_ci = binsreg_output_frame(byvals[i], {'x':dots_x,
+                                                           'bin': np.arange(nbins),
+                                                           'ci_l':ci_l,
+                                                           'ci_r':ci_r,
+                                                           'n': bin_counts})
 
                 data_by.ci = data_ci
             
@@ -1253,12 +1259,12 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                     dots_fit = linkinv_1(pred_dots_0[0]) * dots_fit
             
             dots_fit[dots_isknot==1] = np.nan
-            data_dots = pd.DataFrame({'group':str(byvals[i]),
-                                      'x':dots_x,
-                                      'bin':dots_bin,
-                                      'isknot':dots_isknot,
-                                      'mid':dots_mid,
-                                      'fit':dots_fit})
+            data_dots = binsreg_output_frame(byvals[i], {'x':dots_x,
+                                                         'bin':dots_bin,
+                                                         'isknot':dots_isknot,
+                                                         'mid':dots_mid,
+                                                         'fit':dots_fit,
+                                                         'n': bin_counts[np.asarray(dots_bin, dtype=int)]})
             data_by.dots = data_dots    
 
         ################ Line ####################
@@ -1296,16 +1302,16 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                     line_fit = linkinv_1(pred_line_0[0]) * line_fit
             
             if line_s == 0 or line_s-deriv <= 0: line_fit[line_isknot==1] = np.nan
-            data_line = pd.DataFrame({'group': str(byvals[i]),
-                                      'x': line_x,
-                                      'bin': line_bin,
-                                      'isknot': line_isknot,
-                                      'mid': line_mid, 
-                                      'fit': line_fit})
+            data_line = binsreg_output_frame(byvals[i], {'x': line_x,
+                                                         'bin': line_bin,
+                                                         'isknot': line_isknot,
+                                                         'mid': line_mid,
+                                                         'fit': line_fit,
+                                                         'n': bin_counts[np.asarray(line_bin, dtype=int)]})
             data_by.line = data_line
 
         ############### Poly fit #########################
-        if ((polyreggrid!=0) and (not noplot) and (not polyreg_fewobs)):
+        if ((polyreggrid!=0) and (not polyreg_fewobs)):
             polyON = True
         if polyON:
             if w_sub is not None:
@@ -1342,12 +1348,12 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                         poly_fit_0 +=  np.sum(beta_poly[polyreg+1:]*eval_w)
                     poly_fit  = linkinv_1(poly_fit_0) * poly_fit
             
-            data_poly = pd.DataFrame({'group': str(byvals[i]),
-                                      'x': poly_x,
-                                      'bin': poly_bin,
-                                      'isknot': poly_isknot,
-                                      'mid': poly_mid, 
-                                      'fit': poly_fit})
+            data_poly = binsreg_output_frame(byvals[i], {'x': poly_x,
+                                                         'bin': poly_bin,
+                                                         'isknot': poly_isknot,
+                                                         'mid': poly_mid,
+                                                         'fit': poly_fit,
+                                                         'n': bin_counts[np.asarray(poly_bin, dtype=int)]})
             data_by.poly = data_poly
 
             # add CI?
@@ -1393,13 +1399,13 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 polyci_l = polyci_fit - polyci_arm
                 polyci_r = polyci_fit + polyci_arm
 
-                data_polyci = pd.DataFrame({'group': str(byvals[i]),
-                                      'x': polyci_x,
-                                      'bin': polyci_bin,
-                                      'isknot': polyci_isknot,
-                                      'mid': polyci_mid, 
-                                      'polyci_l': polyci_l,
-                                      'polyci_r': polyci_r})
+                data_polyci = binsreg_output_frame(byvals[i], {'x': polyci_x,
+                                                               'bin': polyci_bin,
+                                                               'isknot': polyci_isknot,
+                                                               'mid': polyci_mid,
+                                                               'polyci_l': polyci_l,
+                                                               'polyci_r': polyci_r,
+                                                               'n': bin_counts[np.asarray(polyci_bin, dtype=int)]})
                 data_by.polyci = data_polyci
             
         ################ CI ####################
@@ -1472,13 +1478,13 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             ci_r = ci_pred_fit + ci_arm
             ci_l[ci_isknot==1] = np.nan
             ci_r[ci_isknot==1] = np.nan
-            data_ci = pd.DataFrame({'group': str(byvals[i]),
-                                      'x': ci_x,
-                                      'bin': ci_bin,
-                                      'isknot': ci_isknot,
-                                      'mid': ci_mid, 
-                                      'ci_l': ci_l,
-                                      'ci_r': ci_r})
+            data_ci = binsreg_output_frame(byvals[i], {'x': ci_x,
+                                                       'bin': ci_bin,
+                                                       'isknot': ci_isknot,
+                                                       'mid': ci_mid,
+                                                       'ci_l': ci_l,
+                                                       'ci_r': ci_r,
+                                                       'n': bin_counts[np.asarray(ci_bin, dtype=int)]})
             data_by.ci = data_ci
 
         ################ CB ###############################
@@ -1556,27 +1562,27 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             if (cb_s == 0 | cb_s - deriv <=0):
                 cb_l[cb_isknot==1] = np.nan
                 cb_r[cb_isknot==1] = np.nan
-            data_cb = pd.DataFrame({'group': str(byvals[i]),
-                                      'x': cb_x,
-                                      'bin': cb_bin,
-                                      'isknot': cb_isknot,
-                                      'mid': cb_mid, 
-                                      'cb_l': cb_l,
-                                      'cb_r': cb_r})
+            data_cb = binsreg_output_frame(byvals[i], {'x': cb_x,
+                                                       'bin': cb_bin,
+                                                       'isknot': cb_isknot,
+                                                       'mid': cb_mid,
+                                                       'cb_l': cb_l,
+                                                       'cb_r': cb_r,
+                                                       'n': bin_counts[np.asarray(cb_bin, dtype=int)]})
             data_by.cb = data_cb
         cval_by += [cval]
 
         # save bin information
         if nbins==len(knot):
-            data_by.data_bin  = pd.DataFrame({'group' : str(byvals[i]),
-                                              'bin_id' : np.arange(1,nbins+1),
-                                              'left_endpoint' : knot,
-                                              'right.endpoint': knot})
+            data_by.data_bin  = binsreg_output_frame(byvals[i], {'bin_id' : np.arange(1,nbins+1),
+                                                                 'left_endpoint' : knot,
+                                                                 'right.endpoint': knot,
+                                                                 'n': bin_counts})
         else:
-            data_by.data_bin =  pd.DataFrame({'group' : str(byvals[i]),
-                                              'bin_id' : np.arange(1,nbins+1),
-                                              'left_endpoint' : knot[:-1],
-                                              'right.endpoint': knot[1:]})
+            data_by.data_bin =  binsreg_output_frame(byvals[i], {'bin_id' : np.arange(1,nbins+1),
+                                                                 'left_endpoint' : knot[:-1],
+                                                                 'right.endpoint': knot[1:],
+                                                                 'n': bin_counts})
 
         # Save all data for each group
         data_plot += [data_by]

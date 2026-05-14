@@ -1,6 +1,6 @@
 v 3
 d BINSREG: Partition selection, point estimation, pointwise and uniform inference, and graphical procedures using binscatter methods.
-d          https://nppackages.github.io/binsreg
+d          https://nppackages.github.io/
 d
 
 p binsreg

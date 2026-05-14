@@ -1,8 +1,8 @@
 ####################################################################################################
 #'@title  Data-Driven Binscatter Least Squares Regression with Robust Inference Procedures and Plots
 #'@description \code{binsreg} implements binscatter least squares regression with robust inference procedures and plots, following the
-#'             results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
-#'             \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
+#'             results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024)} and
+#'             \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Cattaneo, Crump, Farrell and Feng (2026)}.
 #'             Binscatter provides a flexible way to describe the mean relationship between two variables, after
 #'             possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
 #'             The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -130,11 +130,11 @@
 #'@param  asyvar  If true, the standard error of the nonparametric component is computed and the uncertainty related to control
 #'                variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty related to control variables is taken into account.
 #'@param  level nominal confidence level for confidence interval and confidence band estimation. Default is \code{level=95}.
-#'@param  noplot if true, no plot produced.
+#'@param  noplot if true, no plot is produced, but requested plotting data are still returned.
 #'@param  dfcheck adjustments for minimum effective sample size checks, which take into account number of unique
 #'                values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 #'                the different statistical models considered. The default is \code{dfcheck=c(20, 30)}.
-#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.
+#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2025)} for more details.
 #'@param  masspoints how mass points in \code{x} are handled. Available options:
 #'                   \itemize{
 #'                   \item \code{"on"} all mass point and degrees of freedom checks are implemented. Default.
@@ -149,8 +149,10 @@
 #'@param  subset  Optional rule specifying a subset of observations to be used.
 #'@param  plotxrange a vector. \code{plotxrange=c(min, max)} specifies a range of the x-axis for plotting. Observations outside the range are dropped in the plot.
 #'@param  plotyrange a vector. \code{plotyrange=c(min, max)} specifies a range of the y-axis for plotting. Observations outside the range are dropped in the plot.
+#'@param  printplot if true, the generated \code{ggplot} object is printed when \code{noplot=FALSE}. If false, the plot object is returned without printing.
 #'@return \item{\code{bins_plot}}{A \code{ggplot} object for binscatter plot.}
 #'        \item{\code{data.plot}}{A list containing data for plotting. Each item is a sublist of data frames for each group. Each sublist may contain the following data frames:
+#'        Plotting data frames with a bin indicator include \code{n}, the number of observations in the corresponding bin.
 #'        \itemize{
 #'        \item \code{data.dots} Data for dots. It contains: \code{x}, evaluation points; \code{bin}, the indicator of bins;
 #'                               \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin; and \code{fit}, fitted values.
@@ -171,7 +173,8 @@
 #'                                \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin;
 #'                                \code{polyci.l} and \code{polyci.r}, left and right boundaries of each confidence intervals.
 #'        \item \code{data.bin} Data for the binning structure. It contains: \code{bin.id}, ID for each bin;
-#'                                \code{left.endpoint} and \code{right.endpoint}, left and right endpoints of each bin.}}
+#'                                \code{left.endpoint} and \code{right.endpoint}, left and right endpoints of each bin;
+#'                                and \code{n}, number of observations in each bin.}}
 #'        \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
 #'        \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
 #'        \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
@@ -182,22 +185,27 @@
 #'                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).
 #'                           The degree and smoothness of polynomials for dots, line, confidence intervals and confidence band for each group are saved
 #'                           in \code{dots}, \code{line}, \code{ci}, and \code{cb}.}
+#'        \item{\code{call}}{The matched function call.}
 #'
 #'@author
-#' Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+#' Matias D. Cattaneo (maintainer). \email{matias.d.cattaneo@gmail.com}.
 #'
-#' Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+#' Richard K. Crump. \email{richard.crump@gmail.com}.
 #'
-#' Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
+#' Max H. Farrell. \email{mhfarrell@gmail.com}.
 #'
-#' Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+#' Yingjie Feng. \email{fengyingjiepku@gmail.com}.
 #'
 #'@references
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+#' Supplemental Appendix for On Binscatter: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf}{Supplemental Appendix}.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Nonlinear Binscatter Methods}. Review of Economics and Statistics, revise and resubmit.
+#'
+#' Supplemental Appendix for Nonlinear Binscatter Methods: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf}{Supplemental Appendix}.
+#'
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Binscatter Regressions}. Stata Journal 25(1): 3-50.
 #'
 #'@seealso \code{\link{binsregselect}}, \code{\link{binstest}}.
 #'
@@ -218,7 +226,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
                     samebinsby=F, randcut=NULL,
                     nsims=500, simsgrid=20, simsseed=NULL,
                     vce="HC1",cluster=NULL, asyvar=F, level=95,
-                    noplot=F, dfcheck=c(20,30), masspoints="on", weights=NULL, subset=NULL, plotxrange=NULL, plotyrange=NULL) {
+                    noplot=F, dfcheck=c(20,30), masspoints="on", weights=NULL, subset=NULL, plotxrange=NULL, plotyrange=NULL, printplot=TRUE) {
 
   # param for internal use
   qrot <- 2
@@ -757,7 +765,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       }
 
       if (selection=="J") {
-        binselect <- binsregselect(y, x, w, deriv=deriv,
+        binselect <- binsregselect.cached(y, x, w, deriv=deriv,
                                    bins=dots, binspos=binspos, nbins=nbins_all,
                                    binsmethod=binsmethod, nbinsrot=nbinsrot,
                                    vce=vce, cluster=cluster, randcut=randcut1k,
@@ -783,7 +791,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
           }
         }
       } else if (selection=="P") {
-        binselect <- binsregselect(y, x, w, deriv=deriv,
+        binselect <- binsregselect.cached(y, x, w, deriv=deriv,
                                    binspos=binspos, nbins=nbins_all,
                                    pselect=plist, sselect=slist,
                                    binsmethod=binsmethod, nbinsrot=nbinsrot,
@@ -927,7 +935,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
           warning("To speed up computation, bin/degree selection uses a subsample of roughly max(5000, 0.01n) observations if the sample size n>5000. To use the full sample, set randcut=1.")
         }
         if (selection=="J") {
-          binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+          binselect <- binsregselect.cached(y.sub, x.sub, w.sub, deriv=deriv,
                                      bins=dots, binspos=binspos, nbins=nbins_all,
                                      binsmethod=binsmethod, nbinsrot=nbinsrot,
                                      vce=vce, cluster=cluster.sub, randcut=randcut1k,
@@ -953,7 +961,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
             }
           }
         } else if (selection=="P") {
-          binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+          binselect <- binsregselect.cached(y.sub, x.sub, w.sub, deriv=deriv,
                                      binspos=binspos, nbins=nbins_all,
                                      pselect=plist, sselect=slist,
                                      binsmethod=binsmethod, nbinsrot=nbinsrot,
@@ -1121,6 +1129,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
     # NOW, save nbins
     nbins.by <- c(nbins.by, nbins)
+    bin.counts <- binsreg.bin.counts(x.sub, knot, nbins)
 
     #######################################
     ###### Prepare Plots ##################
@@ -1152,7 +1161,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     # Dots and CIs for Small eN case
     ##################################
 
-    if (dotsmean+dotsgrid!=0 & !noplot & fewobs) {
+    if (dotsmean+dotsgrid!=0 & fewobs) {
       warning("dots=c(0,0) used.")
       k <- nbins
       if (!is.na(Ndist)) {
@@ -1184,7 +1193,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         coeff.w[is.na(coeff.w)] <- 0
         dots.fit <- dots.fit + sum(eval.w * coeff.w)
       }
-      data.dots <- data.frame(group=paste(byvals[i]), x=dots.x, fit=dots.fit)
+      data.dots <- data.frame(group=paste(byvals[i]), x=dots.x, bin=1:nbins,
+                              fit=dots.fit, n=bin.counts)
       data.by$data.dots <- data.dots
       if (cigrid+cimean!=0) {
         warning("ci=c(0,0) used.")
@@ -1193,7 +1203,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         dots.se  <- sqrt(rowSums((basis.all %*% vcv) * basis.all))
         ci.l <- dots.fit - dots.se * qnorm(alpha)
         ci.r <- dots.fit + dots.se * qnorm(alpha)
-        data.ci <- data.frame(group=byvals[i], x=dots.x, ci.l=ci.l, ci.r=ci.r)
+        data.ci <- data.frame(group=byvals[i], x=dots.x, bin=1:nbins,
+                              ci.l=ci.l, ci.r=ci.r, n=bin.counts)
         data.by$data.ci <- data.ci
       }
     }
@@ -1205,9 +1216,10 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
     ###############################################
     dotsON <- lineON <- ciON <- cbON <- polyON <- F
     xmean <- NULL
+    vcv.ci <- NULL
 
     ################ Dots ####################
-    if (dotsmean+dotsgrid !=0 & !noplot & !dots.fewobs & !fewobs) {
+    if (dotsmean+dotsgrid !=0 & !dots.fewobs & !fewobs) {
       dotsON <- T
     }
     if (dotsON) {
@@ -1226,8 +1238,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         dots.isknot <- c(dots.isknot, grid$isknot); dots.mid <- c(dots.mid, grid$mid)
       }
       B    <- binsreg.spdes(eval=x.sub, p=dots.p, s=dots.s, deriv=0, knot=knot)
-      P    <- cbind(B, w.sub)         # full design matrix
-      model.dots <- lm(y.sub~-1+P, weights=weights.sub)
+      P    <- binsreg.cbind(B, w.sub)         # full design matrix
+      model.dots <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
       check.drop(model.dots$coeff, ncol(B))
 
       basis <- binsreg.spdes(eval=dots.x, p=dots.p, s=dots.s, knot=knot, deriv=deriv)
@@ -1235,12 +1247,12 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       dots.fit <- pred.dots$fit
       dots.fit[dots.isknot==1] <- NA
       data.dots <- data.frame(group=paste(byvals[i]), x=dots.x, bin=dots.bin, isknot=dots.isknot,
-                              mid=dots.mid, fit=dots.fit)
+                              mid=dots.mid, fit=dots.fit, n=bin.counts[dots.bin])
       data.by$data.dots <- data.dots
     }
 
     ################ Line ####################
-    if (linegrid !=0 & !noplot & !line.fewobs & !fewobs) {
+    if (linegrid !=0 & !line.fewobs & !fewobs) {
       lineON <- T
     }
     if (lineON) {
@@ -1254,8 +1266,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       }
       if (line.reg.ON) {
         B     <- binsreg.spdes(eval=x.sub, p=line.p, s=line.s, deriv=0, knot=knot)
-        P     <- cbind(B, w.sub)         # full design matrix
-        model.line <- lm(y.sub~-1+P, weights=weights.sub)
+        P     <- binsreg.cbind(B, w.sub)         # full design matrix
+        model.line <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
         check.drop(model.line$coeff, ncol(B))
       }
 
@@ -1266,12 +1278,12 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         line.fit[line.isknot==1] <- NA
       }
       data.line <- data.frame(group=byvals[i], x=line.x, bin=line.bin, isknot=line.isknot,
-                              mid=line.mid, fit=line.fit)
+                              mid=line.mid, fit=line.fit, n=bin.counts[line.bin])
       data.by$data.line <- data.line
     }
 
     ############### Poly fit #########################
-    if (polyreggrid!=0 & !noplot & !polyreg.fewobs) {
+    if (polyreggrid!=0 & !polyreg.fewobs) {
       polyON <- T
     }
     if (polyON) {
@@ -1285,8 +1297,8 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       # Run a poly reg
       x.p <- matrix(NA, N, polyreg+1)
       for (j in 1:(polyreg+1))  x.p[,j] <- x.sub^(j-1)
-      P.poly <- cbind(x.p, w.sub)
-      model.poly <- lm(y.sub~-1+P.poly, weights=weights.sub)
+      P.poly <- binsreg.cbind(x.p, w.sub)
+      model.poly <- binsreg.fit.lm(y.sub, P.poly, weights=weights.sub)
       beta.poly <- model.poly$coefficients
       beta.poly[is.na(beta.poly)] <- 0
       poly.fit  <- 0
@@ -1296,7 +1308,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       if (!is.null(eval.w) & deriv==0) poly.fit <- poly.fit + sum(beta.poly[-(1:(polyreg+1))]*eval.w)
 
       data.poly <- data.frame(group=byvals[i], x=poly.x, bin=poly.bin, isknot=poly.isknot,
-                              mid=poly.mid, fit=poly.fit)
+                              mid=poly.mid, fit=poly.fit, n=bin.counts[poly.bin])
       data.by$data.poly <- data.poly
 
       # add CI?
@@ -1319,20 +1331,21 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
           else          basis.polyci <- cbind(basis.polyci, outer(rep(1, nrow(basis.polyci)), rep(0, nwvar)))
         }
 
+        vcv.poly <- binsreg.vcov(model.poly, type=vce, cluster=cluster.sub)
         polyci.pred <- binsreg.pred(basis.polyci, model=model.poly, type="all",
-                                    vce=vce, cluster=cluster.sub, avar=T)
+                                    vce=vce, cluster=cluster.sub, avar=T, vcv=vcv.poly)
         polyci.l <- polyci.pred$fit - qnorm(alpha) * polyci.pred$se
         polyci.r <- polyci.pred$fit + qnorm(alpha) * polyci.pred$se
 
         data.polyci <- data.frame(group=byvals[i], x=polyci.x, bin=polyci.bin, isknot=polyci.isknot,
-                                  mid=polyci.mid, polyci.l=polyci.l, polyci.r=polyci.r)
+                                  mid=polyci.mid, polyci.l=polyci.l, polyci.r=polyci.r, n=bin.counts[polyci.bin])
         data.by$data.polyci <- data.polyci
       }
     }
 
 
     ################ CI ####################
-    if (cimean+cigrid !=0 & !noplot & !ci.fewobs & !fewobs) {
+    if (cimean+cigrid !=0 & !ci.fewobs & !fewobs) {
       ciON <- T
     }
     if (ciON) {
@@ -1363,26 +1376,27 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       }
       if (ci.reg.ON) {
         B    <- binsreg.spdes(eval=x.sub, p=ci.p, s=ci.s, deriv=0, knot=knot)
-        P    <- cbind(B, w.sub)            # full design matrix
-        model.ci <- lm(y.sub~P-1, weights=weights.sub)
+        P    <- binsreg.cbind(B, w.sub)            # full design matrix
+        model.ci <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
         check.drop(model.ci$coeff, ncol(B))
       }
 
       basis <- binsreg.spdes(eval=ci.x, p=ci.p, s=ci.s, knot=knot, deriv=deriv)
+      vcv.ci <- binsreg.vcov(model.ci, type=vce, cluster=cluster.sub)
       ci.pred <- binsreg.pred(X=basis, model=model.ci, type="all", vce=vce,
-                              cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar)
+                              cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar, vcv=vcv.ci)
       ci.l <- ci.pred$fit - qnorm(alpha)*ci.pred$se
       ci.r <- ci.pred$fit + qnorm(alpha)*ci.pred$se
       ci.l[ci.isknot==1] <- NA
       ci.r[ci.isknot==1] <- NA
       data.ci <- data.frame(group=byvals[i], x=ci.x, bin=ci.bin, isknot=ci.isknot,
-                            mid=ci.mid, ci.l=ci.l, ci.r=ci.r)
+                            mid=ci.mid, ci.l=ci.l, ci.r=ci.r, n=bin.counts[ci.bin])
       data.by$data.ci <- data.ci
     }
 
     ################ CB ###############################
     cval <- NA
-    if (cbgrid !=0 & !noplot & !cb.fewobs & !fewobs) {
+    if (cbgrid !=0 & !cb.fewobs & !fewobs) {
       cbON <- T
     }
     if (cbON) {
@@ -1394,8 +1408,10 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       cb.isknot <- grid$isknot; cb.mid <- grid$mid
 
       cb.reg.ON <- T
+      vcv.cb <- NULL
       if (ciON) if (cb.p==ci.p & cb.s==ci.s) {
         model.cb <- model.ci; cb.reg.ON <- F
+        vcv.cb <- vcv.ci
       }
       if (cb.reg.ON) if (lineON) if (cb.p==line.p & cb.s==line.s) {
         model.cb <- model.line; cb.reg.ON <- F
@@ -1406,22 +1422,23 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
 
       if (cb.reg.ON) {
         B    <- binsreg.spdes(eval=x.sub, p=cb.p, s=cb.s, deriv=0, knot=knot)
-        P    <- cbind(B, w.sub)            # full design matrix
-        model.cb <- lm(y.sub~P-1, weights=weights.sub)
+        P    <- binsreg.cbind(B, w.sub)            # full design matrix
+        model.cb <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
         check.drop(model.cb$coeff, ncol(B))
       }
 
       basis <- binsreg.spdes(eval=cb.x, p=cb.p, s=cb.s, knot=knot, deriv=deriv)
       pos <- !is.na(model.cb$coeff[1:ncol(basis)])
       k.new <- sum(pos)
+      if (is.null(vcv.cb)) vcv.cb <- binsreg.vcov(model.cb, type=vce, cluster=cluster.sub)
       cb.pred <- binsreg.pred(X=basis, model=model.cb, type="all", vce=vce,
-                              cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar)
+                              cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar, vcv=vcv.cb)
       ### Compute cval ####
       x.grid <- binsreg.grid(knot, simsgrid)$eval
       basis.sim <- binsreg.spdes(eval=x.grid, p=cb.p, s=cb.s, knot=knot, deriv=deriv)
       sim.pred <- binsreg.pred(X=basis.sim, model=model.cb, type="all",
-                               vce=vce, cluster=cluster.sub, avar=T)
-      vcv <- binsreg.vcov(model.cb, type=vce, cluster=cluster.sub)[1:k.new, 1:k.new]
+                               vce=vce, cluster=cluster.sub, avar=T, vcv=vcv.cb)
+      vcv <- vcv.cb[1:k.new, 1:k.new]
       Sigma.root <- lssqrtm(vcv)
       num        <- basis.sim[,pos,drop=F] %*% Sigma.root
       cval <- binsreg.pval(num, sim.pred$se, rep=nsims, tstat=NULL, side="two", alpha=level)$cval
@@ -1433,16 +1450,18 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
         cb.r[cb.isknot==1] <- NA
       }
       data.cb <- data.frame(group=byvals[i], x=cb.x, bin=cb.bin, isknot=cb.isknot,
-                            mid=cb.mid, cb.l=cb.l, cb.r=cb.r)
+                            mid=cb.mid, cb.l=cb.l, cb.r=cb.r, n=bin.counts[cb.bin])
       data.by$data.cb <- data.cb
     }
     cval.by <- c(cval.by, cval)
 
     # save bin information
     if (nbins==length(knot)) {
-      data.by$data.bin <- data.frame(group=byvals[i], bin.id=1:nbins, left.endpoint=knot, right.endpoint=knot)
+      data.by$data.bin <- data.frame(group=byvals[i], bin.id=1:nbins, left.endpoint=knot, right.endpoint=knot,
+                                     n=bin.counts)
     } else {
-      data.by$data.bin <- data.frame(group=byvals[i], bin.id=1:nbins, left.endpoint=knot[-(nbins+1)], right.endpoint=knot[-1])
+      data.by$data.bin <- data.frame(group=byvals[i], bin.id=1:nbins, left.endpoint=knot[-(nbins+1)], right.endpoint=knot[-1],
+                                     n=bin.counts)
     }
 
     # Save all data for each group
@@ -1532,7 +1551,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
        binsplot <- binsplot + theme(legend.position="none")
     }
     binsplot <- binsplot + labs(x=paste(xname), y=paste(yname)) + xlim(xsc.min, xsc.max)
-    print(binsplot)
+    if (printplot) print(binsplot)
   }
 
   ######################################

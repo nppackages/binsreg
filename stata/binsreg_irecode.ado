@@ -1,22 +1,22 @@
-*! version 1.5 19-OCT-2024 
- 
+*! version 2.0 14-MAY-2026
+
 * Generalized irecode function
 
 program define binsreg_irecode
    version 13
-   
+
    syntax varlist(max=1 numeric) [if] [in], knotmat(name) BINid(varname numeric) ///
-                                            [usegtools nbins(string) pos(string) knotliston(string)] 
-   
+                                            [usegtools nbins(string) pos(string) knotliston(string)]
+
    /* knot is a FULL knot matrix with boundaries */
    /* used internally, no error checks */
-   
+
    marksample touse
-   
+
    if ("`usegtools'"==""|"`pos'"!="QS") {
       confirm variable `binid'
 	  confirm matrix `knotmat'
-   
+
       local n=rowsof(`knotmat')
       if (`n'==2) qui replace `binid'=1 if `touse'
       else if (`n'==3) qui replace `binid'=1+irecode(`varlist', `knotmat'[2,1]) if `touse'
@@ -50,14 +50,14 @@ program define binsreg_irecode
 			     qui replace `binid' = `n'-1 if `varlist' > `knotmat'[`j'+1,1] & `touse'
 			   }
 	        }
-         } 
+         }
       }
    }
    else {
       capture confirm variable `binid'
 	  if (!_rc) drop `binid'
-	  
-      if (`nbins'==1) qui replace `binid'=1 if `touse' 
+
+      if (`nbins'==1) qui replace `binid'=1 if `touse'
       else {
 	     tempvar cat
          if ("`knotliston'"=="T") fasterxtile `binid'=`varlist', nq(`nbins')
@@ -65,6 +65,6 @@ program define binsreg_irecode
 		 *qui replace `binid'=`cat' if `touse'
 	  }
    }
-   
-   
+
+
 end

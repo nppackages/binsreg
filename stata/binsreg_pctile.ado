@@ -1,24 +1,24 @@
-*! version 1.5 19-OCT-2024 
- 
+*! version 2.0 14-MAY-2026
+
 * Generalized pctile function
 
 program define binsreg_pctile, rclass
    version 13
-   
+
    syntax varlist(max=1 numeric) [if] [in] [fw aw pw] [, nq(integer 2) usegtools]
-   
+
    /* nq must be >=2, # of bins */
    /* used internally, no error checks */
-   
+
    marksample touse
-   
+
    if ("`weight'"!="") local wt [`weight'`exp']
-   
+
    local nk = `nq'-1   /* # of quantiles */
    tempname A
-   
+
    mat `A'=J(`nk',1,.)
-	  
+
    if `nq' <= 1001 {
 	  if ("`usegtools'"=="") _pctile `varlist' if `touse' `wt', nq(`nq')
 	  else                   gquantiles `varlist' if `touse' `wt', _pctile nq(`nq')
@@ -73,8 +73,8 @@ program define binsreg_pctile, rclass
 		 }
 	  }
    }
-  
+
   return clear
   return matrix Q=`A'
-   
+
 end

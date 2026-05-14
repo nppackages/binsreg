@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Created on Sat Sep  4 17:39:50 2021
-# @author: Ricardo Masini
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 
 import numpy as np
 import warnings
@@ -25,7 +25,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     Description
     -----------
     binspwc implements hypothesis testing procedures for pairwise group comparison of binscatter estimators, following the
-    results in Cattaneo, Crump, Farrell and Feng (2024a) and Cattaneo, Crump, Farrell and Feng (2024b).
+    results in Cattaneo, Crump, Farrell and Feng (2024) and Cattaneo, Crump, Farrell and Feng (2026).
     If the binning scheme is not set by the user, the companion function binsregselect is used to implement binscatter in a
     data-driven way. Binned scatter plots based on different methods can be constructed using the companion functions binsreg, binsqreg or binsglm.
     Hypothesis testing for parametric functional forms of and shape restrictions on the regression function of interest 
@@ -138,7 +138,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
 
     samebinsby : bool
         If true, a common partitioning/binning structure across all subgroups specified by the option by is forced.
-        The knots positions are selected according to the option binspos and using the full sample. If \code{nbins}
+        The knots positions are selected according to the option binspos and using the full sample. If `nbins`
         is not specified, then the number of bins is selected via the companion command binsregselect and
         using the full sample.
         
@@ -185,7 +185,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         Adjustments for minimum effective sample size checks, which take into account number of unique
         values of x (i.e., number of mass points), number of clusters, and degrees of freedom of
         the different statistical models considered. The default is dfcheck=(20, 30).
-        See Cattaneo, Crump, Farrell and Feng (2024c) for more details.
+        See Cattaneo, Crump, Farrell and Feng (2025) for more details.
     
     masspoints: str
         How mass points in x are handled. Available options:
@@ -218,7 +218,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     tstat : A matrix where each row corresponds to the comparison between two groups. The first column is the test statistic. 
             The second and third columns give the corresponding group numbers. The null hypothesis is mu_i(x)<=mu_j(x),
             mu_i(x)=mu_j(x), or mu_i(x)>=mu_j(x) for group i (given in the second column) and group j (given in the third column).
-            The group number corresponds to the list of group names given by options_byvals.
+            The group number corresponds to the list of group names given by options.byvals.
     
     pval : A vector of p-values for all pairwise group comparisons.
 
@@ -243,7 +243,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
     >>> x = numpy.random.uniform(size = 500)
     >>> y = numpy.sin(x)+numpy.random.normal(size = 500)
     >>> t  = 1*(numpy.random.uniform(size = 500)>0.5)
-    >>> out = binstest(y,x, by=t)
+    >>> out = binspwc(y,x, by=t)
     >>> print(out)
     >>> out.summary()
     '''
@@ -943,4 +943,4 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
                      imse_v_dpi=imse_v_dpi, imse_b_dpi=imse_b_dpi,
                      imse_v_rot=imse_v_rot, imse_b_rot=imse_b_rot,
                      options = opt)
-    return out 
+    return out

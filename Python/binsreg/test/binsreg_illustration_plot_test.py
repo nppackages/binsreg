@@ -1,6 +1,6 @@
 ################################################################################
 # Binsreg: illustration file for plot
-# Authors: M. D. Cattaneo, R. Crump, M. Farrell, Y. Feng and Ricardo Masini
+# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 # Last update: March  17, 2023
 ################################################################################
 

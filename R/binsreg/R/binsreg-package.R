@@ -3,8 +3,8 @@
 #'@description  Binscatter provides a flexible, yet parsimonious way of visualizing and summarizing large data sets
 #'              and has been a popular methodology in applied microeconomics and other social sciences. The binsreg package provides tools for
 #'              statistical analysis using the binscatter methods developed in
-#'              \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
-#'              \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
+#'              \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024)} and
+#'              \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Cattaneo, Crump, Farrell and Feng (2026)}.
 #'              \code{\link{binsreg}} implements binscatter least squares regression with robust inference and plots, including
 #'              curve estimation, pointwise confidence intervals and uniform confidence band.
 #'              \code{\link{binsqreg}} implements binscatter quantile regression with robust inference and plots, including
@@ -21,32 +21,36 @@
 #'              among other features.
 #'
 #'              The companion software article,
-#'              \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)},
+#'              \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2025)},
 #'              provides further implementation details and empirical illustration. For related Stata, R and Python packages
 #'              useful for nonparametric data analysis and statistical inference, visit
 #'              \href{https://nppackages.github.io/}{https://nppackages.github.io/}.
-#'@importFrom stats complete.cases quantile weighted.mean sd rnorm qnorm dnorm lm glm vcov gaussian model.matrix terms.formula runif
+#'@importFrom stats complete.cases quantile weighted.mean sd rnorm qnorm dnorm lm lm.fit lm.wfit glm glm.fit vcov gaussian model.matrix terms terms.formula reformulate runif
 #'@importFrom splines splineDesign
 #'@importFrom sandwich vcovCL
 #'@importFrom matrixStats colWeightedMeans colWeightedMedians
-#'@importFrom quantreg rq summary.rq
+#'@importFrom quantreg rq rq.fit rq.wfit summary.rq
 #'@import ggplot2
 #'
 #'@author
-#' Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+#' Matias D. Cattaneo (maintainer). \email{matias.d.cattaneo@gmail.com}.
 #'
-#' Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+#' Richard K. Crump. \email{richard.crump@gmail.com}.
 #'
-#' Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
+#' Max H. Farrell. \email{mhfarrell@gmail.com}.
 #'
-#' Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+#' Yingjie Feng. \email{fengyingjiepku@gmail.com}.
 #'
 #'@references
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+#' Supplemental Appendix for On Binscatter: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf}{Supplemental Appendix}.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Nonlinear Binscatter Methods}. Review of Economics and Statistics, revise and resubmit.
+#'
+#' Supplemental Appendix for Nonlinear Binscatter Methods: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf}{Supplemental Appendix}.
+#'
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Binscatter Regressions}. Stata Journal 25(1): 3-50.
 #'
 #'@aliases binsreg-package
 "_PACKAGE"

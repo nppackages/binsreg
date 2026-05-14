@@ -15,7 +15,7 @@ binsglm(y, x, w = NULL, data = NULL, at = NULL, family = gaussian(),
   simsgrid = 20, simsseed = NULL, vce = "HC1", cluster = NULL,
   asyvar = F, level = 95, noplot = F, dfcheck = c(20, 30),
   masspoints = "on", weights = NULL, subset = NULL, plotxrange = NULL,
-  plotyrange = NULL, ...)
+  plotyrange = NULL, printplot = TRUE, ...)
 }
 \arguments{
 \item{y}{outcome variable. A vector.}
@@ -183,12 +183,12 @@ variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty r
 
 \item{level}{nominal confidence level for confidence interval and confidence band estimation. Default is \code{level=95}.}
 
-\item{noplot}{if true, no plot produced.}
+\item{noplot}{if true, no plot is produced, but requested plotting data are still returned.}
 
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2025)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -209,11 +209,14 @@ a numeric vector. For more details, see \code{\link{lm}}.}
 
 \item{plotyrange}{a vector. \code{plotyrange=c(min, max)} specifies a range of the y-axis for binscatter plot. Observations outside the range are dropped in the plot.}
 
+\item{printplot}{if true, the generated \code{ggplot} object is printed when \code{noplot=FALSE}. If false, the plot object is returned without printing.}
+
 \item{...}{optional arguments used by \code{\link{glm}}.}
 }
 \value{
 \item{\code{bins_plot}}{A \code{ggplot} object for binscatter plot.}
        \item{\code{data.plot}}{A list containing data for plotting. Each item is a sublist of data frames for each group. Each sublist may contain the following data frames:
+       Plotting data frames with a bin indicator include \code{n}, the number of observations in the corresponding bin.
        \itemize{
        \item \code{data.dots} Data for dots. It contains: \code{x}, evaluation points; \code{bin}, the indicator of bins;
                               \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin; and \code{fit}, fitted values.
@@ -234,7 +237,8 @@ a numeric vector. For more details, see \code{\link{lm}}.}
                                \code{isknot}, indicator of inner knots; \code{mid}, midpoint of each bin;
                                \code{polyci.l} and \code{polyci.r}, left and right boundaries of each confidence intervals.
        \item \code{data.bin} Data for the binning structure. It contains: \code{bin.id}, ID for each bin;
-                               \code{left.endpoint} and \code{right.endpoint}, left and right endpoints of each bin.}}
+                               \code{left.endpoint} and \code{right.endpoint}, left and right endpoints of each bin;
+                               and \code{n}, number of observations in each bin.}}
        \item{\code{imse.var.rot}}{Variance constant in IMSE, ROT selection.}
        \item{\code{imse.bsq.rot}}{Bias constant in IMSE, ROT selection.}
        \item{\code{imse.var.dpi}}{Variance constant in IMSE, DPI selection.}
@@ -245,11 +249,12 @@ a numeric vector. For more details, see \code{\link{lm}}.}
                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).
                           The degree and smoothness of polynomials for dots, line, confidence intervals and confidence band for each group are saved
                           in \code{dots}, \code{line}, \code{ci}, and \code{cb}.}
+       \item{\code{call}}{The matched function call.}
 }
 \description{
 \code{binsglm} implements binscatter generalized linear regression with robust inference procedures and plots, following the
-            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
-            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
+            results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024)} and
+            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Cattaneo, Crump, Farrell and Feng (2026)}.
             Binscatter provides a flexible way to describe the relationship between two variables, after
             possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
             The main purpose of this function is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and
@@ -263,21 +268,25 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  binsglm(d, x, family=binomial())
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+Supplemental Appendix for On Binscatter: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf}{Supplemental Appendix}.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Nonlinear Binscatter Methods}. Review of Economics and Statistics, revise and resubmit.
+
+Supplemental Appendix for Nonlinear Binscatter Methods: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf}{Supplemental Appendix}.
+
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Binscatter Regressions}. Stata Journal 25(1): 3-50.
 }
 \seealso{
 \code{\link{binsregselect}}, \code{\link{binstest}}.
 }
 \author{
-Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+Matias D. Cattaneo (maintainer). \email{matias.d.cattaneo@gmail.com}.
 
-Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+Richard K. Crump. \email{richard.crump@gmail.com}.
 
-Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
+Max H. Farrell. \email{mhfarrell@gmail.com}.
 
-Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+Yingjie Feng. \email{fengyingjiepku@gmail.com}.
 }

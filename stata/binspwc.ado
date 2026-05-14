@@ -1,9 +1,9 @@
-*! version 1.5 19-OCT-2024 
+*! version 2.0 14-MAY-2026
 
 capture program drop binspwc
 program define binspwc, eclass
     version 13
-	 
+
 	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] , by(varname) [deriv(integer 0) at(string asis) nolink ///
 	       estmethod(string) estmethodopt(string asis) absorb(string asis) reghdfeopt(string asis) ///
 		   pwc(string) testtype(string) lp(string) ///
@@ -15,21 +15,21 @@ program define binspwc, eclass
 		   vce(passthru) asyvar(string) ///
 		   numdist(string) numclust(string)]
 		   /* last line only for internal use */
-	
+
 	 * Regularization constant (for checking only)
 	 local qrot=2
-	 
+
 	 **************************************
 	 * Create weight local
      if ("`weight'"!="") {
 	    local wt [`weight'`exp']
 		local wtype=substr("`weight'",1,1)
 	 }
-	 
+
 	 if ("`testtype'"=="") {
 	    local testtype "2"
 	 }
-	 
+
 	 * which model?
 	 if ("`absorb'"!="") {
 	    if ("`estmethod'"!="") {
@@ -45,7 +45,7 @@ program define binspwc, eclass
 	 local estmethod `1'
 	 if ("`estmethod'"=="reg") {
 	    local estcmd "reg"
-	 } 
+	 }
 	 else if ("`estmethod'"=="qreg") {
 	    local estcmd "qreg"
 		local quantile `2'
@@ -60,18 +60,18 @@ program define binspwc, eclass
 	 else if ("`estmethod'"=="reghdfe") {
 	    local estcmd "reghdfe"
 	 }
-	 
+
 	 * report the results for the cond. mean model?
 	 if ("`link'"!="") local transform "F"
 	 else              local transform "T"
-	 
+
 	 * Extract options
 	 * default vce
 	 if ("`vce'"=="") local vce "vce(robust)"
 	 local vcetemp: subinstr local vce "vce(" "", all
      local vcetemp: subinstr local vcetemp ")" "", all
 	 tokenize "`vcetemp'", parse(", ")
-	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| /// 
+	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| ///
 		 "`1'"=="cluste"|"`1'"=="cluster") {
 		if ("`3'"==""|"`3'"==",") local clusterON "T"           /* Mark cluster is specified */
 		local clustervar `2'
@@ -80,7 +80,7 @@ program define binspwc, eclass
 		   di as text in gr "Warning: vce(cluster) not allowed. vce(robust) used instead."
 		}
 	 }
-	 
+
 	 * use bootstrap cmd?
 	 if ("`1'"=="boot" | "`1'"=="bootstrap") {
 		local boot "on"
@@ -98,11 +98,11 @@ program define binspwc, eclass
 	 }
 	 else {
 		local boot "off"
-	 }  
-	 
+	 }
+
 	 if ("`asyvar'"=="") local asyvar "off"
 
-	 
+
 	 * vce for bin selection
 	 if ("`estmethod'"=="qreg") {
 	    if ("`vce'"=="vce(iid)") local vce_select "vce(ols)"
@@ -115,7 +115,7 @@ program define binspwc, eclass
 	 else if ("`estmethod'"=="reg"|"`estmethod'"=="reghdfe") {
 	    local vce_select "`vce'"
 	 }
-	 
+
 	 if ("`binspos'"=="es") local binspos "ES"
 	 if ("`binspos'"=="qs") local binspos "QS"
 	 if ("`binspos'"=="")   local binspos "QS"
@@ -128,12 +128,12 @@ program define binspwc, eclass
 	    numlist "`pwc'", integer max(2) range(>=0)
 		local pwc=r(numlist)
 	 }
-	 
+
 	 if ("`pwc'"=="F") local pwc ""
 	 if ("`pwc'"=="T"&"`binspos'"!="ES"&"`binspos'"!="QS") local pwc ""
-	 
+
 	 local selection ""
-	 
+
 	 * analyze nbins
 	 local lenbynbins=0
 	 if ("`bynbins'"!="T"&"`bynbins'"!="") {
@@ -144,24 +144,24 @@ program define binspwc, eclass
 	       local nbins_all=`bynbins'
 	    }
 	 }
-	 
+
 	 * analyze numlist in pselect and sselect
 	 local len_p=0
 	 local len_s=0
-	 
+
 	 if ("`pselect'"!="") {
 	    numlist "`pselect'", integer range(>=`deriv') sort
 		local plist=r(numlist)
 	 }
-	 
+
 	 if ("`sselect'"!="") {
 	    numlist "`sselect'", integer range(>=0) sort
 		local slist=r(numlist)
 	 }
-	 	 	 
+
 	 local len_p: word count `plist'
 	 local len_s: word count `slist'
-	 
+
 	 if (`len_p'==1&`len_s'==0) {
 	    local slist `plist'
 		local len_s=1
@@ -170,7 +170,7 @@ program define binspwc, eclass
 	    local plist `slist'
 		local len_p=1
      }
-	 
+
 	 if ("`binspos'"!="ES"&"`binspos'"!="QS") {
 	    if ("`bynbins'"!=""|"`pselect'"!=""|"`sselect'"!="") {
            di as error "bynbins(), pselect() or sselect() incorrectly specified."
@@ -189,10 +189,10 @@ program define binspwc, eclass
 			exit
 		}
 	 }
-	 
+
 	 * 1st case: select J
 	 if (("`bins'"!=""|"`bynbins'"=="0"|"`bynbins'"=="T"|"`bynbins'"=="")&("`binspos'"=="ES"|"`binspos'"=="QS")) local selection "J"
-	 
+
 	 if ("`selection'"=="J") {
 	 	if (`len_p'>1|`len_s'>1) {
 		   di as error "Only one p and one s are allowed to select # of bins."
@@ -207,18 +207,18 @@ program define binspwc, eclass
 		local len_p=1
 	    local len_s=1
 		if ("`pwc'"=="T"|"`pwc'"=="") local pwc `=`binsp'+1' `=`binss'+1'
-     }                                                                          
-	 
-	 * 2nd case: select P (the special case with nbins() pselect() will be modified in the next step) 
-	 if ("`selection'"!="J" & ("`pwc'"=="T"|"`pwc'"=="")) local pselectOK "T"  
+     }
+
+	 * 2nd case: select P (the special case with nbins() pselect() will be modified in the next step)
+	 if ("`selection'"!="J" & ("`pwc'"=="T"|"`pwc'"=="")) local pselectOK "T"
 
 	 if (("`pselectOK'"=="T") & ("`bynbins'"!=""&"`bynbins'"!="T") & (`len_p'>1|`len_s'>1)) {
 	    local selection "P"
-	 }                                                                          
-	 
+	 }
+
 	 * 3rd case: user-specified J and p
 	 if ((`len_p'<=1&`len_s'<=1) & "`selection'"!="J") {
-		local selection "NA" 
+		local selection "NA"
 		if ("`pwc'"=="") {
 		   if ("`bins'"!="")  local pwc `=`binsp'+1' `=`binss'+1'
 		   else {
@@ -227,13 +227,13 @@ program define binspwc, eclass
 		   }
 		}
 	 }
-	 
+
 	 * exclude all other cases
 	 if ("`selection'"=="") {
 	    di as error "Degree, smoothness, or # of bins are not correctly specified."
         exit
 	 }
-	 
+
 	 if ("`selection'"=="NA") local binselectmethod "User-specified"
 	 else {
 	    if ("`binsmethod'"=="DPI")  local binselectmethod "IMSE-optimal plug-in choice"
@@ -241,15 +241,15 @@ program define binspwc, eclass
 		if ("`selection'"=="J") local binselectmethod "`binselectmethod' (select # of bins)"
 		if ("`selection'"=="P") local binselectmethod "`binselectmethod' (select degree and smoothness)"
 	 }
-	 
+
 	 * option for comparison
 	 tokenize `pwc'
 	 local tsha_p "`1'"
 	 local tsha_s "`2'"
 	 if ("`tsha_p'"==""|"`tsha_p'"=="T") local tsha_p=.
 	 if ("`tsha_s'"=="") local tsha_s `tsha_p'
-	 
-	 
+
+
 	 * Add warnings about degrees for estimation and inference
 	 if ("`selection'"=="J") {
 	    if ("`tsha_p'"!=".") {
@@ -263,11 +263,11 @@ program define binspwc, eclass
 	 if ("`selection'"=="NA") {
 		di as text "Warning: Testing procedures are valid when nbins() is much larger than the IMSE-optimal choice. Compare your choice with the IMSE-optimal one obtained by binsregselect."
 	 }
-	 
-	 * mass check? 
+
+	 * mass check?
 	 if ("`masspoints'"=="") {
 	    local massadj "T"
-		local localcheck "T"	    
+		local localcheck "T"
 	 }
 	 else if ("`masspoints'"=="off") {
 	    local massadj "F"
@@ -285,16 +285,16 @@ program define binspwc, eclass
 	    di as error "veryfew() not allowed for testing."
 		exit
 	 }
-	 
+
 	 * extract dfcheck
 	 if ("`dfcheck'"=="") local dfcheck 20 30
 	 tokenize `dfcheck'
 	 local dfcheck_n1 "`1'"
 	 local dfcheck_n2 "`2'"
-	 
+
 	 * evaluate at w from another dataset?
 	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
-	 
+
 	 * default for lp metric
 	 if ("`lp'"!="") {
 	    capture confirm number `lp'
@@ -310,7 +310,7 @@ program define binspwc, eclass
 		}
 	 }
 	 if ("`lp'"=="") local lp "inf"
-	 
+
 	 * use gtools commands instead?
 	 if ("`usegtools'"=="off") local usegtools ""
 	 if ("`usegtools'"=="on")  local usegtools usegtools
@@ -324,7 +324,7 @@ program define binspwc, eclass
 		local sel_gtools "on"
 	 }
 	 else local sel_gtools "off"
-	 
+
 	 * use reghdfe?
 	 if ("`absorb'"!="") {
 	    capture which reghdfe
@@ -333,7 +333,7 @@ program define binspwc, eclass
 		   exit
 		}
 	 }
-	 
+
 	 * error check
 	 if (`tsha_p'<`tsha_s'|`binsp'<`binss') {
 	     di as error "p cannot be smaller than s."
@@ -352,36 +352,36 @@ program define binspwc, eclass
 	    di as text "Note: Setting at least nsims(2000) and simsgrid(50) is recommended to obtain the final results."
 	 }
 
-	 
+
 	 * Mark sample
 	 preserve
-	 
+
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
 	 fvrevar `1', tsonly
 	 local y_var "`r(varlist)'"
 	 fvrevar `2', tsonly
 	 local x_var "`r(varlist)'"
-	 
+
 	 macro shift 2
 	 local w_var "`*'"
-	 
+
 	 * read eval point for w from another file
 	 if ("`atwout'"=="user") {
 	    append using `at'
 	 }
-	 
+
 	 fvrevar `w_var', tsonly
 	 local w_var "`r(varlist)'"
 	 local nwvar: word count `w_var'
-	 
+
 	 * Save the last obs in a vector and then drop it
 	 tempname wuser                  /* a vector used to keep eval for w */
 	 if ("`atwout'"=="user") {
-	    mata: st_matrix("`wuser'", st_data(`=_N', "`w_var'")) 
+	    mata: st_matrix("`wuser'", st_data(`=_N', "`w_var'"))
 	    qui drop in `=_N'
 	 }
-	 
+
 	 * Get positions of factor vars
      local indexlist ""
      local i = 1
@@ -391,25 +391,25 @@ program define binspwc, eclass
         }
         local ++i
      }
-	 
+
 	 * add a default for at
 	 if (`"`at'"'==""&`nwvar'>0) {
 	    local at "mean"
 	 }
-	 
+
 	 marksample touse      /* now renew the mark to account for missing values */
 	 markout `touse' `by', strok
 	 qui keep if `touse'
      local eN=_N
 	 *local nsize=_N     /* # of rows in the original dataset */
-	     
+
 	 if ("`usegtools'"==""&("`masspoints'"!="off"|"`binspos'"=="QS")) {
 	    if ("`:sortedby'"!="`x_var'") sort `x_var', stable
 	 }
-	 
+
 	 *************************************************************
 	 * Check number of unique byvals & create local storing byvals
-	 local byvarname `by'        
+	 local byvarname `by'
      capture confirm numeric variable `by'
      if _rc {
 		local bystring "T"
@@ -418,12 +418,12 @@ program define binspwc, eclass
         tempname bylabel
         qui egen `by'=group(`byvarname'), lname(`bylabel')
      }
-                
-     local bylabel `:value label `by'' /* catch value labels for numeric by-vars too */ 
-                
+
+     local bylabel `:value label `by'' /* catch value labels for numeric by-vars too */
+
      tempname byvalmatrix
      qui tab `by', nofreq matrow(`byvalmatrix')
-     
+
 	 * save by-value in a local and calculate group mins and maxs
      local bynum=r(r)
 	 if (`bynum'==1) {
@@ -436,7 +436,7 @@ program define binspwc, eclass
 	 matrix `Nmat'=`xminmat'
 	 local Ntotal=0
      forvalues i=1/`bynum' {
-	    local byv `=`byvalmatrix'[`i',1]' 
+	    local byv `=`byvalmatrix'[`i',1]'
         local byvals `byvals' `byv'
 	    if ("`wtype'"=="f") sum `x_var' if `by'==`byv' `wt', meanonly
 	    else                sum `x_var' if `by'==`byv', meanonly
@@ -446,18 +446,18 @@ program define binspwc, eclass
 		local Ntotal=`Ntotal'+r(N)
      }
 	 mata: st_local("Ntotal", strofreal(sum(st_matrix("`Nmat'"))))
-	 
+
 	 * define a common support for eval points
 	 mata: st_local("max_xmin", strofreal(max(st_matrix("`xminmat'")))); ///
 	       st_local("min_xmax", strofreal(min(st_matrix("`xmaxmat'")))); ///
 	 	   st_local("xmin", strofreal(min(st_matrix("`xminmat'")))); ///
 		   st_local("xmax", strofreal(max(st_matrix("`xmaxmat'"))))
-	 
-	 
+
+
 	 * Temp name in MATA
 	 tempname xvec yvec byvec cluvec binedges
 	 mata: `xvec'=st_data(., "`x_var'"); `yvec'=st_data(.,"`y_var'"); `byvec'=.; `cluvec'=.
-	 
+
 	 *******************************************************
 	 *** Mass point counting *******************************
 	 tempname Ndistlist Nclustlist mat_imse_var_rot mat_imse_bsq_rot mat_imse_var_dpi mat_imse_bsq_dpi
@@ -471,14 +471,14 @@ program define binspwc, eclass
 
 	 if (`bynum'>1) mata: `byvec'=st_data(.,"`by'")
 	 if ("`clusterON'"=="T") mata: `cluvec'=st_data(.,"`clustervar'")
-	 
+
 	 ********************************************************
 	 ********** Bins, based on FULL sample ******************
 	 ********************************************************
 	 * knotlist: inner knot seq; knotlistON: local, knot available before loop
-	 
+
 	 tempname fullkmat   /* matrix name for saving knots based on the full sample */
-	 
+
 	 * Extract user-specified knot list
 	 if ("`binspos'"!="ES"&"`binspos'"!="QS") {
 		capture numlist "`binspos'", ascending
@@ -495,7 +495,7 @@ program define binspwc, eclass
 		   else {
 		      local nbins_all=`nbins_all'+1
               local pos "user"
-				   
+
 			  foreach el of local knotlist {
 		         mat `fullkmat'=(nullmat(`fullkmat') \ `el')
 		      }
@@ -507,12 +507,12 @@ program define binspwc, eclass
 		   exit
 		}
 	 }
-	 
+
 	 * Bin selection using the whole sample if
 	 if ("`selection'"!="NA" & "`samebinsby'"!="") {
 	    local selectfullON "T"
 	 }
-	 
+
 	 if ("`selectfullON'"=="T") {
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
@@ -548,7 +548,7 @@ program define binspwc, eclass
 		   }
 		   local eN=min(`eN', `Nclust')   /* effective sample size */
 	    }
-	 
+
 		* Check effective sample size
 		if ("`binsp'"==".") local binspcheck=6
 		else                local binspcheck=`binsp'
@@ -625,7 +625,7 @@ program define binspwc, eclass
 		   }
 		}
 	 }
-	 
+
 	 if ("`selectfullON'"=="T"|("`selection'"=="NA"&"`samebinsby'"!="")) {
 		 * Save in a knot list
          local knotlistON "T"
@@ -637,13 +637,13 @@ program define binspwc, eclass
 	     }
 	     else if ("`binspos'"=="QS") {
 			 if (`nbins_all'==1)  mat `fullkmat'=(`xmin' \ `xmax')
-		     else {		
+		     else {
 	           binsreg_pctile `x_var' `wt', nq(`nbins_all') `usegtools'
 		       mat `fullkmat'=(`xmin' \ r(Q) \ `xmax')
 		     }
 	     }
 	 }
-	 
+
 	 *** Placement name, for display ************
 	 if ("`pos'"=="user") {
 	     local binselectmethod "User-specified"
@@ -655,30 +655,30 @@ program define binspwc, eclass
 	 else if ("`binspos'"=="QS") {
 	     local placement "Quantile-spaced"
 	 }
-	 
-	 
+
+
 	 ********************************************************
 	 * Set seed
 	 if ("`simsseed'"!="") set seed `simsseed'
-	 
+
 	 * generate eval points
 	 tempname Xm uni_grid uni_grid_bin uni_basis num denom nummat tstat pmat xsub ysub byindex xcatsub   /* objects in MATA */
 	 mata: `tstat'=J(`=`bynum'*(`bynum'-1)/2',3,.); `pmat'=J(`=`bynum'*(`bynum'-1)/2',1,.)
-	 
+
 	 tempname Xm0 fit fit0 se vcov
 	 mata: `Xm0'=.; `fit'=.; `fit0'=0; `se'=.; `vcov'=.
-	 
+
 	 tempvar xcat bycond
-	 qui gen `xcat'=. in 1 
+	 qui gen `xcat'=. in 1
 	 qui gen `bycond'=. in 1
-	 
+
 	 * matrix names, for returns
 	 tempname nbinslist teststat pvalue pwc_plist pwc_slist
-	 
+
 	 * prepare grid
 	 mata: `uni_grid'=rangen(`max_xmin', `min_xmax', `simsgrid'+2); ///
 	       `uni_grid'=`uni_grid'[|2 \ `=`simsgrid'+1'|]           /* only keep inner points, simsgrid>=1 */
-	 
+
 	 * adjust w vars
 	 tempname wval
 	 if (`nwvar'>0) {
@@ -708,7 +708,7 @@ program define binspwc, eclass
 		  matrix `wval'=`wuser'
 	   }
 	}
-	
+
 	* define a w vector (possibly a constant) in MATA
 	tempname wvec wvec0
 	mata: `wvec'=J(1,0,.); `wvec0'=J(1,0,.)
@@ -721,8 +721,8 @@ program define binspwc, eclass
        mata: `wvec0'=(`wvec0', 1)
 	   if (`deriv'==0) mata: `wvec'=(`wvec', 1)
 	   else            mata: `wvec'=(`wvec', 0)
-	}	 
-	 
+	}
+
 
 	local byvalnamelist ""              /* save group name (value) */
 	local counter=1
@@ -733,33 +733,33 @@ program define binspwc, eclass
 	foreach byval in `byvals' {
 		local conds "if `by'==`byval'"     /* with "if" */
 		qui replace `bycond'=(`by'==`byval')
-		
+
 	    if ("`bylabel'"=="") local byvalname=`byval'
 		else {
 		   local byvalname `: label `bylabel' `byval''
 		}
 		local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
-		
+
 		mata: `byindex'=`byvec':==`byval'
 		mata: `xsub'=select(`xvec',`byindex'); `ysub'=select(`yvec', `byindex')
-		
+
 		************************************
 		* Calculate various sample sizes
 		* Subsample size
 		if ("`wtype'"=="f") sum `x_var' `conds' `wt', meanonly
 		else                sum `x_var' `conds', meanonly
-		
+
 		local xmin=r(min)
 	    local xmax=r(max)
 		local N=r(N)
-		
+
 	    * Effective sample size
 		if ("`wtype'"!="f") local eN=r(N)
 		else {
 		   qui count `conds'
 	       local eN=r(N)
 		}
-		
+
 	    local Ndist=.
 	    if ("`massadj'"=="T") {
 		   if ("`usegtools'"=="") {
@@ -773,7 +773,7 @@ program define binspwc, eclass
 		   local eN=min(`eN', `Ndist')
 		   mat `Ndistlist'[`counter',1]=`Ndist'
 	    }
-		
+
 	    * # of clusters
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
@@ -787,17 +787,17 @@ program define binspwc, eclass
 		   local eN=min(`eN', `Nclust')   /* effective SUBsample size */
 		   mat `Nclustlist'[`counter',1]=`Nclust'
 	    }
-	    
+
 		*********************************************************
 		************** Prepare bins, within loop ****************
 		*********************************************************
 		if ("`pos'"!="user") local pos `binspos'              /* initialize pos */
-		
+
 		* Selection?
 		local nbins ""
 		if (`lenbynbins'>1)    local nbins: word `counter' of `bynbins'
 		if ("`nbins_all'"!="") local nbins=`nbins_all'    /* add the universal nbins */
-		
+
 	    if ("`selection'"!="NA"&"`knotlistON'"!="T") {
 		   * Check effective sample size
 		   if ("`binsp'"==".") local binspcheck=6
@@ -815,7 +815,7 @@ program define binspwc, eclass
 		      if ("`selection'"=="J") {
 			     qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 				                   bins(`binsp' `binss') nbins() ///
-		                           absorb(`absorb') reghdfeopt(`reghdfeopt') /// 
+		                           absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 					   			   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							       `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
 							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
@@ -872,16 +872,16 @@ program define binspwc, eclass
 			     }
 				 local tsha_p=`binsp'+1
 				 local tsha_s=`binss'+1
-		      }				  
+		      }
 		   }
 	    }
-		
+
 		*******************************************************
 	    * Check if eff. sample size is large enough for testing
 		if ((`nbins'-1)*(`tsha_p'-`tsha_s'+1)+`tsha_p'+1+`dfcheck_n2'>=`eN') {
 		   di as text in gr "Warning: Too small effective sample size for testing shape."
 	    }
-		
+
 	    * Generate category variable for data and save knot in matrix
 		tempname kmat
 		if ("`knotlistON'"=="T") {
@@ -894,15 +894,15 @@ program define binspwc, eclass
 		         mat `kmat'=(nullmat(`kmat') \ `=`xmin'+`stepsize'*(`i'-1)')
 		      }
 		   }
-	       else {		
+	       else {
 		      if (`nbins'==1)  mat `kmat'=(`xmin' \ `xmax')
-		      else {		
+		      else {
 	             binsreg_pctile `x_var' `conds' `wt', nq(`nbins') `usegtools'
 		         mat `kmat'=(`xmin' \ r(Q) \ `xmax')
 		      }
 		   }
 		}
-	    
+
 		* Renew knot list
 		mata: st_matrix("`kmat'", (`xmin' \ uniqrows(st_matrix("`kmat'")[|2 \ `=`nbins'+1'|])))
 	    if (`nbins'!=rowsof(`kmat')-1) {
@@ -911,15 +911,15 @@ program define binspwc, eclass
 	    }
 		binsreg_irecode `x_var' `conds', knotmat(`kmat') bin(`xcat') ///
 		                                 `usegtools' nbins(`nbins') pos(`pos') knotliston(`knotlistON')
-		
+
 		mata: `xcatsub'=st_data(., "`xcat'")
 		mata: `xcatsub'=select(`xcatsub', `byindex')
-        
+
 		* Now, save nbins, p and s in a matrix !!!
 		mat `nbinslist'=(nullmat(`nbinslist') \ `nbins')
 		mat `pwc_plist'=(nullmat(`pwc_plist') \ `tsha_p')
 		mat `pwc_slist'=(nullmat(`pwc_slist') \ `tsha_s')
-		
+
 		* Check for empty bins
 	    if ("`localcheck'"=="T") {
 		   mata: st_local("Ncat", strofreal(rows(uniqrows(`xcatsub'))))
@@ -931,12 +931,12 @@ program define binspwc, eclass
 		      local uniqmin=0
 			  di as text in gr "Warning: There are empty bins. Specify a smaller number in nbins()."
 		   }
-	       
+
 		   if (`uniqmin'<`tsha_p'+1) {
 		      di as text in gr "Warning: Some bins have too few distinct x-values for testing."
 		   }
-	    }		
-		
+	    }
+
 		************************************************************
         ************************************************************
 	    * Regression
@@ -947,7 +947,7 @@ program define binspwc, eclass
 	       local tsha_series `tsha_series' `sp`i''
 		   qui gen `sp`i''=. in 1
 	    }
-		
+
 		tempname tsha_b tsha_V
 		mata: binsreg_st_spdes(`xsub', "`tsha_series'", "`kmat'", `xcatsub', `tsha_p', 0, `tsha_s', "`bycond'")
 	    if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
@@ -958,9 +958,9 @@ program define binspwc, eclass
 		   else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
 		}
 		else {
-		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce' 
+		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
 		}
-		
+
 	    * store results
 	    if (_rc==0) {
 		    matrix `tsha_b'=e(b)
@@ -973,10 +973,10 @@ program define binspwc, eclass
 	        error  _rc
 	   	    exit _rc
         }
-		   
+
 		* Predict
 		mata: `uni_grid_bin'`counter'=binspwc_locate(`uni_grid', st_matrix("`kmat'"))
-		
+
 	    * fitted values
 		mata: `uni_basis'=binsreg_spdes(`uni_grid', "`kmat'", `uni_grid_bin'`counter', `tsha_p', `deriv', `tsha_s')
 	    if (("`estmethod'"=="logit"|"`estmethod'"=="probit")&"`transform'"=="T") {
@@ -1029,12 +1029,12 @@ program define binspwc, eclass
 		   mata: `Xm'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'); ///
 		         `Xm'=binsreg_pred(`Xm', st_matrix("`tsha_b'"), st_matrix("`tsha_V'"), "all")
 		}
-		
+
 
 		* num: fitted value; denom: standard error
 		mata: `num'`counter'=`Xm'[,1]; ///
 		      `denom'`counter'=`Xm'[,2]
-			    
+
 		* For p value
 		if ("`estmethod'"=="qreg"|"`estmethod'"=="reghdfe") {
 		   if (`deriv'==0) mata: `uni_basis'=(`uni_basis', J(rows(`uni_basis'),1,1))
@@ -1044,7 +1044,7 @@ program define binspwc, eclass
 				          `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///
 			     st_matrix("`vcov'", `vcov')
 		}
-		
+
 		if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
 		   mata: `se'`counter'=binsreg_pred(`uni_basis', ., st_matrix("`tsha_V'")[|1,1 \ `nseries',`nseries'|], "se")[,2]; ///
 		         `nummat'`counter'=binspwc_nummat(`uni_basis', "`tsha_V'", `nseries')
@@ -1053,8 +1053,8 @@ program define binspwc, eclass
 		   mata: `se'`counter'=binsreg_pred(`uni_basis', ., `vcov', "se")[,2]; ///
 		         `nummat'`counter'=binspwc_nummat(`uni_basis', "`vcov'", `=`nseries'+1')
 		}
-				
-		
+
+
 		* pairwise comparison
 		if (`counter'>1) {
 		   forval gr=1/`=`counter'-1' {
@@ -1077,30 +1077,30 @@ program define binspwc, eclass
 				                                   sqrt((`denom'`counter':^2)+(`denom'`gr':^2))):^`lp')^(1/`lp'), `counter', `gr')
 				 }
 			  }
-			  
+
 			  * calculate p val
 			  mata: `pmat'[`counter2',1]=binspwc_pval(`nummat'`counter', `nummat'`gr', `se'`counter', `se'`gr', ///
 			                                             `tstat'[`counter2',1], `nsims', "`testtype'", "`lp'")
-									
+
 			  local ++counter2
 		   }
 		}
-		
+
 		drop `tsha_series'
-	 
+
 	    local ++counter
-	 
+
 	 }
-	 
+
 	 mata: st_matrix("`teststat'", `tstat'); st_matrix("`pvalue'", `pmat')
-	 
+
 	 * drop objects in MATA
 	 mata: mata drop `Xm' `uni_grid' `uni_basis' `tstat' `pmat' `xsub' `ysub' `byindex' `xcatsub' ///
 	                 `xvec' `yvec' `byvec' `cluvec' `Xm0' `fit' `fit0' `se' `vcov' `wvec' `wvec0'
-	
+
 	 mata: mata drop `uni_grid_bin'* `num'* `denom'* `nummat'* `se'*
-	 
-	 
+
+
 	 ******************************
 	 ******* Display **************
 	 ******************************
@@ -1123,21 +1123,21 @@ program define binspwc, eclass
 	 *di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `tsha_s'
      *di in smcl in gr "{hline 30}{c BT}{hline 15}"
 
-	 
+
      forval i=1/`=`counter2'-1' {
 	    local g1=`=`teststat'[`i',2]'
 		local g2=`=`teststat'[`i',3]'
 	    local group1: word `g1' of `byvalnamelist'
 		local group2: word `g2' of `byvalnamelist'
-	    
+
 		di ""
 		di in smcl in gr "Group `group1' vs. Group `group2'"
-		di in smcl in gr "{hline 30}{c TT}{hline 10}{c TT}{hline 10}" 
+		di in smcl in gr "{hline 30}{c TT}{hline 10}{c TT}{hline 10}"
 		di in smcl in gr "{lalign 1:Group `byvarname'=}"   _col(30) " {c |}" _col(38) "`group1'"  _col(42) "{c |}" _col(48) "`group2'"
 	    di in smcl in gr "{hline 30}{c +}{hline 10}{c +}{hline 10}"
 	    di in smcl in gr "{lalign 1:# of observations}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Nmat'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Nmat'[`g2',1]'
 	    di in smcl in gr "{lalign 1:# of distinct values}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Ndistlist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Ndistlist'[`g2',1]'
-	    di in smcl in gr "{lalign 1:# of clusters}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Nclustlist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Nclustlist'[`g2',1]'	 
+	    di in smcl in gr "{lalign 1:# of clusters}"   _col(30) " {c |} " _col(32) as result %7.0f `=`Nclustlist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`Nclustlist'[`g2',1]'
 	   	di in smcl in gr "{lalign 1:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `=`pwc_plist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`pwc_plist'[`g2',1]'
 	    di in smcl in gr "{lalign 1:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `=`pwc_slist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`pwc_slist'[`g2',1]'
 	    di in smcl in gr "{lalign 1:# of bins}"       _col(30) " {c |} " _col(32) as result %7.0f `=`nbinslist'[`g1',1]' _col(42) in gr "{c |}" _col(44) as result %7.0f `=`nbinslist'[`g2',1]'
@@ -1145,7 +1145,7 @@ program define binspwc, eclass
 
 		di ""
 		di in smcl in gr "diff = group `group1' - group `group2'"
-		if ("`testtype'"=="l") {   
+		if ("`testtype'"=="l") {
 	       di in smcl in gr "{hline 19}{c TT}{hline 30}"
 	       di in smcl in gr "H0:"  _col(20) in gr ///
 		                    "{c |}" _col(22) "sup T"  _col(40) "p value"
@@ -1155,14 +1155,14 @@ program define binspwc, eclass
 	       di in smcl in gr "diff<=0" _col(20) in gr "{c |}" ///
 		                    _col(22) as result %7.3f `stat' ///
 		                    _col(40) as result %7.3f `pval'
-	       
+
 		   di in smcl in gr "{hline 19}{c BT}{hline 30}"
 	    }
 	    else if ("`testtype'"=="r") {
 	       di in smcl in gr "{hline 19}{c TT}{hline 30}"
 		   di in smcl in gr "H0:"  _col(20) in gr ///
 		                    "{c |}" _col(22) "inf T"  _col(40) "p value"
-		   di in smcl in gr "{hline 19}{c +}{hline 30}"	    
+		   di in smcl in gr "{hline 19}{c +}{hline 30}"
 		   local stat=`teststat'[`i',1]
 		   local pval=`pvalue'[`i',1]
 	       di in smcl in gr "diff>=0" _col(20) in gr "{c |}" ///
@@ -1172,7 +1172,7 @@ program define binspwc, eclass
 	    }
 		else {
 	       di in smcl in gr "{hline 19}{c TT}{hline 30}"
-		   if ("`lp'"=="inf") { 
+		   if ("`lp'"=="inf") {
 	          di in smcl in gr "H0:"  _col(20) in gr ///
 		                       "{c |}" _col(22) "sup |T|"  _col(40) "p value"
 		   }
@@ -1185,14 +1185,14 @@ program define binspwc, eclass
 		   local pval=`pvalue'[`i',1]
 	       di in smcl in gr "diff=0" _col(20) in gr "{c |}" ///
 		                    _col(22) as result %7.3f `stat' ///
-		                    _col(40) as result %7.3f `pval' 
+		                    _col(40) as result %7.3f `pval'
 		   di in smcl in gr "{hline 19}{c BT}{hline 30}"
 	    }
 		di ""
 	 }
-	 
+
 	 *******************************************************
-	 	 
+
 	 ********** Return ***************
 	 *********************************
 	 ereturn clear
@@ -1200,7 +1200,7 @@ program define binspwc, eclass
 	 ereturn scalar N=`Ntotal'
 	 ereturn scalar p=`binsp'
 	 ereturn scalar s=`binss'
-	 
+
 	 * by pair
 	 ereturn matrix pval=`pvalue'
 	 ereturn matrix stat=`teststat'
@@ -1209,26 +1209,26 @@ program define binspwc, eclass
 	 ereturn matrix nbins_by=`nbinslist'
 	 ereturn matrix pwc_plist=`pwc_plist'
 	 ereturn matrix pwc_slist=`pwc_slist'
-	 ereturn matrix Nclust_by=`Nclustlist'    
+	 ereturn matrix Nclust_by=`Nclustlist'
 	 ereturn matrix Ndist_by=`Ndistlist'
 	 ereturn matrix N_by=`Nmat'
-	 
+
 	 ereturn matrix imse_var_rot=`mat_imse_var_rot'
 	 ereturn matrix imse_bsq_rot=`mat_imse_bsq_rot'
 	 ereturn matrix	imse_var_dpi=`mat_imse_var_dpi'
 	 ereturn matrix imse_bsq_dpi=`mat_imse_bsq_dpi'
 
-	 
+
 	 * local: corresponding by-values
 	 ereturn local byvalue `byvalnamelist'
 end
-	 
+
 mata:
    // calculate numerator matrix for simulation
    real matrix binspwc_nummat(real matrix X, string scalar covname, real scalar k)
    {
      real matrix cov, num, U, V, sv
-	 
+
 	 cov=st_matrix(covname)[|1,1\k,k|]
 	 if (rank(cov)==k) {
 	     num=X*cholesky(cov)
@@ -1238,55 +1238,68 @@ mata:
 		 pragma unused V
 		 num=X*U*diag(sv:^0.5)*U'
 	 }
-	 
+
 	 return(num)
    }
- 
- 
+
+
    // calculate p val for pairwise comparison
-   real scalar binspwc_pval(real matrix nummatA, real matrix nummatB, /// 
-                               real vector denomA, real vector denomB,  
+   real scalar binspwc_pval(real matrix nummatA, real matrix nummatB, ///
+                               real vector denomA, real vector denomB,
 					           real scalar stat, real scalar rep, ///
 					           string scalar type, string scalar metric)
    {
-     real scalar kA, kB, i, lp, pval
-	 real vector t
-	 
+     real scalar kA, kB, i, lp, pval, ngrid, chunk, reps
+	 real matrix t, eps
+	 real vector denom
+	 real rowvector tstat
+
 	 kA=cols(nummatA)
 	 kB=cols(nummatB)
+	 denom=sqrt(denomA:^2+denomB:^2)
 	 if (metric!="inf") {
 	    lp=strtoreal(metric)
 	 }
 	 pval=0
-   
-   	 for (i=1; i<=rep; i++) {
-	     t=(nummatA*rnormal(kA,1,0,1)-nummatB*rnormal(kB,1,0,1)):/sqrt(denomA:^2+denomB:^2)
+
+	 ngrid=rows(nummatA)
+	 chunk=floor(5000000/max((1,ngrid)))
+	 if (chunk<1) chunk=1
+	 if (chunk>rep) chunk=rep
+
+	 for (i=1; i<=rep; i=i+chunk) {
+	     reps=rep-i+1
+	     if (reps>chunk) reps=chunk
+	     eps=rnormal(reps,kA+kB,0,1)'
+	     t=(nummatA*eps[|1,1 \ kA,reps|]- ///
+	        nummatB*eps[|kA+1,1 \ kA+kB,reps|]):/(denom*J(1,reps,1))
 		 if (type=="l") {
-		    pval=pval+(max(t)>=stat)
+		    pval=pval+sum(colmax(t):>=stat)
 	     }
 		 else if (type=="r") {
-   		    pval=pval+(min(t)<=stat)
+		    pval=pval+sum(colmin(t):<=stat)
 		 }
 		 else {
 		    if (metric=="inf") {
-			   pval=pval+(max(abs(t))>=stat)
+			   pval=pval+sum(colmax(abs(t)):>=stat)
 		    }
 			else {
-			   pval=pval+(mean(abs(t):^lp)^(1/lp)>=stat)
+			   tstat=mean(abs(t):^lp):^(1/lp)
+			   pval=pval+sum(tstat:>=stat)
 			}
 		 }
 	   }
-	   
+
 	   return(pval/rep)
    }
- 
 
-   // locate a point 
+
+   // locate a point
    real vector binspwc_locate(real vector x, real vector kmat)
    {
      real vector bin, index
 	 real scalar n, nbin, i, lb, ub
-	 
+
 	 n=rows(x)
 	 nbin=rows(kmat)-1
 	 bin=J(n,1,.)
@@ -1302,8 +1315,8 @@ mata:
 		   bin[index]=J(rows(index),1,i)
 		}
 	 }
-     
+
 	 return(bin)
    }
-   	
+
 end

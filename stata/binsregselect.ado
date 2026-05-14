@@ -1,9 +1,9 @@
-*! version 1.5 19-OCT-2024 
+*! version 2.0 14-MAY-2026
 
 capture program drop binsregselect
 program define binsregselect, eclass
      version 13
-	 
+
 	 syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, deriv(integer 0) ///
 	        absorb(string asis) reghdfeopt(string asis) ///
 			bins(numlist integer max=2 >=0) pselect(numlist integer >=0) sselect(numlist integer >=0) ///
@@ -12,31 +12,31 @@ program define binsregselect, eclass
 			simsgrid(integer 20) savegrid(string asis) replace ///
 			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
 			vce(passthru) useeffn(string) randcut(numlist max=1 >=0 <=1) ///
-			norotnorm numdist(string) numclust(string)]   
+			norotnorm numdist(string) numclust(string)]
 			/* last line only for internal use */
-			
+
 	 set more off
-	 
+
 	 **************************************
 	 ******** Regularization constant  ****
 	 **************************************
 	 local qrot=2
 	 local rot_lb=1
 	 local den_alp=0.975
-	 
+
 	 **************************************
 	 * Create weight local
      if ("`weight'"!="") {
 	    local wt [`weight'`exp']
 		local wtype=substr("`weight'",1,1)
 	 }
-	 	 
+
 	 **********************
 	 ** Extract options ***
-	 **********************	 
+	 **********************
 	 * default vce
 	 if ("`vce'"=="") local vce "vce(robust)"
-	 
+
 	 * binning
 	 * indictors: selectJ (F means select p)
 	 local selectJ ""
@@ -48,23 +48,23 @@ program define binsregselect, eclass
 	    local nbins=r(numlist)
 	    local len_nbins: word count `nbins'
 	 }
-	 
-	 if ("`nbins'"=="0"|`len_nbins'>1|"`bins'"!="") local selectJ "T"   
-	 
+
+	 if ("`nbins'"=="0"|`len_nbins'>1|"`bins'"!="") local selectJ "T"
+
 	 * analyze bin- and order-related options
 	 local len_p=0
 	 local len_s=0
-	 
+
 	 if ("`pselect'"!="") {
 	    numlist "`pselect'", integer range(>=`deriv') sort
 		local plist=r(numlist)
 	 }
-	 
+
 	 if ("`sselect'"!="") {
 	    numlist "`sselect'", integer range(>=0) sort
 		local slist=r(numlist)
 	 }
-	 	 
+
 	 if ("`bins'"!="") {
 	    tokenize `bins'        /* overwrite pselect and sselect */
 	    local plist "`1'"
@@ -72,15 +72,15 @@ program define binsregselect, eclass
 		if ("`plist'"=="") local plist=`deriv'
 		if ("`slist'"=="") local slist=`plist'
      }
-	 
+
 	 local len_p: word count `plist'
 	 local len_s: word count `slist'
-	 
-	 
+
+
 	 if ((`len_p'==1&`len_s'==0)|(`len_p'==0&`len_s'==1)|(`len_p'==1&`len_s'==1)) {
 	    local selectJ "T"
 	 }
-	 
+
 	 if ("`selectJ'"=="T") {
 	 	if (`len_p'>1|`len_s'>1) {
 		   di as error "Only one p and one s are allowed."
@@ -89,19 +89,19 @@ program define binsregselect, eclass
 	 	if ("`plist'"=="") local plist=`deriv'
 		if ("`slist'"=="") local slist=`plist'
      }
-	 
+
 	 local len_p: word count `plist'
 	 local len_s: word count `slist'
-	 
+
 	 if ((`len_p'>1|`len_s'>1) & "`selectJ'"!="T") {
 	    local selectJ "F"   /* select p and s */
 	 }
-	 
+
 	 if ("`selectJ'"=="") {
 	    di as error "Degree, smoothness, or # of bins are not correctly specified."
         exit
 	 }
-	
+
 	 * find all compatible pairs of p and s
 	 tempname deg_mat
 	 if ("`selectJ'"=="F") {
@@ -145,7 +145,7 @@ program define binsregselect, eclass
 	 else {
 	    mat `deg_mat'=(`plist', `slist')
 	 }
-	 
+
 	 * take submatrix with p>=deriv
 	 local ncom=0
 	 local index ""
@@ -160,7 +160,7 @@ program define binsregselect, eclass
 	    di as error "Degree and smoothness incorrectly specified."
 		exit
 	 }
-	 
+
 	 if ("`binspos'"=="") local binspos "QS"
 	 if ("`binspos'"=="es") local binspos "ES"
 	 if ("`binspos'"=="qs") local binspos "QS"
@@ -168,11 +168,11 @@ program define binsregselect, eclass
 	 if ("`binsmethod'"=="rot") local binsmethod "ROT"
 	 if ("`binsmethod'"=="dpi") local binsmethod "DPI"
 	 if ("`dfcheck'"=="") local dfcheck 20 30
-	 
+
 	 * mass check?
 	 if ("`masspoints'"=="") {
 	    local massadj "T"
-		local localcheck "T"	    
+		local localcheck "T"
 	 }
 	 else if ("`masspoints'"=="off") {
 	    local massadj "F"
@@ -192,11 +192,11 @@ program define binsregselect, eclass
 		local rot_fewobs "T"
 		local dpi_fewobs "T"
 	 }
-	 
+
 	 tokenize `dfcheck'
 	 local dfcheck_n1 "`1'"
 	 local dfcheck_n2 "`2'"
-	 
+
 	 * use gtools commands instead?
 	 if ("`usegtools'"=="off") local usegtools ""
 	 if ("`usegtools'"=="on")  local usegtools usegtools
@@ -213,8 +213,8 @@ program define binsregselect, eclass
 		* use fasterxtile instead of irecode (within binsreg_irecode)
 		* shut down local checks & do not sort
 	 }
-	 
-	 * cluster var?	 
+
+	 * cluster var?
 	 local vcetemp: subinstr local vce "vce(" "", all
 	 local vcetemp: subinstr local vcetemp ")" "", all
 	 tokenize "`vcetemp'", parse(", ")
@@ -222,7 +222,7 @@ program define binsregselect, eclass
 	    if ("`3'"==""|"`3'"==",") local clusterON "T"
 		local clustervar `2'  /* only keep the 1st cluster var */
      }
-	
+
 	 * use reghdfe?
 	 if ("`absorb'"!="") {
 	    capture which reghdfe
@@ -231,7 +231,7 @@ program define binsregselect, eclass
 		   exit
 		}
 	 }
-	 
+
 	 *****************************************************
 	 * Error checks
 	 if (`deriv'<0) {
@@ -248,10 +248,10 @@ program define binsregselect, eclass
 	 if ("`nbinsrot'"!="") {
 	    confirm integer n `nbinsrot'
 	 }
-	 
+
 	 * Mark sample
 	 preserve
-	 
+
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
 	 fvrevar `1', tsonly
@@ -260,34 +260,34 @@ program define binsregselect, eclass
 	 local x_var "`r(varlist)'"
 	 fvrevar `2', list
 	 local x_varname "`r(varlist)'"
-	 
+
 	 macro shift 2
 	 local w_var "`*'"
 	 fvrevar `w_var', list
 	 local w_varname "`r(varlist)'"
 	 fvrevar `w_var', tsonly
 	 local w_var "`r(varlist)'"       /* so time series operator respected */
-	 
+
 	 marksample touse      /* now renew the marker to account for missing values */
 	 qui keep if `touse'
 	 local eN=_N
 	 local samplesize=_N
-	 
+
 	 if ("`usegtools'"==""&("`masspoints'"!="off"|"`binspos'"=="QS")) {
 	    if ("`:sortedby'"!="`x_var'") sort `x_var', stable
 	 }
-	 
+
 	 * Normalize support
 	 tempvar z_var
 	 if ("`wtype'"=="f") qui sum `x_var' `wt', meanonly
 	 else                qui sum `x_var', meanonly
-	 
+
 	 local N=r(N)      /* sample size, with wt */
 	 local xmin=r(min)
 	 local xmax=r(max)
-	 
+
 	 tempname xvec zvec Xm binedges
-		 
+
 	 * Extract effective sample size
 	 local Ndist=.
 	 if ("`massadj'"=="T") {
@@ -303,10 +303,10 @@ program define binsregselect, eclass
 		      qui gunique `x_var'
 			  local Ndist=r(unique)
 		   }
-		}   
+		}
 		local eN=min(`eN', `Ndist')
 	 }
-	 
+
 	 local Nclust=.
 	 if ("`clusterON'"=="T") {
 		if ("`numclust'"!=""&"`numclust'"!=".") {
@@ -323,13 +323,13 @@ program define binsregselect, eclass
 	    }
 		local eN=min(`eN', `Nclust')
 	 }
-	 
+
 	 * Take a subsample?
 	 if ("`randcut'"!="") {
 	    mata: `xvec'=st_data(.,"`x_var'")
 		qui keep if runiform()<=`randcut'
 		local eN_sub=_N
-		
+
 		local Ndist_sub=.
 		if ("`massadj'"=="T") {
 		   if ("`usegtools'"=="") {
@@ -342,7 +342,7 @@ program define binsregselect, eclass
 		   }
 		   local eN_sub=min(`eN_sub', `Ndist_sub')
 	    }
-	    
+
 		local Nclust_sub=.
 	    if ("`clusterON'"=="T") {
 		   if ("`usegtools'"=="") {
@@ -360,39 +360,39 @@ program define binsregselect, eclass
 		local Ndist_sub=`Ndist'
 		local Nclust_sub=`Nclust'
 	 }
-	 
+
 	 sum `x_var', meanonly
 	 gen `z_var'=(`x_var'-`=r(min)')/(`=r(max)'-`=r(min)')
 	 mata: `zvec'=st_data(., "`z_var'")   /* normalized x, subsample */
 
-	 
+
 	 * Define matrices here to save results
 	 tempname mat_imse_bsq_rot mat_imse_var_rot mat_imse_bsq_dpi mat_imse_var_dpi ///
 	          mat_J_rot_unreg mat_J_rot_reg mat_J_rot_uniq mat_J_dpi mat_J_dpi_uniq
 	 mat `mat_imse_bsq_rot'=J(`ncom',1,.)
 	 mat `mat_imse_var_rot'=J(`ncom',1,.)
 	 mat `mat_imse_bsq_dpi'=J(`ncom',1,.)
-	 mat `mat_imse_var_dpi'=J(`ncom',1,.) 
+	 mat `mat_imse_var_dpi'=J(`ncom',1,.)
 	 mat `mat_J_rot_unreg'=J(`ncom',1,.)
 	 mat `mat_J_rot_reg'=J(`ncom',1,.)
-	 mat `mat_J_rot_uniq'=J(`ncom',1,.) 
+	 mat `mat_J_rot_uniq'=J(`ncom',1,.)
 	 mat `mat_J_dpi'=J(`ncom',1,.)
 	 mat `mat_J_dpi_uniq'=J(`ncom',1,.)
-	 
-	 
+
+
 	 ****** START loop here **************
 	 forval num=1/`ncom' {
-	    
+
 		* extract p and s from the matrix
 		local p=`m_deg'[`num', 1]
 		local s=`m_deg'[`num', 2]
-	    
+
 		* prepare locals for reporting
 	    local imse_bsq_rot=.
 	    local imse_var_rot=.
 	    local imse_bsq_dpi=.
 	    local imse_var_dpi=.
-	 
+
 		***************************
 		******* ROT choice ********
 		***************************
@@ -467,21 +467,21 @@ program define binsregselect, eclass
 				tempvar fz
 				* trim density from below
 				local cutval=normalden(invnormal(`den_alp')*`zsd', 0, `zsd')
-				qui gen `fz'=max(normalden(`z_var', `zbar', `zsd'), `cutval')	 
-				if ("`binspos'"=="ES") qui replace `s2'=`s2'/`fz' 
+				qui gen `fz'=max(normalden(`z_var', `zbar', `zsd'), `cutval')
+				if ("`binspos'"=="ES") qui replace `s2'=`s2'/`fz'
 				else                   qui replace `s2'=`s2'*(`fz'^(2*`deriv'))
 			}
 
 			if ("`wt'"!="") qui sum `s2' [aw`exp'], meanonly
 			else            qui sum `s2', meanonly
-			local sig2=r(mean)    
+			local sig2=r(mean)
 			mata: imse_v_cons(`p', `deriv', "`vcons'")
 			local imse_v=`sig2'*`vcons'                  /* variance constant */
 
 			* Bias component
 			* gen data for derivative
 			tempvar pred_deriv
-			mata: `Xm'=J(rows(`zvec'),0,.) 
+			mata: `Xm'=J(rows(`zvec'),0,.)
 
 			forval i=`=`p'+1'/`=`p'+`qrot'' {
 				mata:`Xm'=(`Xm',`zvec':^(`i'-`p'-1)*factorial(`i')/factorial(`i'-`p'-1))
@@ -509,11 +509,11 @@ program define binsregselect, eclass
 				(`imse_v'*(1+2*`deriv')))^(1/(2*`p'+2+1))* ///
 				`eN_sub'^(1/(2*`p'+2+1)))
 			local J_rot_reg=max(`J_rot_unreg', ///
-				  ceil((2*(`p'+1-`deriv')/(1+2*`deriv')*`rot_lb'*`eN_sub')^(1/(2*`p'+2+1)))) 
+				  ceil((2*(`p'+1-`deriv')/(1+2*`deriv')*`rot_lb'*`eN_sub')^(1/(2*`p'+2+1))))
 
 			local imse_bsq_rot=`imse_b'
 			local imse_var_rot=`imse_v'
-			
+
 			mat `mat_imse_bsq_rot'[`num',1]=`imse_bsq_rot'
 			mat `mat_imse_var_rot'[`num',1]=`imse_var_rot'
 		}
@@ -554,7 +554,7 @@ program define binsregselect, eclass
 		*********************************
 		********** DPI Choice ***********
 		*********************************
-		local J_dpi=.	 
+		local J_dpi=.
 		* Check if DPI can be implemented
 		if ("`J_rot_uniq'"!="."&"`binsmethod'"=="DPI"&"`masspoints'"!="veryfew") {
 			* Compare with degree of freedom
@@ -573,8 +573,8 @@ program define binsregselect, eclass
 				else {
 		          local uniqmin=0
 			      di as text in gr "Warning: There are empty bins."
-		        } 
-				
+		        }
+
 				if (`uniqmin'<`p'+1) {
 					local dpi_fewobs "T"
 					di as text in gr  "Warning: Some bins have too few distinct x-values for DPI selection."
@@ -583,7 +583,7 @@ program define binsregselect, eclass
 		}
 		else local dpi_fewobs "T"
 
-		if ("`binsmethod'"=="DPI"&"`dpi_fewobs'"!="T") {	
+		if ("`binsmethod'"=="DPI"&"`dpi_fewobs'"!="T") {
 			* Update vce condition
 			if ("`massadj'"=="T") {
 				if ("`absorb'"=="") {
@@ -663,20 +663,32 @@ program define binsregselect, eclass
 				qui gen `sp`i''=. in 1
 			}
 
-			mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `p', 0, `s')   
-			capture reg `biasterm' `series' `wt', nocon       /* project bias on X of degree p */
-			tempname bias_b bias_V
-			if (_rc==0) {
-				matrix `bias_b'=e(b)
-				matrix `bias_V'=e(V)
+			mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `p', 0, `s')
+			if (`p'==0 & `s'==0 & `deriv'==0 & "`wt'"=="") {
+				mata: binsregselect_binmean("`biasterm'", "`zcat'", "`projbias'", `J_rot_uniq')
+				mata: st_view(`Xm'=., ., tokens("`series'"))
 			}
 			else {
-				error _rc
-				exit _rc
-			}
+				capture reg `biasterm' `series' `wt', nocon       /* project bias on X of degree p */
+				tempname bias_b bias_V
+				if (_rc==0) {
+					matrix `bias_b'=e(b)
+					matrix `bias_V'=e(V)
+				}
+				else {
+					error _rc
+					exit _rc
+				}
 
-			mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
-				st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
+				if (`deriv'==0) {
+					mata: st_view(`Xm'=., ., tokens("`series'")); ///
+						st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
+				}
+				else {
+					mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
+						st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
+				}
+			}
 
 			if (`deriv'==0) {
 				qui replace `biasterm'=(`biasterm'-`projbias')^2
@@ -691,7 +703,7 @@ program define binsregselect, eclass
 			local imse_b=`m_bias'*`J_rot_uniq'^(2*(`p'+1-`deriv'))
 
 			* for variance purpose
-			if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon `vce'        
+			if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon `vce'
 			else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `vce' `reghdfeopt'
 
 			* store results
@@ -718,8 +730,8 @@ program define binsregselect, eclass
 			if ("`wt'"!="") qui sum `derivse' [aw`exp'], meanonly
 			else            qui sum `derivse', meanonly
 			local m_se=r(mean)
-			local imse_v=`m_se'/(`J_rot_uniq'^(1+2*`deriv'))	   
-			mata: mata drop `Xm'   	   
+			local imse_v=`m_se'/(`J_rot_uniq'^(1+2*`deriv'))
+			mata: mata drop `Xm'
 
 			* DPI J
 			local J_dpi=ceil((`imse_b'*2*(`p'+1-`deriv')/               ///
@@ -727,7 +739,7 @@ program define binsregselect, eclass
 
 			local imse_bsq_dpi=`imse_b'
 			local imse_var_dpi=`imse_v'*`eN_sub'
-			
+
 			mat `mat_imse_bsq_dpi'[`num',1]=`imse_bsq_dpi'
 			mat `mat_imse_var_dpi'[`num',1]=`imse_var_dpi'
 
@@ -748,15 +760,15 @@ program define binsregselect, eclass
 			if (`J_dpi'!=.)       local J_dpi=ceil(`J_dpi'*`scaling')
 			if (`J_dpi_uniq'!=.)  local J_dpi_uniq=ceil(`J_dpi_uniq'*`scaling')
 		}
-		
+
 		mat `mat_J_rot_unreg'[`num',1]=`J_rot_unreg'
 		mat `mat_J_rot_reg'[`num',1]=`J_rot_reg'
 		mat `mat_J_rot_uniq'[`num',1]=`J_rot_uniq'
 		mat `mat_J_dpi'[`num',1]=`J_dpi'
 		mat `mat_J_dpi_uniq'[`num',1]=`J_dpi_uniq'
-	 
+
 	 }
-	 
+
 	 ****** END loop *******
 	 tempname ord_rot_unreg ord_rot_reg ord_rot_uniq ord_dpi ord_dpi_uniq ///
 	          ind_rot_unreg ind_rot_reg ind_rot_uniq ind_dpi ind_dpi_uniq
@@ -782,7 +794,7 @@ program define binsregselect, eclass
 	    if (`len_nbins'>1) {
 		   tempname m_nbins
 		   forval i=1/`len_nbins' {
-		      local el: word `i' of `nbins' 
+		      local el: word `i' of `nbins'
 		      mat `m_nbins'=(nullmat(`m_nbins') \ `el')
 		   }
 		   * output a scalar
@@ -796,10 +808,10 @@ program define binsregselect, eclass
 		}
 	 }
 	 mata: mata drop `zvec'
-	 
+
 	 * Reconstruct knot list
 	 tempname xkmat
-	 
+
 	 if ("`binsmethod'"=="ROT"&"`rot_fewobs'"!="T") {
 	    local Jselected=`J_rot_uniq'
 		local pselected=`ord_rot_uniq'[1,1]
@@ -813,10 +825,10 @@ program define binsregselect, eclass
 	 else {
 	    local Jselectfail "T"
 	 }
-	 
+
 	 if ("`Jselectfail'"!="T"&"`useeffn'"=="") {
 	    if ("`binspos'"=="ES") {
-	       local stepsize=1/`Jselected'   
+	       local stepsize=1/`Jselected'
 	       forvalues i=1/`=`Jselected'+1' {
 		      mat `xkmat'=(nullmat(`xkmat') \ `=`xmin'+`stepsize'*(`i'-1)')
 		   }
@@ -831,9 +843,9 @@ program define binsregselect, eclass
 			  binsreg_pctile `x_var' `wt', nq(`Jselected')
 			  mat `xkmat'=(`xmin'\ r(Q) \ `xmax')
 		   }
-		   else mat `xkmat'=(`xmin' \ `xmax')		   
+		   else mat `xkmat'=(`xmin' \ `xmax')
 	    }
-		
+
 		* Renew if needed
 		mata: st_matrix("`xkmat'", (`xmin' \ uniqrows(st_matrix("`xkmat'")[|2 \ `=`Jselected'+1'|])))
 	    if (`Jselected'!=rowsof(`xkmat')-1) {
@@ -844,28 +856,28 @@ program define binsregselect, eclass
 		}
 	 }
 	 else mat `xkmat'=.
-	 
-	 
+
+
 	 if ("`binsmethod'"=="DPI") local method "IMSE-optimal plug-in choice"
 	 else                       local method "IMSE-optimal rule-of-thumb choice"
 	 if ("`selectJ'"=="T") local method "`method' (select # of bins)"
 	 else                  local method "`method' (select degree and smoothness)"
-	 
-	 
+
+
 	 if ("`binspos'"=="ES") {
 	     local placement "Evenly-spaced"
 	 }
 	 else {
 	     local placement "Quantile-spaced"
 	 }
-	 
+
 	 * Save data?
 	 if (`"`savegrid'"'!=`""') {
 	    if ("`Jselectfail'"!="T"&"`useeffn'"=="") {
 		   clear
 	       local obs=`simsgrid'*`Jselected'+`Jselected'-1
 		   qui set obs `obs'
-		   
+
 		   qui gen `x_varname'=. in 1
 		   label var `x_varname' "Eval. point"
 	       qui gen binsreg_isknot=. in 1
@@ -876,7 +888,7 @@ program define binsregselect, eclass
 		   foreach var of local w_varname {
 		      qui gen `var'=0
 	   	   }
-		   
+
 		   qui save `"`savegrid'"', `replace'
 	    }
 		else {
@@ -890,7 +902,7 @@ program define binsregselect, eclass
 	 di in smcl in gr "Method: `method'"
 	 di in smcl in gr "Position: `placement'"
 	 if (`"`savegrid'"'!=`""') {
-	    di in smcl in gr `"Output file: `savegrid'.dta"' 
+	    di in smcl in gr `"Output file: `savegrid'.dta"'
 	 }
 	 di ""
 	 di in smcl in gr "{hline 28}{c TT}{hline 10}"
@@ -903,12 +915,12 @@ program define binsregselect, eclass
 	 else {
 	 di in smcl in gr "{ralign 27:eff. sample size}"     _col(28) " {c |} " _col(30) as result %7.0f `useeffn'
      }
-	 
+
 	 foreach name in "rot_unreg" "rot_reg" "rot_uniq" "dpi" "dpi_uniq" {
 		local df_`name'=.
 		if (`J_`name''!=.) local df_`name'=(`ord_`name''[1,1]-`ord_`name''[1,2]+1)*(`J_`name''-1)+`ord_`name''[1,1]+1
 	 }
-	 
+
 	 if ("`selectJ'"=="F") {
 	    local imse_bsq_rot=`mat_imse_bsq_rot'[`ind_rot_unreg',1]
 		local imse_var_rot=`mat_imse_var_rot'[`ind_rot_unreg',1]
@@ -939,7 +951,7 @@ program define binsregselect, eclass
 		di in smcl in gr "{rcenter 13: ROT-REGUL}" _col(13) " {c |} " as result %4.0f `ord_rot_reg'[1,1] ///
 		                                           _col(23) in gr " {c |} " as result %4.0f `ord_rot_reg'[1,2]  ///
 		                                           _col(32) in gr "{c |}" as result %5.0f `df_rot_reg' ///
-			                                       _col(40) in gr "{c |}  " as result %7.3f . ///                     
+			                                       _col(40) in gr "{c |}  " as result %7.3f . ///
 												   _col(56) in gr "{c |}  " as result %7.3f .
 		di in smcl in gr "{rcenter 13: ROT-UKNOT}" _col(13) " {c |} " as result %4.0f `ord_rot_uniq'[1,1] ///
 		                                           _col(23) in gr " {c |} " as result %4.0f `ord_rot_uniq'[1,2]  ///
@@ -966,7 +978,7 @@ program define binsregselect, eclass
 	 local imse_var_dpi=`mat_imse_var_dpi'[1,1]
 	 di in smcl in gr "{hline 28}{c +}{hline 10}"
 	 di in smcl in gr "{ralign 27:Degree of polynomial}"  _col(28) " {c |} " _col(30) as result %7.0f `m_deg'[1,1]
-	 di in smcl in gr "{ralign 27:# of smoothness constraint}"  _col(28) " {c |} " _col(30) as result %7.0f `m_deg'[1,2] 
+	 di in smcl in gr "{ralign 27:# of smoothness constraint}"  _col(28) " {c |} " _col(30) as result %7.0f `m_deg'[1,2]
      di in smcl in gr "{hline 28}{c BT}{hline 10}"
 	 di ""
 	 di in smcl in gr "{hline 14}{c TT}{hline 12}{c TT}{hline 10}{c TT}{hline 14}{c TT}{hline 14}"
@@ -996,19 +1008,19 @@ program define binsregselect, eclass
 	 ereturn scalar imse_var_rot=`imse_var_rot'
 	 ereturn scalar imse_bsq_dpi=`imse_bsq_dpi'
 	 ereturn scalar imse_var_dpi=`imse_var_dpi'
-	 
+
 	 ereturn scalar nbinsrot_poly=`J_rot_unreg'
 	 ereturn scalar nbinsrot_regul=`J_rot_reg'
 	 ereturn scalar nbinsrot_uknot=`J_rot_uniq'
 	 ereturn scalar nbinsdpi=`J_dpi'
 	 ereturn scalar nbinsdpi_uknot=`J_dpi_uniq'
-	 
+
 	 ereturn scalar prot_poly=`ord_rot_unreg'[1,1]
 	 ereturn scalar prot_regul=`ord_rot_reg'[1,1]
 	 ereturn scalar prot_uknot=`ord_rot_uniq'[1,1]
 	 ereturn scalar pdpi=`ord_dpi'[1,1]
 	 ereturn scalar pdpi_uknot=`ord_dpi_uniq'[1,1]
-	 
+
 	 ereturn scalar srot_poly=`ord_rot_unreg'[1,2]
 	 ereturn scalar srot_regul=`ord_rot_reg'[1,2]
 	 ereturn scalar srot_uknot=`ord_rot_uniq'[1,2]
@@ -1026,13 +1038,13 @@ program define binsregselect, eclass
 	 ereturn matrix m_nbinsrot_uknot=`mat_J_rot_uniq'
 	 ereturn matrix	m_nbinsdpi=`mat_J_dpi'
 	 ereturn matrix m_nbinsdpi_uknot=`mat_J_dpi_uniq'
-	
+
 	 ereturn matrix m_imse_bsq_dpi=`mat_imse_bsq_dpi'
 	 ereturn matrix m_imse_var_dpi=`mat_imse_var_dpi'
 	 ereturn matrix m_imse_bsq_rot=`mat_imse_bsq_rot'
 	 ereturn matrix m_imse_var_rot=`mat_imse_var_rot'
-	 
-	 
+
+
 
 end
 
@@ -1044,24 +1056,24 @@ program define bins_imse, eclass
           p(integer 0) s(integer 0) nbins(integer 0) eN_sub(integer 0) ///
 		  binspos(string) vce(passthru) usegtools ///
 		  zvec(name) absorb(string asis) reghdfeopt(string asis)]
-   
+
    preserve
    marksample touse
    qui keep if `touse'
-	 
+
    if ("`weight'"!="") local wt [`weight'`exp']
-   
+
    tokenize `varlist'
    local y_var `1'
    local z_var `2'
    macro shift 2
    local w_var "`*'"
-   
+
    tempvar zcat
    qui gen `zcat'=. in 1
    * Prepare bins
    tempname kmat
-	
+
    if "`binspos'"=="ES" {
 	  local stepsize=1/`nbins'
 	  forvalues i=1/`=`nbins'+1' {
@@ -1077,11 +1089,11 @@ program define bins_imse, eclass
 		 mat `kmat'=(0 \ r(Q) \ 1)
 	  }
    }
-   
+
    binsreg_irecode `z_var', knotmat(`kmat') bin(`zcat') ///
 				   `usegtools' nbins(`nbins') pos(`binspos') knotliston(T)
 
-   
+
 	* Start computation
 	tempvar derivfit derivse biasterm biasterm_v projbias
 	qui gen `derivfit'=. in 1
@@ -1122,7 +1134,7 @@ program define bins_imse, eclass
 		error  _rc
 		exit _rc
 	}
-     
+
 	tempname Xm
 	* Predict (p+1)th derivative
 	mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `=`p'+1', `=`p'+1', `=`s'+1'); ///
@@ -1143,20 +1155,32 @@ program define bins_imse, eclass
 		qui gen `sp`i''=. in 1
 	}
 
-	mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `p', 0, `s')   
-	capture reg `biasterm' `series' `wt', nocon       /* project bias on X of degree p */
-	tempname bias_b bias_V
-	if (_rc==0) {
-		matrix `bias_b'=e(b)
-		matrix `bias_V'=e(V)
+	mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `p', 0, `s')
+	if (`p'==0 & `s'==0 & `deriv'==0 & "`wt'"=="") {
+		mata: binsregselect_binmean("`biasterm'", "`zcat'", "`projbias'", `nbins')
+		mata: st_view(`Xm'=., ., tokens("`series'"))
 	}
 	else {
-		error _rc
-		exit _rc
-	}
+		capture reg `biasterm' `series' `wt', nocon       /* project bias on X of degree p */
+		tempname bias_b bias_V
+		if (_rc==0) {
+			matrix `bias_b'=e(b)
+			matrix `bias_V'=e(V)
+		}
+		else {
+			error _rc
+			exit _rc
+		}
 
-	mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
-		  st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
+		if (`deriv'==0) {
+			mata: st_view(`Xm'=., ., tokens("`series'")); ///
+				  st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
+		}
+		else {
+			mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
+				  st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
+		}
+	}
 
 	if (`deriv'==0) {
 		qui replace `biasterm'=(`biasterm'-`projbias')^2
@@ -1171,7 +1195,7 @@ program define bins_imse, eclass
 	local imse_b=`m_bias'*`nbins'^(2*(`p'+1-`deriv'))
 
 	* for variance purpose
-	if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon `vce'        
+	if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon `vce'
 	else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `vce' `reghdfeopt'
 
 	* store results
@@ -1198,8 +1222,8 @@ program define bins_imse, eclass
 	if ("`wt'"!="") qui sum `derivse' [aw`exp'], meanonly
 	else            qui sum `derivse', meanonly
 	local m_se=r(mean)
-	local imse_v=`m_se'/(`nbins'^(1+2*`deriv'))	   
-	mata: mata drop `Xm'   	   
+	local imse_v=`m_se'/(`nbins'^(1+2*`deriv'))
+	mata: mata drop `Xm'
 
 	* DPI J
 	local J_dpi=ceil((`imse_b'*2*(`p'+1-`deriv')/               ///
@@ -1207,11 +1231,11 @@ program define bins_imse, eclass
 
 	local imse_bsq_dpi=`imse_b'
 	local imse_var_dpi=`imse_v'*`eN_sub'
- 
+
     ereturn clear
 	ereturn scalar imse_bsq=`imse_bsq_dpi'
 	ereturn scalar imse_var=`imse_var_dpi'
-	
+
 end
 
 
@@ -1219,10 +1243,10 @@ version 13
 mata:
     // Constant in variance
     void imse_v_cons(real scalar degree, real scalar deriv, string scalar vcons)
-	{  
+	{
 	   real scalar v_cons, m
 	   real matrix V, Vderiv
-	   
+
 	   m=degree+1
        if (deriv==0) {
 	      v_cons=m
@@ -1230,7 +1254,7 @@ mata:
 	   else {
 	      V=J(m, m, .)
 		  Vderiv=J(m, m, 0)
-		  
+
 		  for (i=1; i<=m; i++){
 		      for (j=1; j<=i; j++) {
 			       V[i,j]=1/(i+j-1)
@@ -1245,14 +1269,14 @@ mata:
 		  Vderiv=makesymmetric(Vderiv)
 		  v_cons=trace(invsym(V)*Vderiv)
 	   }
-	   
+
 	   // return results
 	   st_numscalar(vcons,v_cons)
 	}
-	
+
 	// Constant in bias
 	void imse_b_cons(real scalar degree, real scalar deriv, string scalar bcons, | real scalar s)
-	{  
+	{
 	   real scalar b_cons, m, bernum
 	   m=degree+1
        if (args()<4) {
@@ -1285,11 +1309,11 @@ mata:
 		  }
 	   	  b_cons=1/factorial(2*(m-deriv))*bernum
 	   }
-	   
+
 	   // return results
 	   st_numscalar(bcons, b_cons)
 	}
-  
+
     // Bernoulli polynomial
     real vector bernpoly(real vector x, real scalar degree)
     {
@@ -1350,16 +1374,34 @@ mata:
 	bern=bernpoly((X-tl):/h, degree+1-deriv)/factorial(degree+1-deriv):*(h:^(degree+1-deriv))
 	bias[.,.]=bern
   }
-  
+
+  void binsregselect_binmean(string scalar yname, string scalar catname,
+                             string scalar outname, real scalar nbins)
+  {
+    real matrix y, out
+    real vector xcat, ind
+    real scalar j
+
+    st_view(y=., ., yname)
+    st_view(out=., ., outname)
+    xcat=st_data(., catname)
+    for (j=1; j<=nbins; j++) {
+      ind=selectindex(xcat:==j)
+      if (rows(ind)>0) {
+        out[ind,.]=J(rows(ind),1,mean(y[ind]))
+      }
+    }
+  }
+
   // find the minimum
   void findmindex(string scalar matname, string scalar outname, ///
                   real scalar J, real scalar nr)
   {
      real matrix A
-	 
+
      A=sort((abs(st_matrix(matname):-J), (1::nr)), 1)
 	 st_numscalar(outname, A[1,2])
   }
-  
+
 end
 

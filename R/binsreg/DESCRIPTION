@@ -1,14 +1,26 @@
 Package: binsreg
 Type: Package
 Title: Binscatter Estimation and Inference
-Date: 2024-07-23
-Version: 1.1
-Author: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
-Maintainer: Yingjie Feng <fengyingjiepku@gmail.com>
-Description: Provides tools for statistical analysis using the binscatter methods developed by Cattaneo, Crump, Farrell and Feng (2024a) <doi:10.48550/arXiv.1902.09608>, Cattaneo, Crump, Farrell and Feng (2024b) <https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf> and Cattaneo, Crump, Farrell and Feng (2024c) <doi:10.48550/arXiv.1902.09615>. Binscatter provides a flexible way of describing the relationship between two variables based on partitioning/binning of the independent variable of interest. binsreg(), binsqreg() and binsglm() implement binscatter least squares regression, quantile regression and generalized linear regression respectively, with particular focus on constructing binned scatter plots. They also implement robust (pointwise and uniform) inference of regression functions and derivatives thereof. binstest() implements hypothesis testing procedures for parametric functional forms of and nonparametric shape restrictions on the regression function. binspwc() implements hypothesis testing procedures for pairwise group comparison of binscatter estimators. binsregselect() implements data-driven procedures for selecting the number of bins for binscatter estimation. All the commands allow for covariate adjustment, smoothness restrictions and clustering.
+Date: 2026-05-14
+Version: 2.0
+Authors@R: c(
+    person("Matias D.", "Cattaneo", email = "matias.d.cattaneo@gmail.com", role = c("aut", "cre")),
+    person("Richard K.", "Crump", email = "richard.crump@gmail.com", role = "aut"),
+    person("Max H.", "Farrell", email = "mhfarrell@gmail.com", role = "aut"),
+    person("Yingjie", "Feng", email = "fengyingjiepku@gmail.com", role = "aut"))
+Author: Matias D. Cattaneo [aut, cre],
+    Richard K. Crump [aut],
+    Max H. Farrell [aut],
+    Yingjie Feng [aut]
+Maintainer: Matias D. Cattaneo <matias.d.cattaneo@gmail.com>
+Description: Provides tools for statistical analysis using the binscatter methods developed by Cattaneo, Crump, Farrell and Feng (2024) <https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf>, Cattaneo, Crump, Farrell and Feng (2025) <https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf> and Cattaneo, Crump, Farrell and Feng (2026) <https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf>. Binscatter provides a flexible way of describing the relationship between two variables based on partitioning/binning of the independent variable of interest. binsreg(), binsqreg() and binsglm() implement binscatter least squares regression, quantile regression and generalized linear regression respectively, with particular focus on constructing binned scatter plots. They also implement robust (pointwise and uniform) inference of regression functions and derivatives thereof. binstest() implements hypothesis testing procedures for parametric functional forms of and nonparametric shape restrictions on the regression function. binspwc() implements hypothesis testing procedures for pairwise group comparison of binscatter estimators. binsregselect() implements data-driven procedures for selecting the number of bins for binscatter estimation. All the commands allow for covariate adjustment, smoothness restrictions and clustering.
+URL: https://nppackages.github.io/, https://github.com/nppackages/binsreg
+BugReports: https://github.com/nppackages/binsreg/issues
 Depends: R (>= 3.1)
-License: GPL-2
+License: GPL-3
 Encoding: UTF-8
 Imports: ggplot2, sandwich, quantreg, splines, matrixStats
+Suggests: testthat (>= 3.0.0)
 Roxygen: list(old_usage = TRUE)
-RoxygenNote: 7.3.2
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

@@ -134,7 +134,7 @@ variables is omitted. Default is \code{asyvar=FALSE}, that is, the uncertainty r
 \item{dfcheck}{adjustments for minimum effective sample size checks, which take into account number of unique
 values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.}
+See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2025)} for more details.}
 
 \item{masspoints}{how mass points in \code{x} are handled. Available options:
 \itemize{
@@ -177,12 +177,13 @@ a numeric vector. For more details, see \code{\link{lm}}.}
        \item{\code{opt}}{ A list containing options passed to the function, as well as total sample size \code{n},
                           number of distinct values \code{Ndist} in \code{x}, number of clusters \code{Nclust}, and
                           number of bins \code{nbins}.}
+       \item{\code{call}}{The matched function call.}
 }
 \description{
 \code{binstest} implements binscatter-based hypothesis testing procedures for parametric functional
             forms of and nonparametric shape restrictions on the regression function of interest, following the results
-            in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
-            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
+            in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024)} and
+            \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Cattaneo, Crump, Farrell and Feng (2026)}.
             If the binning scheme is not set by the user,
             the companion function \code{\link{binsregselect}} is used to implement binscatter in a
             data-driven way and inference procedures are based on robust bias correction.
@@ -195,21 +196,25 @@ a numeric vector. For more details, see \code{\link{lm}}.}
  summary(est)
 }
 \references{
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+Supplemental Appendix for On Binscatter: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf}{Supplemental Appendix}.
 
-Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Nonlinear Binscatter Methods}. Review of Economics and Statistics, revise and resubmit.
+
+Supplemental Appendix for Nonlinear Binscatter Methods: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf}{Supplemental Appendix}.
+
+Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Binscatter Regressions}. Stata Journal 25(1): 3-50.
 }
 \seealso{
 \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}.
 }
 \author{
-Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+Matias D. Cattaneo (maintainer). \email{matias.d.cattaneo@gmail.com}.
 
-Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+Richard K. Crump. \email{richard.crump@gmail.com}.
 
-Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
+Max H. Farrell. \email{mhfarrell@gmail.com}.
 
-Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+Yingjie Feng. \email{fengyingjiepku@gmail.com}.
 }

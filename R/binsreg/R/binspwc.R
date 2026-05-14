@@ -2,8 +2,8 @@
 #'@title  Data-Driven Pairwise Group Comparison using Binscatter Methods
 #'@description \code{binspwc} implements hypothesis testing procedures for pairwise group comparison of binscatter estimators
 #'             and plots confidence bands for the difference in binscatter parameters between each pair of groups, following the
-#'             results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024a)} and
-#'             \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Cattaneo, Crump, Farrell and Feng (2024b)}.
+#'             results in \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{Cattaneo, Crump, Farrell and Feng (2024)} and
+#'             \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Cattaneo, Crump, Farrell and Feng (2026)}.
 #'             If the binning scheme is not set by the user, the companion function
 #'             \code{\link{binsregselect}} is used to implement binscatter in a data-driven way. Binned scatter plots based on different methods
 #'             can be constructed using the companion functions \code{\link{binsreg}}, \code{\link{binsqreg}} or \code{\link{binsglm}}.
@@ -85,7 +85,7 @@
 #'@param  dfcheck adjustments for minimum effective sample size checks, which take into account number of unique
 #'                values of \code{x} (i.e., number of mass points), number of clusters, and degrees of freedom of
 #'                the different stat models considered. The default is \code{dfcheck=c(20, 30)}.
-#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2024c)} for more details.
+#'                See \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Cattaneo, Crump, Farrell and Feng (2025)} for more details.
 #'@param  masspoints how mass points in \code{x} are handled. Available options:
 #'                   \itemize{
 #'                   \item \code{"on"} all mass point and degrees of freedom checks are implemented. Default.
@@ -104,6 +104,7 @@
 #'@param  plot  if true, the confidence bands for all pairwise group comparisons (the difference between each pair of groups) are plotted.
 #'              The degree and smoothness of polynomials used to construct the bands are the same as those specified for testing. The default is \code{plot=F}, i.e.,
 #'              no plot is generated.
+#'@param  printplot if true, the generated \code{ggplot} object is printed when \code{plot=TRUE}. If false, the plot object is returned without printing.
 #'@param  dotsngrid number of dots to be added to the plot for confidence bands. Given the choice, these dots are point estimates of the difference between groups
 #'                 evaluated over an evenly-spaced grid within the common support of all groups. The default is \code{dotsngrid=0}, i.e., no point estimates
 #'                 are added. Whenever possible, the degree and smoothness of the polynomial for these point estimates are the same as those for selecting the number of bins;
@@ -114,7 +115,7 @@
 #'@param  symbols an ordered list of symbols for plotting the difference between each pair of groups.
 #'@param  level nominal confidence level for confidence band estimation. Default is \code{level=95}.
 #'@param  ...   optional arguments to control bootstrapping if \code{estmethod="qreg"} and \code{vce="boot"}. See \code{\link[quantreg]{boot.rq}}.
-#'@return \item{\code{stat}}{A matrix. Each row corresponds to the comparison between two groups. The first column is the test statistic. The second and third columns give the corresponding group numbers.
+#'@return \item{\code{tstat}}{A matrix. Each row corresponds to the comparison between two groups. The first column is the test statistic. The second and third columns give the corresponding group numbers.
 #'                           The null hypothesis is \code{mu_i(x)<=mu_j(x)}, \code{mu_i(x)=mu_j(x)}, or \code{mu_i(x)>=mu_j(x)} for group i (given in the second column) and group j (given in the third column).
 #'                           The group number corresponds to the list of group names given by \code{opt$byvals}.}
 #'        \item{\code{pval}}{A vector of p-values for all pairwise group comparisons.}
@@ -134,22 +135,27 @@
 #'        \item{\code{opt}}{ A list containing options passed to the function, as well as \code{N.by} (total sample size for each group),
 #'                           \code{Ndist.by} (number of distinct values in \code{x} for each group), \code{Nclust.by} (number of clusters for each group),
 #'                           and \code{nbins.by} (number of bins for each group), and \code{byvals} (number of distinct values in \code{by}).}
+#'        \item{\code{call}}{The matched function call.}
 #'
 #'@author
-#' Matias D. Cattaneo, Princeton University, Princeton, NJ. \email{cattaneo@princeton.edu}.
+#' Matias D. Cattaneo (maintainer). \email{matias.d.cattaneo@gmail.com}.
 #'
-#' Richard K. Crump, Federal Reserve Bank of New York, New York, NY. \email{richard.crump@ny.frb.org}.
+#' Richard K. Crump. \email{richard.crump@gmail.com}.
 #'
-#' Max H. Farrell, UC Santa Barbara, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
+#' Max H. Farrell. \email{mhfarrell@gmail.com}.
 #'
-#' Yingjie Feng (maintainer), Tsinghua University, Beijing, China. \email{fengyingjiepku@gmail.com}.
+#' Yingjie Feng. \email{fengyingjiepku@gmail.com}.
 #'
 #'@references
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024a: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf}{On Binscatter}. American Economic Review 114(5): 1488-1514.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024b: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_NonlinearBinscatter.pdf}{Nonlinear Binscatter Methods}. Working Paper.
+#' Supplemental Appendix for On Binscatter: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER--Supplemental.pdf}{Supplemental Appendix}.
 #'
-#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2024c: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_Stata.pdf}{Binscatter Regressions}. Working Paper.
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2026: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf}{Nonlinear Binscatter Methods}. Review of Economics and Statistics, revise and resubmit.
+#'
+#' Supplemental Appendix for Nonlinear Binscatter Methods: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT--Supplemental.pdf}{Supplemental Appendix}.
+#'
+#' Cattaneo, M. D., R. K. Crump, M. H. Farrell, and Y. Feng. 2025: \href{https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2025_Stata.pdf}{Binscatter Regressions}. Stata Journal 25(1): 3-50.
 #'
 #'@seealso  \code{\link{binsreg}}, \code{\link{binsqreg}}, \code{\link{binsglm}}, \code{\link{binsregselect}}, \code{\link{binstest}}.
 #'
@@ -169,7 +175,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
                     vce=NULL, cluster=NULL, asyvar=F,
                     dfcheck=c(20,30), masspoints="on", weights=NULL, subset=NULL,
                     numdist=NULL, numclust=NULL, estmethodopt=NULL,
-                    plot=FALSE, dotsngrid=0, plotxrange=NULL, plotyrange=NULL,
+                    plot=FALSE, printplot=TRUE, dotsngrid=0, plotxrange=NULL, plotyrange=NULL,
                     colors=NULL, symbols=NULL, level=95, ...) {
 
   # param for internal use
@@ -607,7 +613,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
       warning("To speed up computation, bin/degree selection uses a subsample of roughly max(5000, 0.01n) observations if the sample size n>5000. To use the full sample, set randcut=1.")
     }
     if (selection=="J") {
-      binselect <- binsregselect(y, x, w, deriv=deriv,
+      binselect <- binsregselect.cached(y, x, w, deriv=deriv,
                                  bins=c(bins.p,bins.s), binspos=binspos, nbins=T,
                                  binsmethod=binsmethod, nbinsrot=nbinsrot,
                                  vce=vce.select, cluster=cluster, randcut=randcut1k,
@@ -633,7 +639,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
         }
       }
     } else if (selection=="P") {
-      binselect <- binsregselect(y, x, w, deriv=deriv,
+      binselect <- binsregselect.cached(y, x, w, deriv=deriv,
                                  binspos=binspos, nbins=nbins_all,
                                  pselect=plist, sselect=slist,
                                  binsmethod=binsmethod, nbinsrot=nbinsrot,
@@ -796,7 +802,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
         warning("To speed up computation, bin/degree selection uses a subsample of roughly max(5000, 0.01n) observations if the sample size n>5000. To use the full sample, set randcut=1.")
       }
       if (selection=="J") {
-        binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+        binselect <- binsregselect.cached(y.sub, x.sub, w.sub, deriv=deriv,
                                    bins=c(bins.p,bins.s), binspos=binspos, nbins=T,
                                    binsmethod=binsmethod, nbinsrot=nbinsrot,
                                    vce=vce.select, cluster=cluster.sub, randcut=randcut1k,
@@ -822,7 +828,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
           }
         }
       } else if (selection=="P") {
-        binselect <- binsregselect(y.sub, x.sub, w.sub, deriv=deriv,
+        binselect <- binsregselect.cached(y.sub, x.sub, w.sub, deriv=deriv,
                                    binspos=binspos, nbins=nbins,
                                    pselect=plist, sselect=slist,
                                    binsmethod=binsmethod, nbinsrot=nbinsrot,
@@ -898,20 +904,22 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
     #######################################
     B    <- binsreg.spdes(eval=x.sub, p=tsha.p, s=tsha.s, knot=knot, deriv=0)
     k    <- ncol(B)
-    P    <- cbind(B, w.sub)
+    P    <- binsreg.cbind(B, w.sub)
     if (estmethod=="reg") {
-      model <- lm(y.sub ~ P-1, weights=weights.sub)
+      model <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
     } else if (estmethod=="qreg") {
-      model <- do.call(rq, c(list(formula=y.sub ~ P-1, tau=quantile, weights=weights.sub), estmethodopt))
+      model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
     } else if (estmethod=="glm") {
-      model <- do.call(glm, c(list(formula=y.sub ~ P-1, family=family, weights=weights.sub), estmethodopt))
+      model <- do.call(binsreg.fit.glm, c(list(y=y.sub, P=P, family=family, weights=weights.sub), estmethodopt))
     }
     beta <- model$coeff[1:k]
     basis.sha <- binsreg.spdes(eval=uni_grid, p=tsha.p, s=tsha.s, knot=knot, deriv=deriv)
+    if (estmethod=="qreg") vcv.sha.full <- binsreg.vcov(model, type=vce, cluster=cluster.sub, is.qreg=TRUE, ...)
+    else                   vcv.sha.full <- binsreg.vcov(model, type=vce, cluster=cluster.sub)
 
     if (estmethod=="glm" & (!nolink)) {
       pred.sha <- binsreg.pred(X=basis.sha, model=model, type="all",
-                               vce=vce, cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar)
+                               vce=vce, cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar, vcv=vcv.sha.full)
       basis.0     <- binsreg.spdes(eval=uni_grid, p=tsha.p, s=tsha.s, knot=knot, deriv=0)
       fit.0       <- binsreg.pred(basis.0, model, type = "xb", vce=vce, cluster=cluster.sub, deriv=0, wvec=eval.w)$fit
       pred.sha.0  <- linkinv.1(fit.0)
@@ -930,16 +938,16 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
         basis.all <- linkinv.2(fit.0)*pred.sha$fit*basis.sha.0 + pred.sha.0*basis.sha.1
         pred.sha$fit <- pred.sha.0 * pred.sha$fit
         pred.sha$se  <- binsreg.pred(basis.all, model=model, type="se",
-                                     vce=vce, cluster=cluster.sub, avar=T)$se
+                                     vce=vce, cluster=cluster.sub, avar=T, vcv=vcv.sha.full)$se
       }
     } else {
       if (estmethod=="qreg") {
         pred.sha  <- binsreg.pred(basis.sha, model, type = "all", vce=vce,
                                   cluster=cluster.sub, deriv=deriv, wvec=eval.w,
-                                  is.qreg=TRUE, avar=asyvar, ...)
+                                  is.qreg=TRUE, avar=asyvar, vcv=vcv.sha.full, ...)
       } else {
         pred.sha  <- binsreg.pred(basis.sha, model, type = "all", vce=vce,
-                                  cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar)
+                                  cluster=cluster.sub, deriv=deriv, wvec=eval.w, avar=asyvar, vcv=vcv.sha.full)
       }
     }
     fit.sha[[i]] <- pred.sha$fit
@@ -947,8 +955,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
 
     pos   <- !is.na(beta)
     k.new <- sum(pos)
-    if (estmethod=="qreg") vcv.sha <- binsreg.vcov(model, type=vce, cluster=cluster.sub, is.qreg=TRUE, ...)[1:k.new, 1:k.new]
-    else                   vcv.sha <- binsreg.vcov(model, type=vce, cluster=cluster.sub)[1:k.new, 1:k.new]
+    vcv.sha <- vcv.sha.full[1:k.new, 1:k.new]
     Sigma.root <- lssqrtm(vcv.sha)
     nummat[[i]] <- basis.sha[,pos,drop=F] %*% Sigma.root
     denom[[i]]  <- sqrt(rowSums((basis.sha[, pos, drop=F] %*% vcv.sha) * basis.sha[, pos, drop=F]))
@@ -960,13 +967,13 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
         # since p and s for point estimates are different, run regression again
         B    <- binsreg.spdes(eval=x.sub, p=est.p, s=est.s, knot=knot, deriv=0)
         k    <- ncol(B)
-        P    <- cbind(B, w.sub)
+        P    <- binsreg.cbind(B, w.sub)
         if (estmethod=="reg") {
-          model <- lm(y.sub ~ P-1, weights=weights.sub)
+          model <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
         } else if (estmethod=="qreg") {
-          model <- do.call(rq, c(list(formula=y.sub ~ P-1, tau=quantile, weights=weights.sub), estmethodopt))
+          model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
         } else if (estmethod=="glm") {
-          model <- do.call(glm, c(list(formula=y.sub ~ P-1, family=family, weights=weights.sub), estmethodopt))
+          model <- do.call(binsreg.fit.glm, c(list(y=y.sub, P=P, family=family, weights=weights.sub), estmethodopt))
         }
       } else {
         est.p <- tsha.p; est.s <- tsha.s
@@ -1072,7 +1079,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
     }
     binsplot <- binsplot + scale_fill_manual(name="Group Difference", values = colors[1:tot.num],
                                              guide=guide_legend(override.aes = list(colour=colors[1:tot.num], linetype=0, shape=symbols[1:tot.num])))
-    print(binsplot)
+    if (printplot) print(binsplot)
   }
 
 

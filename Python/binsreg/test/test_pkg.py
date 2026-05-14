@@ -3,7 +3,7 @@
 """
 TEST SUIT FOR BINSREG
 
-@author: rmasini
+Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
 """
 
 
