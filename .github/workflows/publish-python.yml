@@ -40,4 +40,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: Python/binsreg/dist/
-          skip-existing: true
