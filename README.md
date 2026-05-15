@@ -1,6 +1,15 @@
 # Binscatter Methods
 
-The `binsreg` package provides Python, R and Stata implementations of binscatter methods. It includes partition selection, point estimation, pointwise and uniform inference methods, and graphical procedures for both linear and nonlinear methods.
+The `binsreg` package implements estimation, inference and graphical procedures using binscatter methods.
+
+- `binsreg`: least squares binscatter regression with robust inference and plots.
+- `binsqreg`: quantile binscatter regression with robust inference and plots.
+- `binsglm`: generalized linear binscatter regression with robust inference and plots (R and Python).
+- `binslogit`: logit binscatter estimation with robust inference and plots (Stata).
+- `binsprobit`: probit binscatter estimation with robust inference and plots (Stata).
+- `binstest`: binscatter-based tests for parametric specifications and shape restrictions.
+- `binspwc`: binscatter-based pairwise group comparison tests.
+- `binsregselect`: data-driven selection of the number of bins for binscatter estimation.
 
 ## Python Implementation
 
