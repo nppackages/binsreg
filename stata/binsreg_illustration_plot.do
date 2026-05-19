@@ -1,11 +1,7 @@
-/*******************************************************************************
-Binsreg: illustration file for plot
-# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
-# Last update: 14-MAY-2026
-*******************************************************************************/
-*******************************************************************************/
-** net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/main/stata) replace
-********************************************************************************
+*******************************************************************************
+** BINSREG Package
+** Plot Illustration
+*******************************************************************************
 clear all
 set more off
 set linesize 90

@@ -12,7 +12,7 @@ program define binspwc, eclass
 		   binsmethod(string) nbinsrot(string) samebinsby randcut(numlist max=1 >=0 <=1) ///
 		   nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
 		   dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
-		   vce(passthru) asyvar(string) ///
+		   vce(passthru) asyvar(string) precision(string) ///
 		   numdist(string) numclust(string)]
 		   /* last line only for internal use */
 
@@ -25,6 +25,15 @@ program define binspwc, eclass
 	    local wt [`weight'`exp']
 		local wtype=substr("`weight'",1,1)
 	 }
+
+	 local precision = lower("`precision'")
+	 if ("`precision'"=="") local precision "double"
+	 if ("`precision'"!="single"&"`precision'"!="double") {
+	    di as error "precision() must be single or double."
+		exit 198
+	 }
+	 local precision_type "float"
+	 if ("`precision'"=="double") local precision_type "double"
 
 	 if ("`testtype'"=="") {
 	    local testtype "2"
@@ -568,7 +577,7 @@ program define binspwc, eclass
 				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(nbinsrot_regul)==.) {
 			      di as error "Bin selection fails."
 				  exit
@@ -596,7 +605,7 @@ program define binspwc, eclass
 								pselect(`plist') sselect(`slist') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(prot_regul)==.) {
 			      di as error "Bin selection fails."
 				  exit
@@ -669,8 +678,8 @@ program define binspwc, eclass
 	 mata: `Xm0'=.; `fit'=.; `fit0'=0; `se'=.; `vcov'=.
 
 	 tempvar xcat bycond
-	 qui gen `xcat'=. in 1
-	 qui gen `bycond'=. in 1
+	 qui gen `precision_type' `xcat'=. in 1
+	 qui gen `precision_type' `bycond'=. in 1
 
 	 * matrix names, for returns
 	 tempname nbinslist teststat pvalue pwc_plist pwc_slist
@@ -818,7 +827,7 @@ program define binspwc, eclass
 		                           absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 					   			   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							       `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			     if (e(nbinsrot_regul)==.) {
 			        di as error "Bin selection fails."
 			        exit
@@ -846,7 +855,7 @@ program define binspwc, eclass
 					  			    pselect(`plist') sselect(`slist') ///
 								    binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								    `vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			     if (e(prot_regul)==.) {
 			        di as error "Bin selection fails."
 				    exit
@@ -945,7 +954,7 @@ program define binspwc, eclass
 	    forvalues i=1/`nseries' {
 	       tempvar sp`i'
 	       local tsha_series `tsha_series' `sp`i''
-		   qui gen `sp`i''=. in 1
+		   qui gen `precision_type' `sp`i''=. in 1
 	    }
 
 		tempname tsha_b tsha_V

@@ -12,8 +12,8 @@ version 13
 							| real vector by, real scalar byvalue)
 				  /* s: # of constraints */
   {
-	real matrix knot, x, xcat, subgroup, exknot, ind_lk, lk, rk, bs, tl, tr, w, vm, rind
-	real scalar k, n, i, sm, cind, width
+	real matrix knot, x, xcat, subgroup, exknot, ind_lk, lk, rk, bs, tl, tr, w, vm, rind, binedges
+	real scalar k, n, i, sm, cind, width, fastbins, rlo, rhi
 
 	// read data into mata
 	knot=st_matrix(knotname)
@@ -30,12 +30,33 @@ version 13
 
 	n=rows(x)
 	sm=s-1                /* so that resulting spline is C^sm */
+	fastbins=0
+	if (n>0) {
+	    if (xcat[1]==1 & xcat[n]==k-1) {
+	        if (n==1) {
+	            binedges=0 \ 1
+	        }
+	        else {
+	            binedges=0 \ selectindex(xcat[|1 \ n-1|]:!=xcat[|2 \ n|]) \ n
+	        }
+	        if (rows(binedges)==k) fastbins=1
+	    }
+	}
 
 	if (degree==0 & s==0) {
 	    vm=J(n,k-1,0)
-	    for (i=1; i<=k-1; i++) {
-	        rind=selectindex(xcat:==i)
-	        vm[rind,i]=J(rows(rind),1,1)
+	    if (fastbins) {
+	        for (i=1; i<=k-1; i++) {
+	            rlo=binedges[i]+1
+	            rhi=binedges[i+1]
+	            vm[|rlo,i \ rhi,i|]=J(rhi-rlo+1,1,1)
+	        }
+	    }
+	    else {
+	        for (i=1; i<=k-1; i++) {
+	            rind=selectindex(xcat:==i)
+	            vm[rind,i]=J(rows(rind),1,1)
+	        }
 	    }
 	    return(vm)
 	}
@@ -43,16 +64,33 @@ version 13
 	if (degree==1 & (s==0 | s==1) & (deriv==0 | deriv==1)) {
 	    width=degree-sm
 	    vm=J(n,(k-2)*width+degree+1,0)
-	    for (i=1; i<=k-1; i++) {
-	        rind=selectindex(xcat:==i)
-	        cind=(i-1)*width+1
-	        if (deriv==0) {
-	            w=(x[rind]:-knot[i]):/(knot[i+1]-knot[i])
-	            vm[rind,cind..(cind+1)]=(1:-w, w)
+	    if (fastbins) {
+	        for (i=1; i<=k-1; i++) {
+	            rlo=binedges[i]+1
+	            rhi=binedges[i+1]
+	            cind=(i-1)*width+1
+	            if (deriv==0) {
+	                w=(x[|rlo \ rhi|]:-knot[i]):/(knot[i+1]-knot[i])
+	                vm[|rlo,cind \ rhi,cind+1|]=(1:-w, w)
+	            }
+	            else {
+	                w=J(rhi-rlo+1,1,1/(knot[i+1]-knot[i]))
+	                vm[|rlo,cind \ rhi,cind+1|]=(-w, w)
+	            }
 	        }
-	        else {
-	            w=J(rows(rind),1,1/(knot[i+1]-knot[i]))
-	            vm[rind,cind..(cind+1)]=(-w, w)
+	    }
+	    else {
+	        for (i=1; i<=k-1; i++) {
+	            rind=selectindex(xcat:==i)
+	            cind=(i-1)*width+1
+	            if (deriv==0) {
+	                w=(x[rind]:-knot[i]):/(knot[i+1]-knot[i])
+	                vm[rind,cind..(cind+1)]=(1:-w, w)
+	            }
+	            else {
+	                w=J(rows(rind),1,1/(knot[i+1]-knot[i]))
+	                vm[rind,cind..(cind+1)]=(-w, w)
+	            }
 	        }
 	    }
 	    return(vm)
@@ -126,10 +164,20 @@ version 13
 
 
 	// fill in nonzeros
-	for (i=1; i<=k-1; i++) {
-	    rind=selectindex(xcat:==i)
-	    cind=(i-1)*(degree-sm)+1
-	    vm[rind,cind..(cind+degree)]=bs[rind,]
+	if (fastbins) {
+	    for (i=1; i<=k-1; i++) {
+	        rlo=binedges[i]+1
+	        rhi=binedges[i+1]
+	        cind=(i-1)*(degree-sm)+1
+	        vm[|rlo,cind \ rhi,cind+degree|]=bs[|rlo,1 \ rhi,degree+1|]
+	    }
+	}
+	else {
+	    for (i=1; i<=k-1; i++) {
+	        rind=selectindex(xcat:==i)
+	        cind=(i-1)*(degree-sm)+1
+	        vm[rind,cind..(cind+degree)]=bs[rind,]
+	    }
 	}
 
 	return(vm)
@@ -160,6 +208,48 @@ version 13
 	vm[.,.]=X
   }
    mata mosave binsreg_st_spdes(), replace
+
+
+  // Count observations in bins using cached Mata vectors.
+  real matrix binsreg_bincount(real vector x, real vector xcat, ///
+                               real scalar nbins, string scalar knotname, ///
+                               real scalar fewobs)
+  {
+    real matrix knot, bincount, binedges
+	real scalar i, n
+
+	knot=st_matrix(knotname)
+	bincount=J(nbins,1,0)
+	if (fewobs) {
+	    for (i=1; i<=nbins; i++) {
+		    bincount[i]=sum(x:==knot[i,1])
+		}
+	}
+	else {
+	    n=rows(xcat)
+		if (n>0) {
+		    if (xcat[1]==1 & xcat[n]==nbins) {
+		        if (n==1) {
+				    binedges=0 \ 1
+				}
+				else {
+			        binedges=0 \ selectindex(xcat[|1 \ n-1|]:!=xcat[|2 \ n|]) \ n
+				}
+				if (rows(binedges)==nbins+1) {
+			        for (i=1; i<=nbins; i++) {
+					    bincount[i]=binedges[i+1]-binedges[i]
+					}
+					return(bincount)
+				}
+			}
+		}
+	    for (i=1; i<=nbins; i++) {
+		    bincount[i]=sum(xcat:==i)
+		}
+	}
+	return(bincount)
+  }
+  mata mosave binsreg_bincount(), replace
 
 
 
@@ -227,7 +317,7 @@ version 13
   {
      real matrix cov, mt, pval, tvec, num, U, V, sv, t, p
 	 real rowvector tmax, tmin, tabs
-	 real scalar i,j,w,j1, lp, ngrid, chunk, reps
+	 real scalar i,j,w,j1, lp, ngrid, chunk, reps, needmax, needmin, needabs
 
 	 cov=st_matrix(covname)[|1,1\k,k|]
 	 if (metric!="inf") {
@@ -238,6 +328,14 @@ version 13
 	     pval=J(rows(mt),1,0)
 	 }
 	 if (side!=".") tvec=J(rep,1,.)
+	 needmax=(side=="left")
+	 needmin=(side=="right")
+	 needabs=(side=="two")
+	 if (mtest!=".") {
+	     needmax=needmax | (sum(mt[,2]:==1)>0)
+	     needmin=needmin | (sum(mt[,2]:==2)>0)
+	     needabs=needabs | (sum(mt[,2]:==3)>0)
+	 }
 	 if (rank(cov)==k) {
 	     num=X*cholesky(cov)
 	 }
@@ -256,13 +354,15 @@ version 13
 	     reps=rep-i+1
 	     if (reps>chunk) reps=chunk
 	     t=(num*rnormal(reps,k,0,1)'):/((se*J(1,reps,1)))
-	     tmax=colmax(t)
-	     tmin=colmin(t)
-	     if (metric=="inf") {
-	        tabs=colmax(abs(t))
-	     }
-	     else {
-	        tabs=mean(abs(t):^lp):^(1/lp)
+	     if (needmax) tmax=colmax(t)
+	     if (needmin) tmin=colmin(t)
+	     if (needabs) {
+	        if (metric=="inf") {
+	           tabs=colmax(abs(t))
+	        }
+	        else {
+	           tabs=mean(abs(t):^lp):^(1/lp)
+	        }
 	     }
 		 // for p-vals
 		 if (mtest!=".") {

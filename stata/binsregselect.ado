@@ -12,7 +12,7 @@ program define binsregselect, eclass
 			simsgrid(integer 20) savegrid(string asis) replace ///
 			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
 			vce(passthru) useeffn(string) randcut(numlist max=1 >=0 <=1) ///
-			norotnorm numdist(string) numclust(string)]
+			precision(string) norotnorm numdist(string) numclust(string)]
 			/* last line only for internal use */
 
 	 set more off
@@ -30,6 +30,15 @@ program define binsregselect, eclass
 	    local wt [`weight'`exp']
 		local wtype=substr("`weight'",1,1)
 	 }
+
+	 local precision = lower("`precision'")
+	 if ("`precision'"=="") local precision "double"
+	 if ("`precision'"!="single"&"`precision'"!="double") {
+	    di as error "precision() must be single or double."
+		exit 198
+	 }
+	 local precision_type "float"
+	 if ("`precision'"=="double") local precision_type "double"
 
 	 **********************
 	 ** Extract options ***
@@ -362,7 +371,7 @@ program define binsregselect, eclass
 	 }
 
 	 sum `x_var', meanonly
-	 gen `z_var'=(`x_var'-`=r(min)')/(`=r(max)'-`=r(min)')
+	 gen `precision_type' `z_var'=(`x_var'-`=r(min)')/(`=r(max)'-`=r(min)')
 	 mata: `zvec'=st_data(., "`z_var'")   /* normalized x, subsample */
 
 
@@ -415,7 +424,7 @@ program define binsregselect, eclass
 			local series_rot ""
 			forvalues i=1/`=`p'+`qrot'' {
 				tempvar z_var_`i'
-				qui gen `z_var_`i''=`z_var'^`i'
+				qui gen `precision_type' `z_var_`i''=`z_var'^`i'
 				local series_rot `series_rot' `z_var_`i''
 			}
 
@@ -433,17 +442,17 @@ program define binsregselect, eclass
 			}
 
 			tempvar pred_y y_var_2 pred_y2 s2
-			if ("`absorb'"=="") predict `pred_y', xb
-			else                predict `pred_y', xbd
+			if ("`absorb'"=="") predict `precision_type' `pred_y', xb
+			else                predict `precision_type' `pred_y', xbd
 
-			qui gen `y_var_2'=`y_var'^2                                              // move it outside
+			qui gen `precision_type' `y_var_2'=`y_var'^2                              // move it outside
 			if ("`absorb'"=="") {
 				capture reg `y_var_2' `series_rot' `w_var' `wt'
 				if (_rc) {
 					error _rc
 					exit _rc
 				}
-				predict `pred_y2', xb
+				predict `precision_type' `pred_y2', xb
 			}
 			else {
 				capture reghdfe `y_var_2' `series_rot' `w_var' `wt', absorb(`absorb') resid(`resid2')
@@ -452,10 +461,10 @@ program define binsregselect, eclass
 					exit _rc
 				}
 
-				predict `pred_y2', xbd
+				predict `precision_type' `pred_y2', xbd
 			}
 
-			qui gen `s2'=`pred_y2'-`pred_y'^2         /* sigma^2(x) var */
+			qui gen `precision_type' `s2'=`pred_y2'-`pred_y'^2         /* sigma^2(x) var */
 
 			* Normal density
 			if ("`rotnorm'"=="") {
@@ -467,7 +476,7 @@ program define binsregselect, eclass
 				tempvar fz
 				* trim density from below
 				local cutval=normalden(invnormal(`den_alp')*`zsd', 0, `zsd')
-				qui gen `fz'=max(normalden(`z_var', `zbar', `zsd'), `cutval')
+				qui gen `precision_type' `fz'=max(normalden(`z_var', `zbar', `zsd'), `cutval')
 				if ("`binspos'"=="ES") qui replace `s2'=`s2'/`fz'
 				else                   qui replace `s2'=`s2'*(`fz'^(2*`deriv'))
 			}
@@ -488,7 +497,7 @@ program define binsregselect, eclass
 			}
 
 			mata: `Xm'=`Xm'*st_matrix("`coef'")'; ///
-				  st_store(.,st_addvar("float", "`pred_deriv'"), `Xm':^2)
+				  st_store(.,st_addvar("`precision_type'", "`pred_deriv'"), `Xm':^2)
 
 			mata: mata drop `Xm'
 
@@ -523,7 +532,8 @@ program define binsregselect, eclass
 
 		if (("`binsmethod'"=="DPI"|"`localcheck'"=="T")&"`masspoints'"!="veryfew") {
 			tempvar zcat
-			qui gen `zcat'=. in 1
+			qui gen `precision_type' `zcat'=. in 1
+			tempname zcatvec
 			* Prepare bins
 			tempname kmat
 
@@ -548,6 +558,7 @@ program define binsregselect, eclass
 			if ("`binsmethod'"=="DPI"&"`dpi_fewobs'"=="") {
 				binsreg_irecode `z_var', knotmat(`kmat') bin(`zcat') ///
 					`usegtools' nbins(`J_rot_uniq') pos(`binspos') knotliston(T)
+				mata: `zcatvec'=st_data(.,"`zcat'")
 			}
 		}
 
@@ -565,9 +576,9 @@ program define binsregselect, eclass
 
 			* Check local effective size
 			if ("`localcheck'"=="T"&"`dpi_fewobs'"!="T") {
-			    mata: st_local("Ncat", strofreal(rows(uniqrows(st_data(.,"`zcat'")))))
+			    mata: st_local("Ncat", strofreal(rows(uniqrows(`zcatvec'))))
 				if (`J_rot_uniq'==`Ncat') {
-		          mata: `binedges'=binsreg_uniq(`zvec', st_data(.,"`zcat'"), `J_rot_uniq', "uniqmin")
+		          mata: `binedges'=binsreg_uniq(`zvec', `zcatvec', `J_rot_uniq', "uniqmin")
 				  mata: mata drop `binedges'
 		        }
 				else {
@@ -605,17 +616,17 @@ program define binsregselect, eclass
 			**************************************
 			* Start computation
 			tempvar derivfit derivse biasterm biasterm_v projbias
-			qui gen `derivfit'=. in 1
-			qui gen `derivse'=. in 1
-			qui gen `biasterm'=. in 1                     /* save bias */
-			if (`deriv'>0) qui gen `biasterm_v'=. in 1    /* error of approx deriv */
-			qui gen `projbias'=. in 1                     /* save proj of bias */
+			qui gen `precision_type' `derivfit'=. in 1
+			qui gen `precision_type' `derivse'=. in 1
+			qui gen `precision_type' `biasterm'=. in 1    /* save bias */
+			if (`deriv'>0) qui gen `precision_type' `biasterm_v'=. in 1    /* error of approx deriv */
+			qui gen `precision_type' `projbias'=. in 1    /* save proj of bias */
 
 			**************************************
 			* predict leading bias
-			mata: bias("`z_var'", "`zcat'", "`kmat'", `p', 0, "`biasterm'")
+			mata: st_store(.,"`biasterm'", binsregselect_bias_vec(`zvec', `zcatvec', "`kmat'", `p', 0))
 			if (`deriv'>0) {
-				mata: bias("`z_var'", "`zcat'", "`kmat'", `p', `deriv', "`biasterm_v'")
+				mata: st_store(.,"`biasterm_v'", binsregselect_bias_vec(`zvec', `zcatvec', "`kmat'", `p', `deriv'))
 			}
 
 			* Increase order from p to p+1
@@ -625,10 +636,10 @@ program define binsregselect, eclass
 			forvalues i=1/`nseries' {
 				tempvar sp`i'
 				local series `series' `sp`i''
-				qui gen `sp`i''=. in 1
+				qui gen `precision_type' `sp`i''=. in 1
 			}
 
-			mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `=`p'+1', 0, `=`s'+1')
+			mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", `zcatvec', `=`p'+1', 0, `=`s'+1')
 
 			if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon
 			else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `reghdfeopt'
@@ -645,7 +656,7 @@ program define binsregselect, eclass
 			}
 
 			* Predict (p+1)th derivative
-			mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `=`p'+1', `=`p'+1', `=`s'+1'); ///
+			mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", `zcatvec', `=`p'+1', `=`p'+1', `=`s'+1'); ///
 				st_store(.,"`derivfit'", (binsreg_pred(`Xm', (st_matrix("`temp_b'")[|1 \ `nseries'|])', ///
 				st_matrix("`temp_V'")[|1,1 \ `nseries',`nseries'|], "xb"))[,1])
 			mata: mata drop `Xm'
@@ -660,12 +671,12 @@ program define binsregselect, eclass
 			forvalues i=1/`nseries' {
 				tempvar sp`i'
 				local series `series' `sp`i''
-				qui gen `sp`i''=. in 1
+				qui gen `precision_type' `sp`i''=. in 1
 			}
 
-			mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `p', 0, `s')
+			mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", `zcatvec', `p', 0, `s')
 			if (`p'==0 & `s'==0 & `deriv'==0 & "`wt'"=="") {
-				mata: binsregselect_binmean("`biasterm'", "`zcat'", "`projbias'", `J_rot_uniq')
+				mata: binsregselect_binmean("`biasterm'", `zcatvec', "`projbias'", `J_rot_uniq')
 				mata: st_view(`Xm'=., ., tokens("`series'"))
 			}
 			else {
@@ -685,7 +696,7 @@ program define binsregselect, eclass
 						st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
 				}
 				else {
-					mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
+					mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", `zcatvec', `p', `deriv', `s'); ///
 						st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
 				}
 			}
@@ -785,7 +796,7 @@ program define binsregselect, eclass
 	       qui bins_imse `y_var' `z_var' `w_var' `wt', deriv(`deriv') ///
                p(`=`ord_dpi'[1,1]') s(`=`ord_dpi'[1,2]') nbins(`J_dpi') eN_sub(`eN_sub') ///
 		       binspos(`binspos') `vce' `usegtools' ///
-		       zvec(`zvec') absorb(`absorb') reghdfeopt(`reghdfeopt')
+		       zvec(`zvec') absorb(`absorb') reghdfeopt(`reghdfeopt') precision(`precision')
 		   local imse_var_dpi_upd=e(imse_var)
 		   local imse_bsq_dpi_upd=e(imse_bsq)
 		}
@@ -878,15 +889,15 @@ program define binsregselect, eclass
 	       local obs=`simsgrid'*`Jselected'+`Jselected'-1
 		   qui set obs `obs'
 
-		   qui gen `x_varname'=. in 1
+		   qui gen `precision_type' `x_varname'=. in 1
 		   label var `x_varname' "Eval. point"
-	       qui gen binsreg_isknot=. in 1
+	       qui gen `precision_type' binsreg_isknot=. in 1
 		   label var binsreg_isknot "Is the eval. point an inner knot"
-		   qui gen binsreg_bin=. in 1
+		   qui gen `precision_type' binsreg_bin=. in 1
 		   label var binsreg_bin "indicator of bin"
 		   mata: st_store(., (1,2,3), binsreg_grids("`xkmat'", `simsgrid'))
 		   foreach var of local w_varname {
-		      qui gen `var'=0
+		      qui gen `precision_type' `var'=0
 	   	   }
 
 		   qui save `"`savegrid'"', `replace'
@@ -1053,9 +1064,18 @@ program define bins_imse, eclass
 
    version 13
    syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, deriv(integer 0) ///
-          p(integer 0) s(integer 0) nbins(integer 0) eN_sub(integer 0) ///
+		  p(integer 0) s(integer 0) nbins(integer 0) eN_sub(integer 0) ///
 		  binspos(string) vce(passthru) usegtools ///
-		  zvec(name) absorb(string asis) reghdfeopt(string asis)]
+		  zvec(name) absorb(string asis) reghdfeopt(string asis) precision(string)]
+
+   local precision = lower("`precision'")
+   if ("`precision'"=="") local precision "double"
+   if ("`precision'"!="single"&"`precision'"!="double") {
+      di as error "precision() must be single or double."
+	  exit 198
+   }
+   local precision_type "float"
+   if ("`precision'"=="double") local precision_type "double"
 
    preserve
    marksample touse
@@ -1070,7 +1090,8 @@ program define bins_imse, eclass
    local w_var "`*'"
 
    tempvar zcat
-   qui gen `zcat'=. in 1
+   qui gen `precision_type' `zcat'=. in 1
+   tempname zcatvec
    * Prepare bins
    tempname kmat
 
@@ -1092,21 +1113,22 @@ program define bins_imse, eclass
 
    binsreg_irecode `z_var', knotmat(`kmat') bin(`zcat') ///
 				   `usegtools' nbins(`nbins') pos(`binspos') knotliston(T)
+   mata: `zcatvec'=st_data(.,"`zcat'")
 
 
 	* Start computation
 	tempvar derivfit derivse biasterm biasterm_v projbias
-	qui gen `derivfit'=. in 1
-	qui gen `derivse'=. in 1
-	qui gen `biasterm'=. in 1                     /* save bias */
-	if (`deriv'>0) qui gen `biasterm_v'=. in 1    /* error of approx deriv */
-	qui gen `projbias'=. in 1                     /* save proj of bias */
+	qui gen `precision_type' `derivfit'=. in 1
+	qui gen `precision_type' `derivse'=. in 1
+	qui gen `precision_type' `biasterm'=. in 1    /* save bias */
+	if (`deriv'>0) qui gen `precision_type' `biasterm_v'=. in 1    /* error of approx deriv */
+	qui gen `precision_type' `projbias'=. in 1    /* save proj of bias */
 
 	**************************************
 	* predict leading bias
-	mata: bias("`z_var'", "`zcat'", "`kmat'", `p', 0, "`biasterm'")
+	mata: st_store(.,"`biasterm'", binsregselect_bias_vec(`zvec', `zcatvec', "`kmat'", `p', 0))
 	if (`deriv'>0) {
-		mata: bias("`z_var'", "`zcat'", "`kmat'", `p', `deriv', "`biasterm_v'")
+		mata: st_store(.,"`biasterm_v'", binsregselect_bias_vec(`zvec', `zcatvec', "`kmat'", `p', `deriv'))
 	}
 
 	* Increase order from p to p+1
@@ -1116,10 +1138,10 @@ program define bins_imse, eclass
 	forvalues i=1/`nseries' {
 		tempvar sp`i'
 		local series `series' `sp`i''
-		qui gen `sp`i''=. in 1
+		qui gen `precision_type' `sp`i''=. in 1
 	}
 
-	mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `=`p'+1', 0, `=`s'+1')
+	mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", `zcatvec', `=`p'+1', 0, `=`s'+1')
 
 	if ("`absorb'"=="") capture reg `y_var' `series' `w_var' `wt', nocon
 	else                capture reghdfe `y_var' `series' `w_var' `wt', absorb(`absorb') `reghdfeopt'
@@ -1137,7 +1159,7 @@ program define bins_imse, eclass
 
 	tempname Xm
 	* Predict (p+1)th derivative
-	mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `=`p'+1', `=`p'+1', `=`s'+1'); ///
+	mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", `zcatvec', `=`p'+1', `=`p'+1', `=`s'+1'); ///
 		  st_store(.,"`derivfit'", (binsreg_pred(`Xm', (st_matrix("`temp_b'")[|1 \ `nseries'|])', ///
 		           st_matrix("`temp_V'")[|1,1 \ `nseries',`nseries'|], "xb"))[,1])
 	mata: mata drop `Xm'
@@ -1152,12 +1174,12 @@ program define bins_imse, eclass
 	forvalues i=1/`nseries' {
 		tempvar sp`i'
 		local series `series' `sp`i''
-		qui gen `sp`i''=. in 1
+		qui gen `precision_type' `sp`i''=. in 1
 	}
 
-	mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", st_data(.,"`zcat'"), `p', 0, `s')
+	mata: binsreg_st_spdes(`zvec', "`series'", "`kmat'", `zcatvec', `p', 0, `s')
 	if (`p'==0 & `s'==0 & `deriv'==0 & "`wt'"=="") {
-		mata: binsregselect_binmean("`biasterm'", "`zcat'", "`projbias'", `nbins')
+		mata: binsregselect_binmean("`biasterm'", `zcatvec', "`projbias'", `nbins')
 		mata: st_view(`Xm'=., ., tokens("`series'"))
 	}
 	else {
@@ -1177,7 +1199,7 @@ program define bins_imse, eclass
 				  st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
 		}
 		else {
-			mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", st_data(.,"`zcat'"), `p', `deriv', `s'); ///
+			mata: `Xm'=binsreg_spdes(`zvec', "`kmat'", `zcatvec', `p', `deriv', `s'); ///
 				  st_store(.,"`projbias'", binsreg_pred(`Xm', st_matrix("`bias_b'")', st_matrix("`bias_V'"), "xb")[,1])
 		}
 	}
@@ -1346,6 +1368,26 @@ mata:
   }
 
   // Leading bias for splines
+  real vector binsregselect_bias_vec(real vector X, real vector xcat, ///
+                                     string scalar knotname, ///
+                                     real scalar degree, real scalar deriv)
+  {
+    real vector knot, h, tl
+
+	knot=st_matrix(knotname)
+	h=knot[|2 \ length(knot)|]-knot[|1 \ (length(knot)-1)|]
+	h=h[xcat]
+	if (rows(h)==1) {
+	   h=h'
+	}
+	tl=knot[|1 \ (length(knot)-1)|]
+	tl=tl[xcat]
+	if (rows(tl)==1) {
+	   tl=tl'
+	}
+	return(bernpoly((X-tl):/h, degree+1-deriv)/factorial(degree+1-deriv):*(h:^(degree+1-deriv)))
+  }
+
   void bias(string scalar Var, string scalar Xcat, string scalar knotname, ///
             real scalar degree, real scalar deriv, ///
 			string scalar biasname, | string scalar select)
@@ -1360,35 +1402,45 @@ mata:
 	   xcat=st_data(., (Xcat), select)
 	   st_view(bias=.,.,(biasname), select)
 	}
-	knot=st_matrix(knotname)
- 	h=knot[|2 \ length(knot)|]-knot[|1 \ (length(knot)-1)|]
-	h=h[xcat]
-	if (rows(h)==1) {
-	   h=h'
-	}
-	tl=knot[|1 \ (length(knot)-1)|]
-	tl=tl[xcat]
-	if (rows(tl)==1) {
-	   tl=tl'
-	}
-	bern=bernpoly((X-tl):/h, degree+1-deriv)/factorial(degree+1-deriv):*(h:^(degree+1-deriv))
-	bias[.,.]=bern
+	bias[.,.]=binsregselect_bias_vec(X, xcat, knotname, degree, deriv)
   }
 
-  void binsregselect_binmean(string scalar yname, string scalar catname,
+  void binsregselect_binmean(string scalar yname, real vector xcat,
                              string scalar outname, real scalar nbins)
   {
     real matrix y, out
-    real vector xcat, ind
-    real scalar j
+    real vector ind, binedges
+    real scalar j, n, fastbins, rlo, rhi
 
     st_view(y=., ., yname)
     st_view(out=., ., outname)
-    xcat=st_data(., catname)
-    for (j=1; j<=nbins; j++) {
-      ind=selectindex(xcat:==j)
-      if (rows(ind)>0) {
-        out[ind,.]=J(rows(ind),1,mean(y[ind]))
+    n=rows(xcat)
+    fastbins=0
+    if (n>0) {
+      if (xcat[1]==1 & xcat[n]==nbins) {
+        if (n==1) {
+          binedges=0 \ 1
+        }
+        else {
+          binedges=0 \ selectindex(xcat[|1 \ n-1|]:!=xcat[|2 \ n|]) \ n
+        }
+        if (rows(binedges)==nbins+1) fastbins=1
+      }
+    }
+
+    if (fastbins) {
+      for (j=1; j<=nbins; j++) {
+        rlo=binedges[j]+1
+        rhi=binedges[j+1]
+        out[|rlo,1 \ rhi,1|]=J(rhi-rlo+1,1,mean(y[|rlo \ rhi|]))
+      }
+    }
+    else {
+      for (j=1; j<=nbins; j++) {
+        ind=selectindex(xcat:==j)
+        if (rows(ind)>0) {
+          out[ind,.]=J(rows(ind),1,mean(y[ind]))
+        }
       }
     }
   }

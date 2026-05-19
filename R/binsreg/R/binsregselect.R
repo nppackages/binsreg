@@ -408,6 +408,10 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
   if (selectJ) selectmethod <- paste(selectmethod, "(select # of bins)")
   else         selectmethod <- paste(selectmethod, "(select degree and smoothness)")
 
+  x.norm <- (x - min(x)) / (max(x) - min(x))
+  use.selector.cache <- !is.null(nbinsrot) && nrow(deg_mat) > 3
+  selector.cache <- if (use.selector.cache) new.env(parent=emptyenv()) else NULL
+
   vec.J.rot.poly <- vec.J.rot.regul <- vec.J.rot.uniq  <- vec.J.dpi <- vec.J.dpi.uniq <- c()
   vec.imse.v.rot <- vec.imse.b.rot <- vec.imse.v.dpi <- vec.imse.b.dpi <- c()
   #### START loop here #########
@@ -425,7 +429,8 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
       }
 
       if (!rot.fewobs) {
-        J.rot.poly <- binsregselect.rot(y, x, w, p, s, deriv, es=es, eN=eN.sub, qrot=qrot, norotnorm=norotnorm, weights=weights)
+        J.rot.poly <- binsregselect.rot(y, x, w, p, s, deriv, es=es, eN=eN.sub, qrot=qrot, norotnorm=norotnorm, weights=weights,
+                                        x.norm=x.norm)
         imse.v.rot <- J.rot.poly$imse.v
         imse.b.rot <- J.rot.poly$imse.b
         J.rot.poly <- J.rot.poly$J.rot
@@ -434,8 +439,10 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
     }
     # repeated knots?
     J.rot.uniq <- J.rot.regul
+    knot.rot.regul <- NULL
     if (!es & !is.na(J.rot.regul)) {
-       J.rot.uniq <- length(unique(genKnot.qs(x, J.rot.regul)[-1]))
+       knot.rot.regul <- genKnot.qs(x, J.rot.regul)
+       J.rot.uniq <- length(unique(knot.rot.regul[-1]))
     }
 
     # Run dpi selection
@@ -450,7 +457,14 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
 
         # check empty bins
         if (localcheck) {
-           uniqmin <- binsreg.checklocalmass(x, J.rot.regul, es, knot=NULL) # mimic STATA
+           if (is.null(knot.rot.regul) & !is.na(J.rot.regul)) {
+             if (es) {
+               knot.rot.regul <- genKnot.es(min(x), max(x), J.rot.regul)
+             } else {
+               knot.rot.regul <- genKnot.qs(x, J.rot.regul)
+             }
+           }
+           uniqmin <- binsreg.checklocalmass(x, J.rot.regul, es, knot=knot.rot.regul) # mimic STATA
            if (uniqmin < p+2) {
              dpi.fewobs <- T
              warning("Some bins have too few distinct values of x for DPI selection.")
@@ -461,7 +475,8 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
       }
 
       if (!dpi.fewobs) {
-        J.dpi <- binsregselect.dpi(y, x, w, p, s, deriv, es=es, vce=vce, cluster=cluster, nbinsrot=J.rot.uniq, weights=weights)
+        J.dpi <- binsregselect.dpi(y, x, w, p, s, deriv, es=es, vce=vce, cluster=cluster, nbinsrot=J.rot.uniq, weights=weights,
+                                   x.norm=x.norm, selector.cache=selector.cache)
         imse.b.dpi <- J.dpi$imse.b
         imse.v.dpi <- J.dpi$imse.v * eN.sub
         J.dpi      <- J.dpi$J.dpi
@@ -497,22 +512,22 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
   imse.b.dpi.upd <- imse.v.dpi.upd <- NA
   if (selectJ) {
     if (length(nbins)>1) {
-      J.rot.poly  <- nbins[which.min(abs(vec.J.rot.poly-nbins))]
-      J.rot.regul <- nbins[which.min(abs(vec.J.rot.regul-nbins))]
-      J.rot.uniq  <- nbins[which.min(abs(vec.J.rot.uniq-nbins))]
-      J.dpi       <- nbins[which.min(abs(vec.J.dpi-nbins))]
-      J.dpi.uniq  <- nbins[which.min(abs(vec.J.dpi.uniq-nbins))]
+      J.rot.poly  <- nbins[binsreg.which.min(abs(vec.J.rot.poly-nbins))]
+      J.rot.regul <- nbins[binsreg.which.min(abs(vec.J.rot.regul-nbins))]
+      J.rot.uniq  <- nbins[binsreg.which.min(abs(vec.J.rot.uniq-nbins))]
+      J.dpi       <- nbins[binsreg.which.min(abs(vec.J.dpi-nbins))]
+      J.dpi.uniq  <- nbins[binsreg.which.min(abs(vec.J.dpi.uniq-nbins))]
     }
     ord.rot.poly <- ord.rot.regul <- ord.rot.uniq <- ord.dpi <- ord.dpi.uniq <- deg_mat
   } else {
-    ind.rot.poly <- which.min(abs(vec.J.rot.poly-nbins))
-    ind.dpi      <- which.min(abs(vec.J.dpi-nbins))
+    ind.rot.poly <- binsreg.which.min(abs(vec.J.rot.poly-nbins))
+    ind.dpi      <- binsreg.which.min(abs(vec.J.dpi-nbins))
 
     ord.rot.poly  <- deg_mat[ind.rot.poly,]
-    ord.rot.regul <- deg_mat[which.min(abs(vec.J.rot.regul-nbins)),]
-    ord.rot.uniq  <- deg_mat[which.min(abs(vec.J.rot.uniq-nbins)),]
+    ord.rot.regul <- deg_mat[binsreg.which.min(abs(vec.J.rot.regul-nbins)),]
+    ord.rot.uniq  <- deg_mat[binsreg.which.min(abs(vec.J.rot.uniq-nbins)),]
     ord.dpi       <- deg_mat[ind.dpi,]
-    ord.dpi.uniq  <- deg_mat[which.min(abs(vec.J.dpi.uniq-nbins)),]
+    ord.dpi.uniq  <- deg_mat[binsreg.which.min(abs(vec.J.dpi.uniq-nbins)),]
     J.rot.poly <- J.rot.regul <- J.rot.uniq <- J.dpi <- J.dpi.uniq <- nbins
 
     imse.v.rot <- vec.imse.v.rot[ind.rot.poly]
@@ -521,7 +536,8 @@ binsregselect <- function(y, x, w=NULL, data=NULL, deriv=0,
     imse.b.dpi <- vec.imse.b.dpi[ind.dpi]
 
     if (nbins!=vec.J.dpi[ind.dpi]) {
-      fit <- binsregselect.dpi(y, x, w, p=ord.dpi[1], s=ord.dpi[2], deriv, es=es, vce=vce, cluster=cluster, nbinsrot=nbins, weights=weights)
+      fit <- binsregselect.dpi(y, x, w, p=ord.dpi[1], s=ord.dpi[2], deriv, es=es, vce=vce, cluster=cluster, nbinsrot=nbins, weights=weights,
+                               x.norm=x.norm, selector.cache=selector.cache)
       imse.b.dpi.upd <- fit$imse.b
       imse.v.dpi.upd <- fit$imse.v * eN.sub
       imse.b.dpi <- imse.b.dpi.upd

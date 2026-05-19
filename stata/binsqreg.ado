@@ -18,7 +18,7 @@ program define binsqreg, eclass
 			samebinsby randcut(numlist max=1 >=0 <=1) ///
 			nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
 			dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
-			vce(passthru) level(real 95) asyvar(string) ///
+			vce(passthru) level(real 95) asyvar(string) precision(string) ///
 			noplot savedata(string) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
 
@@ -32,6 +32,15 @@ program define binsqreg, eclass
 	    local wt [`weight'`exp']
 		local wtype=substr("`weight'",1,1)
 	 }
+
+	 local precision = lower("`precision'")
+	 if ("`precision'"=="") local precision "double"
+	 if ("`precision'"!="single"&"`precision'"!="double") {
+	    di as error "precision() must be single or double."
+		exit 198
+	 }
+	 local precision_type "float"
+	 if ("`precision'"=="double") local precision_type "double"
 
 	 **********************
 	 ** Extract options ***
@@ -696,7 +705,7 @@ program define binsqreg, eclass
 				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(nbinsrot_regul)==.) {
 			      di as error "bin selection fails."
 				  exit
@@ -724,7 +733,7 @@ program define binsqreg, eclass
 								pselect(`plist') sselect(`slist') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(prot_regul)==.) {
 			      di as error "bin selection fails."
 				  exit
@@ -876,7 +885,7 @@ program define binsqreg, eclass
      *******************************************************************
 	 * temp var: bin id
 	 tempvar xcat
-	 qui gen `xcat'=. in 1
+	 qui gen `precision_type' `xcat'=. in 1
 
 	 * matrix names, for returns
 	 tempname Nlist nbinslist cvallist
@@ -996,7 +1005,7 @@ program define binsqreg, eclass
 		                           absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 					   			   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							       `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			     if (e(nbinsrot_regul)==.) {
 			        di as error "Bin selection fails."
 			        exit
@@ -1024,7 +1033,7 @@ program define binsqreg, eclass
 					  			    pselect(`plist') sselect(`slist') ///
 								    binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								    `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			     if (e(prot_regul)==.) {
 			        di as error "Bin selection fails."
 				    exit
@@ -1449,14 +1458,14 @@ program define binsqreg, eclass
 	                       p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			               xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') ///
 			               xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						   usereg `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt')
+						   usereg `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
 		   }
 		   else {
 		      binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
 	                       p(`dots_p') s(`dots_s') type(dots) `vce' ///
 			               xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') ///
 			               xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						   `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt')
+						   `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
 		   }
 
 		   mat `dots_b'=e(bmat)
@@ -1528,14 +1537,14 @@ program define binsqreg, eclass
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) ///
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  usereg `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt')
+						  usereg `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
 			  }
 			  else {
 		         binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) ///
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt')
+						  `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
 			  }
 		      mat `line_b'=e(bmat)
 		      mat `line_V'=e(Vmat)
@@ -1587,7 +1596,7 @@ program define binsqreg, eclass
 	       local poly_series ""
 	       forval i=1/`polyreg' {
 		      tempvar x_var_`i'
-			  qui gen `x_var_`i''=`x_var'^`i' `conds'
+			  qui gen `precision_type' `x_var_`i''=`x_var'^`i' `conds'
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 
@@ -1742,7 +1751,7 @@ program define binsqreg, eclass
 	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') ///
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt')
+						`sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
 
 		        mat `ci_b'=e(bmat)
 		        mat `ci_V'=e(Vmat)
@@ -1826,7 +1835,7 @@ program define binsqreg, eclass
 	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) ///
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt')
+						`sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
 					mat `cb_b'=e(bmat)
 		            mat `cb_V'=e(Vmat)
 				 }
@@ -1887,19 +1896,11 @@ program define binsqreg, eclass
 		* generate breakpoints
 		tempname bincount
 		mat `bincount'=J(`nbins',1,0)
-		local countcond "if"
-		if (`"`conds'"'!="") local countcond `"`conds' &"'
 		if (("`fewobs'"=="T"&"`eN'"=="`Ndist'")|"`fewmasspoints'"!="") {
-		   forvalues j=1/`nbins' {
-		      qui count `countcond' `x_var'==`=`kmat'[`j',1]'
-			  mat `bincount'[`j',1]=r(N)
-		   }
+		   mata: st_matrix("`bincount'", binsreg_bincount(`xsub', ., `nbins', "`kmat'", 1))
 		}
 		else {
-		   forvalues j=1/`nbins' {
-		      qui count `countcond' `xcat'==`j'
-			  mat `bincount'[`j',1]=r(N)
-		   }
+		   mata: st_matrix("`bincount'", binsreg_bincount(`xsub', `xcatsub', `nbins', "`kmat'", 0))
 		}
 		local kmat_end1=2
 		local kmat_end2=rowsof(`kmat')
@@ -2008,50 +2009,50 @@ program define binsqreg, eclass
 		qui set obs `nr'
 
 		* MAKE SURE the orderings match
-		qui gen group=. in 1
+		qui gen `precision_type' group=. in 1
 		if (`dotsntot'!=0) {
-		   qui gen dots_x=. in 1
-		   qui gen dots_isknot=. in 1
-		   qui gen dots_binid=. in 1
-		   qui gen dots_fit=. in 1
+		   qui gen `precision_type' dots_x=. in 1
+		   qui gen `precision_type' dots_isknot=. in 1
+		   qui gen `precision_type' dots_binid=. in 1
+		   qui gen `precision_type' dots_fit=. in 1
 		}
 	    if (`linengrid'!=0&"`fullfewobs'"=="") {
-		   qui gen line_x=. in 1
-		   qui gen line_isknot=. in 1
-		   qui gen line_binid=. in 1
-		   qui gen line_fit=. in 1
+		   qui gen `precision_type' line_x=. in 1
+		   qui gen `precision_type' line_isknot=. in 1
+		   qui gen `precision_type' line_binid=. in 1
+		   qui gen `precision_type' line_fit=. in 1
 		}
         if (`polyregngrid'!=0) {
-		   qui gen poly_x=. in 1
-		   qui gen poly_isknot=. in 1
-		   qui gen poly_binid=. in 1
-		   qui gen poly_fit=. in 1
+		   qui gen `precision_type' poly_x=. in 1
+		   qui gen `precision_type' poly_isknot=. in 1
+		   qui gen `precision_type' poly_binid=. in 1
+		   qui gen `precision_type' poly_fit=. in 1
 		   if (`polyregcingrid'!=0) {
-		      qui gen polyCI_x=. in 1
-			  qui gen polyCI_isknot=. in 1
-			  qui gen polyCI_binid=. in 1
-			  qui gen polyCI_l=. in 1
-			  qui gen polyCI_r=. in 1
+		      qui gen `precision_type' polyCI_x=. in 1
+			  qui gen `precision_type' polyCI_isknot=. in 1
+			  qui gen `precision_type' polyCI_binid=. in 1
+			  qui gen `precision_type' polyCI_l=. in 1
+			  qui gen `precision_type' polyCI_r=. in 1
 		   }
 		}
 		if (`cintot'!=0) {
-           qui gen CI_x=. in 1
-		   qui gen CI_isknot=. in 1
-		   qui gen CI_binid=. in 1
-		   qui gen CI_l=. in 1
-		   qui gen CI_r=. in 1
+           qui gen `precision_type' CI_x=. in 1
+		   qui gen `precision_type' CI_isknot=. in 1
+		   qui gen `precision_type' CI_binid=. in 1
+		   qui gen `precision_type' CI_l=. in 1
+		   qui gen `precision_type' CI_r=. in 1
 		}
 		if (`cbngrid'!=0&"`fullfewobs'"=="") {
-           qui gen CB_x=. in 1
-		   qui gen CB_isknot=. in 1
-		   qui gen CB_binid=. in 1
-		   qui gen CB_l=. in 1
-		   qui gen CB_r=. in 1
+           qui gen `precision_type' CB_x=. in 1
+		   qui gen `precision_type' CB_isknot=. in 1
+		   qui gen `precision_type' CB_binid=. in 1
+		   qui gen `precision_type' CB_l=. in 1
+		   qui gen `precision_type' CB_r=. in 1
 		}
-		qui gen binid=. in 1
-		qui gen lef_ep=. in 1
-		qui gen rig_ep=. in 1
-		qui gen bin_n=. in 1
+		qui gen `precision_type' binid=. in 1
+		qui gen `precision_type' lef_ep=. in 1
+		qui gen `precision_type' rig_ep=. in 1
+		qui gen `precision_type' bin_n=. in 1
 
 		mata: st_store(.,.,`plotmat')
 
@@ -2084,7 +2085,7 @@ program define binsqreg, eclass
 		foreach stub in dots line poly polyCI CI CB {
 			capture confirm variable `stub'_binid
 			if (_rc==0) {
-				qui gen `stub'_n=.
+				qui gen `precision_type' `stub'_n=.
 				if ("`by'"!="") {
 					levelsof group if !missing(group), local(count_groups)
 					foreach count_group of local count_groups {
@@ -2111,7 +2112,7 @@ program define binsqreg, eclass
 			   decode group, gen(`byvarname')
 			}
 		    else {
-			   qui gen `byvarname'=group
+			   qui gen `precision_type' `byvarname'=group
 			   if ("`bylabel'"!="") label val `byvarname' `bylabel'
 			}
 			label var `byvarname' "Group"
@@ -2218,12 +2219,22 @@ end
 * Helper commands
 * Estimation
 program define binsqreg_fit, eclass
-     version 13
+     version 16
      syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, quantile(numlist min=1 max=1 >=0 <=1) ///
 	        deriv(integer 0) p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
 			xname(name) yname(name) catname(name) edge(name) ///
-			usereg sorted boot(string) reps(string) usegtools qregopt(string asis)]     /* usereg: force the command to use reg; sored: sorted data? */
+			usereg sorted boot(string) reps(string) usegtools qregopt(string asis) ///
+			precision(string)]                                             /* usereg: force the command to use reg; sored: sorted data? */
+
+	 local precision = lower("`precision'")
+	 if ("`precision'"=="") local precision "double"
+	 if ("`precision'"!="single"&"`precision'"!="double") {
+	    di as error "precision() must be single or double."
+		exit 198
+	 }
+	 local precision_type "float"
+	 if ("`precision'"=="double") local precision_type "double"
 
 	 preserve
 	 marksample touse
@@ -2254,38 +2265,44 @@ program define binsqreg_fit, eclass
 		   local stat="p"+"`=round(`quantile'*100)'"
 
 		   if ("`usegtools'"=="") {
-		      tempfile tmpfile
-			  qui save `tmpfile', replace
+		      tempname workframe
+		      local curframe "`c(frame)'"
+		      frame copy `curframe' `workframe'
 
-			  if (`dotsmean'!=0&"`ymeanON'"=="T") {
-	             collapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
-		         mkmat `xcat' `x_var', matrix(`matxmean')
-		         mkmat `y_var', matrix(`temp_b')
-				 mat `temp_b'=`temp_b''               /* row vector */
+		      frame `workframe' {
+			     if (`dotsmean'!=0&"`ymeanON'"=="T") {
+	                collapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
+		            mkmat `xcat' `x_var', matrix(`matxmean')
+		            mkmat `y_var', matrix(`temp_b')
+				    mat `temp_b'=`temp_b''               /* row vector */
+		         }
+		         else if (`dotsmean'!=0&"`ymeanON'"!="T") {
+		            collapse (mean) `x_var' `wt', by(`xcat') fast
+		            mkmat `xcat' `x_var', matrix(`matxmean')
+		         }
+		         else {
+		            collapse (`stat') `y_var' `wt', by(`xcat') fast
+		            mkmat `y_var', matrix(`temp_b')
+		            mat `temp_b'=`temp_b''
+		         }
 		      }
-		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		         collapse (mean) `x_var' `wt', by(`xcat') fast
-		         mkmat `xcat' `x_var', matrix(`matxmean')
-		      }
-		      else {
-		         collapse (`stat') `y_var' `wt', by(`xcat') fast
-		         mkmat `y_var', matrix(`temp_b')
-		         mat `temp_b'=`temp_b''
-		      }
-		      use `tmpfile', clear
+		      frame drop `workframe'
 		   }
 		   else {
 		   	  tempname obj
 		      if (`dotsmean'!=0&"`ymeanON'"=="T") {
-			     tempfile tmpfile
-			     qui save `tmpfile', replace
+			     tempname workframe
+		         local curframe "`c(frame)'"
+		         frame copy `curframe' `workframe'
 
-				 gcollapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
-		         mkmat `xcat' `x_var', matrix(`matxmean')
-		         mkmat `y_var', matrix(`temp_b')
-				 mat `temp_b'=`temp_b''               /* row vector */
+		         frame `workframe' {
+				    gcollapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
+		            mkmat `xcat' `x_var', matrix(`matxmean')
+		            mkmat `y_var', matrix(`temp_b')
+				    mat `temp_b'=`temp_b''               /* row vector */
+				 }
 
-				 use `tmpfile', clear
+				 frame drop `workframe'
 		      }
 		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
 		         qui gstats tabstat `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
@@ -2344,7 +2361,7 @@ program define binsqreg_fit, eclass
 	       forvalues i=1/`nseries' {
 	          tempvar sp`i'
 	          local series `series' `sp`i''
-		      qui gen `sp`i''=. in 1
+		      qui gen `precision_type' `sp`i''=. in 1
 	       }
 
 		   mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')

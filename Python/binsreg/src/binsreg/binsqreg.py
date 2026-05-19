@@ -1326,7 +1326,9 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
                     else:          
                         basis_polyci = np.column_stack((basis_polyci, np.outer(np.ones(basis_polyci.shape[0]), np.zeros(nwvar))))
 
-                polyci_fit, polyci_se = binsreg_pred(basis_polyci, model=model_poly, type="all", avar=True)
+                vcv_poly = model_poly.cov_params()
+                polyci_fit, polyci_se = binsreg_pred(basis_polyci, model=model_poly, type="all",
+                                                     avar=True, vcv=vcv_poly)
                 polyci_arm = norm.ppf(alpha)*polyci_se
                 polyci_l = polyci_fit - polyci_arm
                 polyci_r = polyci_fit + polyci_arm
@@ -1341,6 +1343,7 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
                 data_by.polyci = data_polyci
             
         ################ CI ####################
+        vcv_ci = None
         if cimean+cigrid !=0 and not ci_fewobs and not fewobs:
             ciON = True
         if ciON:
@@ -1380,7 +1383,9 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
                 model_ci = binsreg_fit(y=y_sub, x=design, is_qreg=True, quantile=quantile, weights=weights_sub, **optimize)
                 check_drop(model_ci.params, ncol(B))
             basis = binsreg_spdes(x=ci_x, p=ci_p, s=ci_s, knot=knot, deriv=deriv)
-            ci_fit, ci_se = binsreg_pred(X=basis, model=model_ci, type="all", deriv=deriv, wvec=eval_w, avar=asyvar)
+            vcv_ci = model_ci.cov_params()
+            ci_fit, ci_se = binsreg_pred(X=basis, model=model_ci, type="all", deriv=deriv,
+                                         wvec=eval_w, avar=asyvar, vcv=vcv_ci)
             ci_arm = norm.ppf(alpha)*ci_se
             ci_l = ci_fit - ci_arm
             ci_r = ci_fit + ci_arm
@@ -1409,10 +1414,12 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
             cb_mid = grid.mid
             
             cb_reg_ON = True
+            vcv_cb = None
             if ciON:
                 if cb_p==ci_p & cb_s==ci_s:
                     model_cb = model_ci
                     cb_reg_ON = False
+                    vcv_cb = vcv_ci
             if cb_reg_ON:
                 if lineON:
                     if cb_p==line_p & cb_s==line_s:
@@ -1432,13 +1439,17 @@ def binsqreg(y, x, w=None, data=None, at=None, quantile=0.5, deriv=0,
             basis = binsreg_spdes(x=cb_x, p=cb_p, s=cb_s, knot=knot, deriv=deriv)
             pos = np.invert(np.isnan(model_cb.params[:ncol(basis)]))
             k_new = np.sum(pos)
-            cb_fit, cb_se = binsreg_pred(X=basis, model=model_cb, type="all", deriv=deriv, wvec=eval_w, avar=asyvar)
+            if vcv_cb is None:
+                vcv_cb = model_cb.cov_params()
+            cb_fit, cb_se = binsreg_pred(X=basis, model=model_cb, type="all", deriv=deriv,
+                                         wvec=eval_w, avar=asyvar, vcv=vcv_cb)
 
             ### Compute cval ####
             x_grid = binsreg_grid(knot, simsgrid).eval
             basis_sim = binsreg_spdes(x=x_grid, p=cb_p, s=cb_s, knot=knot, deriv=deriv)
-            sim_fit,sim_se = binsreg_pred(X=basis_sim, model=model_cb, type="all", avar=True)
-            vcv = model_cb.cov_params()[:k_new,:k_new]
+            sim_fit,sim_se = binsreg_pred(X=basis_sim, model=model_cb, type="all", avar=True,
+                                          vcv=vcv_cb)
+            vcv = np.asarray(vcv_cb)[:k_new,:k_new]
             Sigma_root = lssqrtm(vcv)
             num = np.matmul(basis_sim[:,pos], Sigma_root)
             

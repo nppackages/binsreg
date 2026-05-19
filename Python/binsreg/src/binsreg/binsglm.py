@@ -1378,7 +1378,9 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                     else:          
                         basis_polyci = np.column_stack((basis_polyci, np.outer(np.ones(basis_polyci.shape[0]), np.zeros(nwvar))))
 
-                polyci_fit, polyci_se = binsreg_pred(basis_polyci, model=model_poly, type="all", avar=True)
+                vcv_poly = model_poly.cov_params()
+                polyci_fit, polyci_se = binsreg_pred(basis_polyci, model=model_poly, type="all",
+                                                     avar=True, vcv=vcv_poly)
 
                 basis_polyci_0  = nanmat(npolyci_x, polyreg+1)
                 if not nolink:
@@ -1393,7 +1395,8 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                     if deriv == 1:
                         basis_all = linkinv_2(np.matmul(basis_polyci_0,beta_poly))*polyci_fit*basis_polyci_0 + polyci_fit_0*basis_polyci
                         polyci_fit = polyci_fit_0 * polyci_fit
-                        polyci_se  = binsreg_pred(basis_all, model=model_poly, type="se", avar=True)[1]
+                        polyci_se  = binsreg_pred(basis_all, model=model_poly, type="se",
+                                                  avar=True, vcv=vcv_poly)[1]
 
                 polyci_arm = norm.ppf(alpha)*polyci_se
                 polyci_l = polyci_fit - polyci_arm
@@ -1409,6 +1412,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 data_by.polyci = data_polyci
             
         ################ CI ####################
+        vcv_ci = None
         if cimean+cigrid !=0 and not ci_fewobs and not fewobs:
             ciON = True
         if ciON:
@@ -1451,7 +1455,9 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 check_drop(model_ci.params, ncol(B))
             
             basis = binsreg_spdes(x=ci_x, p=ci_p, s=ci_s, knot=knot, deriv=deriv)
-            ci_fit, ci_se = binsreg_pred(X=basis, model=model_ci, type="all", deriv=deriv, wvec=eval_w, avar=asyvar)
+            vcv_ci = model_ci.cov_params()
+            ci_fit, ci_se = binsreg_pred(X=basis, model=model_ci, type="all", deriv=deriv,
+                                         wvec=eval_w, avar=asyvar, vcv=vcv_ci)
             
             if not nolink:
                 basis_0 = binsreg_spdes(x=ci_x, p=ci_p, s=ci_s, knot=knot, deriv=0)
@@ -1471,7 +1477,8 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                         basis_ci   = basis
                     basis_all = ((linkinv_2(fit_0)*ci_fit)[:,None])*basis_ci_0 + pred_ci_0[:,None]*basis_ci
                     ci_pred_fit = pred_ci_0 * ci_fit
-                    ci_pred_se  = binsreg_pred(basis_all, model=model_ci, type="se", avar=True)[1]    
+                    ci_pred_se  = binsreg_pred(basis_all, model=model_ci, type="se",
+                                               avar=True, vcv=vcv_ci)[1]
 
             ci_arm = norm.ppf(alpha)*ci_pred_se
             ci_l = ci_pred_fit - ci_arm
@@ -1500,10 +1507,12 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             cb_isknot = grid.isknot
             cb_mid = grid.mid
             cb_reg_ON = True
+            vcv_cb = None
             if ciON:
                 if cb_p==ci_p & cb_s==ci_s:
                     model_cb = model_ci
                     cb_reg_ON = False
+                    vcv_cb = vcv_ci
             if cb_reg_ON:
                 if lineON:
                     if cb_p==line_p & cb_s==line_s:
@@ -1525,7 +1534,10 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             basis = binsreg_spdes(x=cb_x, p=cb_p, s=cb_s, knot=knot, deriv=deriv)
             pos = np.invert(np.isnan(model_cb.params[:ncol(basis)]))
             k_new = np.sum(pos)
-            cb_fit, cb_se = binsreg_pred(X=basis, model=model_cb, type="all", deriv=deriv, wvec=eval_w, avar=asyvar)
+            if vcv_cb is None:
+                vcv_cb = model_cb.cov_params()
+            cb_fit, cb_se = binsreg_pred(X=basis, model=model_cb, type="all", deriv=deriv,
+                                         wvec=eval_w, avar=asyvar, vcv=vcv_cb)
             
             if not nolink:
                 basis_0 = binsreg_spdes(x=cb_x, p=cb_p, s=cb_s, knot=knot, deriv=0)
@@ -1545,13 +1557,15 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                         basis_cb   = basis
                     basis_all = ((linkinv_2(fit_0)*cb_fit)[:,None])*basis_cb_0 + pred_cb_0[:,None]*basis_cb
                     cb_pred_fit = pred_cb_0 * cb_fit
-                    cb_pred_se  = binsreg_pred(basis_all, model=model_cb, type="se", avar=True)[1]
+                    cb_pred_se  = binsreg_pred(basis_all, model=model_cb, type="se",
+                                               avar=True, vcv=vcv_cb)[1]
     
             ### Compute cval ####
             x_grid = binsreg_grid(knot, simsgrid).eval
             basis_sim = binsreg_spdes(x=x_grid, p=cb_p, s=cb_s, knot=knot, deriv=deriv)
-            sim_se = binsreg_pred(X=basis_sim, model=model_cb, type="all", avar=True)[1]
-            vcv = model_cb.cov_params()[:k_new,:k_new]
+            sim_se = binsreg_pred(X=basis_sim, model=model_cb, type="all", avar=True,
+                                  vcv=vcv_cb)[1]
+            vcv = np.asarray(vcv_cb)[:k_new,:k_new]
             Sigma_root = lssqrtm(vcv)
             num = np.matmul(basis_sim[:,pos], Sigma_root)
             cval = binsreg_pval(num, sim_se, rep=nsims, tstat=None, side="two", alpha=level)[1]

@@ -26,7 +26,7 @@
 {p 12 12} {cmd:pselect(}{it:{help numlist}}{cmd:)} {cmd:sselect(}{it:{help numlist}}{cmd:)}{p_end}
 {p 12 12} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 12 12} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
-{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt estmethodopt(cmd_option)} {opt usegtools(on/off)} ]{p_end}
+{p 12 12} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)} {opt estmethodopt(cmd_option)} {opt usegtools(on/off)} {opt precision(single/double)} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
@@ -257,6 +257,12 @@ Default is {cmd:usegtools(off)}.
 {p_end}
 
 {p 4 8} For more information about the package {cmd:gtools}, please see {browse "https://gtools.readthedocs.io/en/latest/index.html":https://gtools.readthedocs.io/en/latest/index.html}.
+{p_end}
+
+{p 4 8} {opt precision(single/double)} controls the storage type used for internally generated Stata variables.
+The default is {cmd:precision(double)}, which uses {cmd:double} storage for temporary and generated variables to help align Stata results with the R and Python implementations.
+Specify {cmd:precision(single)} to preserve the legacy Stata implementation using {cmd:float} storage for those variables.
+Stata matrix and Mata computations remain double precision in either case.
 {p_end}
 
 {marker examples}{...}

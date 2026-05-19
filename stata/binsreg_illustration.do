@@ -1,14 +1,7 @@
-/*******************************************************************************
-BINSCATTER
-Date: 14-MAY-2026
-Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
-*******************************************************************************/
-
-** To rebuild Stata help PDFs, run:
-** python scripts/build-stata-help-pdfs.py
-*******************************************************************************/
-** net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/main/stata) replace
-********************************************************************************
+*******************************************************************************
+** BINSREG Package
+** Numerical Illustration
+*******************************************************************************
 clear all
 set more off
 set linesize 90

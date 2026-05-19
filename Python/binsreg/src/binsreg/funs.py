@@ -876,8 +876,10 @@ def rbind(x,y):
         else: return None
 
 def which_min(x):
-    x = np.asarray(x)
-    return np.where(x == np.min(x))[0][0]
+    x = np.asarray(x, dtype=float)
+    if np.all(np.isnan(x)):
+        return 0
+    return np.where(x == np.nanmin(x))[0][0]
 
 # generalized square root of a  matrix
 def lssqrtm(A):
@@ -885,20 +887,78 @@ def lssqrtm(A):
   s[s<0] = 0
   return np.matmul(np.matmul(u, np.diag(np.sqrt(s))), vh)
 
+def binsreg_sim_num_denom(basis, vcv, pos, sigma_root=None):
+    vcv = np.asarray(vcv)
+    basis_pos = basis[:, pos]
+    if sigma_root is None:
+        sigma_root = lssqrtm(vcv)
+    num = np.matmul(basis_pos, sigma_root)
+    denom = np.sqrt(np.sum(np.matmul(basis_pos, vcv) * basis_pos, 1))
+    return num, denom, sigma_root
+
 def complete_cases(x):
     return np.all(np.invert(np.isnan(x)), axis = 1)
 
 def genKnot_es(xmin, xmax, J):
     return np.linspace(xmin,xmax,J+1)
 
+def binsreg_quantile(x, q, axis=None):
+    x = np.asarray(x)
+    q = np.asarray(q, dtype=float)
+    if np.any((q < 0) | (q > 1)):
+        raise ValueError("quantiles must be in [0, 1]")
+
+    if axis is None:
+        x_sorted = np.sort(x.reshape(-1))
+        axis_len = x_sorted.shape[0]
+        other_shape = ()
+    else:
+        x_sorted = np.sort(np.moveaxis(x, axis, 0), axis=0)
+        axis_len = x_sorted.shape[0]
+        other_shape = x_sorted.shape[1:]
+
+    if axis_len == 0:
+        raise ValueError("cannot compute quantiles from an empty array")
+
+    q_flat = q.reshape(-1)
+    position = q_flat * axis_len
+    lower = np.floor(position).astype(int)
+    weight = np.where(position - lower > 0, 1.0, 0.5)
+    lower_index = np.clip(lower, 1, axis_len) - 1
+    upper_index = np.clip(lower + 1, 1, axis_len) - 1
+
+    values = []
+    for left, right, wgt in zip(lower_index, upper_index, weight):
+        values.append((1 - wgt) * x_sorted[left] + wgt * x_sorted[right])
+    out = np.stack(values, axis=0).reshape(q.shape + other_shape)
+    if q.ndim == 0:
+        out = out.reshape(other_shape)
+        if out.ndim == 0:
+            return out.item()
+    return out
+
 # Quantile knot list (including xmin and xmax as boundaries)
 def genKnot_qs(x, J):
-    return np.quantile(x, np.linspace(0,1,J+1),)
+    return binsreg_quantile(x, np.linspace(0,1,J+1))
 
 def FindInterval(x,knot):
-    bin_index = np.searchsorted(knot, x,side = 'right')-1
-    bin_index[x==knot[-1]]= len(knot)-2   # add the x's at the last knot to the last bin
+    bin_index = np.searchsorted(knot, x, side="left") - 1
+    bin_index[x == knot[0]] = 0
+    bin_index[x == knot[-1]] = len(knot) - 2
     return bin_index
+
+def FindIntervalStataIrcode(x, knot):
+    x = np.asarray(x).reshape(-1)
+    knot = np.asarray(knot).reshape(-1)
+    if len(knot) <= 2:
+        return np.zeros(len(x), dtype=int)
+
+    # Stata's irecode() cut list is built through local macro expansion in
+    # binsreg_irecode.  For normalized selector knots this matches %18.0g,
+    # which rounds [0,1] cutpoints to 16 decimal places before comparison.
+    cutpoints = np.array([float(f"{value:.16f}") for value in knot[1:-1]])
+    bin_index = np.searchsorted(cutpoints, x, side="left")
+    return np.clip(bin_index, 0, len(knot) - 2).astype(int)
 
 def binsreg_bin_counts(x, knot, nbins):
     if nbins == len(knot):
@@ -926,7 +986,7 @@ def colWeightedMeans(x, w = None):
 
 def colWeightedMedians(x, w = None):
     if w is not None: x = x*(w/np.sum(w))
-    return np.quantile(x,0.5,0)
+    return binsreg_quantile(x, 0.5, axis=0)
 
 # grid generation
 def binsreg_grid(knot, ngrid, addmore = False):
@@ -953,7 +1013,15 @@ class binsreg_fast_lm:
     def cov_params(self):
         return self._cov
 
-def binsreg_lstsq_fit(y, x, weights=None):
+def binsreg_oneway_cluster(cluster):
+    cluster = np.asarray(cluster)
+    if cluster.ndim == 2 and 1 in cluster.shape:
+        cluster = cluster.reshape(-1)
+    elif cluster.ndim != 1:
+        return None
+    return cluster
+
+def binsreg_lstsq_fit(y, x, weights=None, cov_type=None, cluster=None):
     x = np.asarray(x)
     y = np.asarray(y)
     if y.ndim == 2 and y.shape[1] == 1:
@@ -962,18 +1030,57 @@ def binsreg_lstsq_fit(y, x, weights=None):
     if weights is None:
         fit_x = x
         fit_y = y
+        sqrt_w = None
     else:
         sqrt_w = np.sqrt(np.asarray(weights)).reshape(-1)
         fit_x = x * sqrt_w[:, None]
         fit_y = y * sqrt_w
 
-    params = np.linalg.lstsq(fit_x, fit_y, rcond=None)[0]
+    params, _, rank, _ = np.linalg.lstsq(fit_x, fit_y, rcond=None)
     fittedvalues = np.matmul(x, params)
     resid = y - fittedvalues
-    rank = np.linalg.matrix_rank(fit_x)
+    weighted_resid = resid if sqrt_w is None else resid * sqrt_w
     df_resid = max(x.shape[0] - rank, 1)
-    scale = np.sum(resid**2) / df_resid
-    cov = np.linalg.pinv(np.matmul(fit_x.T, fit_x)) * scale
+
+    if rank == fit_x.shape[1]:
+        xtx_inv = np.linalg.inv(np.matmul(fit_x.T, fit_x))
+        pinv_x = np.matmul(xtx_inv, fit_x.T)
+    else:
+        pinv_x = np.linalg.pinv(fit_x)
+        params = np.matmul(pinv_x, fit_y)
+        fittedvalues = np.matmul(x, params)
+        resid = y - fittedvalues
+        weighted_resid = resid if sqrt_w is None else resid * sqrt_w
+        xtx_inv = np.matmul(pinv_x, pinv_x.T)
+
+    if cluster is not None:
+        cluster = binsreg_oneway_cluster(cluster)
+        if cluster is None or len(cluster) != x.shape[0] or pd.isna(cluster).any():
+            raise ValueError("cluster must be a one-dimensional vector with no missing values")
+        clusters, group = np.unique(cluster, return_inverse=True)
+        n_groups = len(clusters)
+        if n_groups <= 1:
+            raise ValueError("cluster must contain at least two groups")
+        score = np.zeros((n_groups, fit_x.shape[1]))
+        np.add.at(score, group, fit_x * weighted_resid[:, None])
+        scale = (n_groups / (n_groups - 1)) * ((x.shape[0] - 1) / df_resid)
+        cov = xtx_inv @ np.matmul(score.T, score) @ xtx_inv * scale
+    else:
+        cov_type = "const" if cov_type is None else cov_type
+        if cov_type == "const":
+            cov = xtx_inv * (np.sum(weighted_resid**2) / df_resid)
+        elif cov_type in ("HC0", "HC1", "HC2", "HC3"):
+            leverage = np.sum(fit_x * pinv_x.T, axis=1)
+            scale = weighted_resid**2
+            if cov_type == "HC1":
+                scale = scale * x.shape[0] / df_resid
+            elif cov_type == "HC2":
+                scale = scale / (1 - leverage)
+            elif cov_type == "HC3":
+                scale = scale / (1 - leverage)**2
+            cov = np.matmul(pinv_x * scale, pinv_x.T)
+        else:
+            raise ValueError("unsupported covariance type")
     return binsreg_fast_lm(params, fittedvalues, cov)
 
 
@@ -1058,7 +1165,7 @@ def binsreg_qreg_fit(y, x, q=0.5, vcov="robust", kernel="epa", bandwidth="hsheat
         )
 
     e = endog - np.dot(exog, beta)
-    iqre = stats.scoreatpercentile(e, 75) - stats.scoreatpercentile(e, 25)
+    iqre = binsreg_quantile(e, 0.75) - binsreg_quantile(e, 0.25)
     h = bandwidth_fn(nobs, q)
     h = min(np.std(endog), iqre / 1.34) * (norm.ppf(q + h) - norm.ppf(q - h))
 
@@ -1092,6 +1199,12 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
 
     if family is None and not is_qreg and cov_type is None and cluster is None and len(optmize)==0:
         return binsreg_lstsq_fit(y, x, weights=weights)
+    if (family is None and not is_qreg and cluster is None and len(optmize)==0
+            and cov_type in ("const", "HC0", "HC1", "HC2", "HC3")):
+        return binsreg_lstsq_fit(y, x, weights=weights, cov_type=cov_type)
+    if (family is None and not is_qreg and cluster is not None and len(optmize)==0
+            and binsreg_oneway_cluster(cluster) is not None):
+        return binsreg_lstsq_fit(y, x, weights=weights, cov_type=cov_type, cluster=cluster)
 
     fit_kwargs = {}
     if cluster is not None:
@@ -1124,7 +1237,7 @@ def check_drop(beta, k):
     if any(np.isnan(beta[:k+1])): warnings.warn("some X-based variables dropped")
 
 # Internal pred function (model is long regression, NA handled inside)
-def binsreg_pred(X, model, type="xb", deriv=0, wvec=None, avar=False):
+def binsreg_pred(X, model, type="xb", deriv=0, wvec=None, avar=False, vcv=None):
     k = ncol(X)
     fit = np.nan
     if type == "xb" or type == "all":
@@ -1136,7 +1249,10 @@ def binsreg_pred(X, model, type="xb", deriv=0, wvec=None, avar=False):
             fit = np.matmul(X,coef[:k])
     se = np.nan
     if type == "se" or type == "all":
-        vcv = model.cov_params()
+        if vcv is None:
+            vcv = model.cov_params()
+        else:
+            vcv = np.asarray(vcv)
         if avar: 
             pos = np.invert(np.isnan(model.params[:k]))
             k_new = np.sum(pos)
@@ -1153,59 +1269,83 @@ def binsreg_pred(X, model, type="xb", deriv=0, wvec=None, avar=False):
 def binsreg_pval(num, denom, rep, tstat=None, side=None, alpha=95, lp=np.inf):
     pval = np.nan
     cval = np.nan
+    rep = int(rep)
+    num = np.asarray(num)
+    denom = np.asarray(denom).reshape(1, -1)
     k = ncol(num)
-    eps = np.random.normal(size=(rep, k))
-    tx = np.matmul(eps, num.T) / denom.reshape(1, -1)
+    chunk_size = min(rep, max(1, int(5e6 // max(1, nrow(num)))))
+    tvec = np.empty(rep) if side is not None else None
+    pval_counts = np.zeros(nrow(tstat)) if tstat is not None else None
+    need_abs = side == "two" or (tstat is not None and np.any(tstat[:, 1] == 3))
 
-    max_tx = min_tx = abs_sup = lp_norm = None
-    if side is not None or tstat is not None:
-        max_tx = np.max(tx, axis=1)
-        min_tx = np.min(tx, axis=1)
-        if side == "two" or (tstat is not None and np.any(tstat[:, 1] == 3)):
-            if np.isinf(lp):
-                abs_sup = np.max(np.abs(tx), axis=1)
-            else:
-                lp_norm = (np.mean(np.abs(tx)**lp, axis=1))**(1/lp)
+    start = 0
+    while start < rep:
+        chunk = min(chunk_size, rep - start)
+        eps = np.random.normal(size=(chunk, k))
+        tx = np.matmul(eps, num.T) / denom
+
+        if side is not None or tstat is not None:
+            max_tx = np.max(tx, axis=1)
+            min_tx = np.min(tx, axis=1)
+            vals = None
+            if need_abs:
+                if np.isinf(lp):
+                    vals = np.max(np.abs(tx), axis=1)
+                else:
+                    vals = (np.mean(np.abs(tx)**lp, axis=1))**(1/lp)
+
+            if side is not None:
+                if side == "two":
+                    tvec[start:start+chunk] = vals
+                elif side == "left":
+                    tvec[start:start+chunk] = max_tx
+                elif side == "right":
+                    tvec[start:start+chunk] = min_tx
+
+            if tstat is not None:
+                for j in range(nrow(tstat)):
+                    # 1: left; 2: right; 3: two-sided
+                    if tstat[j,1] == 1:
+                        pval_counts[j] += np.sum(max_tx >= tstat[j,0])
+                    elif tstat[j,1] == 2:
+                        pval_counts[j] += np.sum(min_tx <= tstat[j,0])
+                    elif tstat[j,1] == 3:
+                        pval_counts[j] += np.sum(vals >= tstat[j,0])
+        start += chunk
 
     if side is not None:
-        if side == "two":
-            tvec = abs_sup if np.isinf(lp) else lp_norm
-        elif side == "left":
-            tvec = max_tx
-        elif side == "right":
-            tvec = min_tx
-        cval = np.quantile(tvec, alpha/100)
+        cval = binsreg_quantile(tvec, alpha/100)
 
     if tstat is not None:
-        pval = np.zeros(nrow(tstat))
-        for j in range(nrow(tstat)):
-            # 1: left; 2: right; 3: two-sided
-            if tstat[j,1] == 1:
-                pval[j] = np.mean(max_tx >= tstat[j,0])
-            elif tstat[j,1] == 2:
-                pval[j] = np.mean(min_tx <= tstat[j,0])
-            elif tstat[j,1] == 3:
-                vals = abs_sup if np.isinf(lp) else lp_norm
-                pval[j] = np.mean(vals >= tstat[j,0])
+        pval = pval_counts / rep
     return pval, cval
 
 # pval used only by binspwc
 def binspwc_pval(nummat1, nummat2, denom1, denom2, rep, tstat=None, testtype=None, lp=np.inf):
+    rep = int(rep)
     k1 = ncol(nummat1)
     k2 = ncol(nummat2)
     nummat1 = nummat1.reshape(-1,k1)
     nummat2 = nummat2.reshape(-1,k2)
     denom = np.sqrt(denom1.reshape(-1)**2 + denom2.reshape(-1)**2)
-    eps = np.random.normal(size=(rep, k1 + k2))
-    tx = (np.matmul(eps[:, :k1], nummat1.T) - np.matmul(eps[:, k1:], nummat2.T)) / denom.reshape(1, -1)
+    chunk_size = min(rep, max(1, int(5e6 // max(1, nrow(nummat1)))))
+    count = 0
+    start = 0
+    while start < rep:
+        chunk = min(chunk_size, rep - start)
+        eps = np.random.normal(size=(chunk, k1 + k2))
+        tx = (np.matmul(eps[:, :k1], nummat1.T) - np.matmul(eps[:, k1:], nummat2.T)) / denom.reshape(1, -1)
 
-    if testtype == "left":
-        return np.mean(np.max(tx, axis=1) >= tstat)
-    if testtype == "right":
-        return np.mean(np.min(tx, axis=1) <= tstat)
-    if not np.isfinite(lp):
-        return np.mean(np.max(np.abs(tx), axis=1) >= tstat)
-    return np.mean((np.mean(np.abs(tx)**lp, axis=1)**(1/lp)) >= tstat)
+        if testtype == "left":
+            count += np.sum(np.max(tx, axis=1) >= tstat)
+        elif testtype == "right":
+            count += np.sum(np.min(tx, axis=1) <= tstat)
+        elif not np.isfinite(lp):
+            count += np.sum(np.max(np.abs(tx), axis=1) >= tstat)
+        else:
+            count += np.sum((np.mean(np.abs(tx)**lp, axis=1)**(1/lp)) >= tstat)
+        start += chunk
+    return count / rep
 
 # Spline by recursion
 def bspline(x, knot, p = 0, s = 0, deriv = 0):
@@ -1227,12 +1367,15 @@ def bspline(x, knot, p = 0, s = 0, deriv = 0):
     return B
 
 # Copy of the MATA code
-def binsreg_spdes(x, p, s, knot, deriv):
+def binsreg_spdes(x, p, s, knot, deriv, bin_ind=None):
     x = np.asarray(x).reshape(-1)
     n = len(x)
     k = len(knot)
     #The  resulting spline is C**(s-1)
-    bin_ind = FindInterval(x,knot).reshape(-1)
+    if bin_ind is None:
+        bin_ind = FindInterval(x,knot).reshape(-1)
+    else:
+        bin_ind = np.asarray(bin_ind).reshape(-1).astype(int)
 
     if p == 0 and s == 0:
         design = np.zeros((n, k-1))
@@ -1302,10 +1445,9 @@ def binsreg_spdes(x, p, s, knot, deriv):
     # bs should be an n by p+1 matrix containing nonzeros of the design matrix
     # The design should be a n by (k-2)*(p-s+1) + p+1 matrix 
     design = np.zeros((n,(k-2)*(p-s+1)+p+1))
-    for i in range(k-1):
-        r_ind = (bin_ind==i)
-        c_ind = i*(p-s+1)
-        design[r_ind,c_ind:(c_ind+p+1)] = bs[r_ind,:]
+    rows = np.arange(n)[:, None]
+    cols = (bin_ind*(p-s+1))[:, None] + np.arange(p+1)
+    design[rows, cols] = bs
 
     return design
 
@@ -1351,9 +1493,12 @@ def imse_bcons(p, deriv, s = 0):
     return bcons
 
 # ROT selector
-def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False, 
-                        qrot=2, den_alpha=0.975, weights = None):
-    x = (x - np.min(x)) / (np.max(x) - np.min(x))
+def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
+                        qrot=2, den_alpha=0.975, weights = None, x_norm=None):
+    if x_norm is None:
+        x = (x - np.min(x)) / (np.max(x) - np.min(x))
+    else:
+        x = x_norm
     ord = p+1
     N = len(x)
 
@@ -1403,9 +1548,12 @@ def binsregselect_rot(y, x, w, p, s, deriv, eN, es=False, norotnorm=False,
     return J_rot, imse_b, imse_v
 
 # locate h
-def binsreg_locate(x, knot, type="all"):
+def binsreg_locate(x, knot, type="all", bin_ind=None):
     h = tl = np.nan
-    loc_ind = FindInterval(x, knot)
+    if bin_ind is None:
+        loc_ind = FindInterval(x, knot)
+    else:
+        loc_ind = np.asarray(bin_ind).reshape(-1).astype(int)
     if type=="all" or type=="h":
         size    = np.diff(knot)
         h       = size[loc_ind]
@@ -1427,17 +1575,23 @@ def bernpoly(x, p):
     return bernx
 
 # bias term
-def bias(x, p, s, deriv, knot):
-    h, tl = binsreg_locate(x, knot)
+def bias(x, p, s, deriv, knot, bin_ind=None):
+    x = np.asarray(x).reshape(-1)
+    h, tl = binsreg_locate(x, knot, bin_ind=bin_ind)
     bern = bernpoly((x-tl)/h, p+1-deriv) / factorial(p+1-deriv) * (h**(p+1-deriv))
-    return bern
+    return bern.reshape(-1,1)
 
 # IMSE V cons
-def genV(y, x, w, p, s, deriv, knot, vce, cluster=None, weights=None, basis0=None):
-    B  = basis0 if basis0 is not None else binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=0)
+def genV(y, x, w, p, s, deriv, knot, vce, cluster=None, weights=None,
+         basis0=None, basis_deriv=None, bin_ind=None):
+    B  = basis0 if basis0 is not None else binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=0, bin_ind=bin_ind)
     k  = ncol(B)
-    if deriv>0: basis = binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=deriv)
-    else: basis = B
+    if basis_deriv is not None:
+        basis = basis_deriv
+    elif deriv>0:
+        basis = binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=deriv, bin_ind=bin_ind)
+    else:
+        basis = B
     if w is not None: P = np.column_stack((B, w))
     else: P = B
     # if weights is None: model = sm.OLS(y, P).fit(cov_type='cluster', cov_kwds = {"groups":cluster})
@@ -1450,27 +1604,40 @@ def genV(y, x, w, p, s, deriv, knot, vce, cluster=None, weights=None, basis0=Non
     return m_s2
 
 
-def genB(y, x, w, p, s, deriv, knot, weights=None, return_basis=False):
-    B  = binsreg_spdes(x=x, p=p+1, s=s+1, knot=knot, deriv=0)  # use smoothest spline
+def genB(y, x, w, p, s, deriv, knot, weights=None, return_basis=False,
+         basis0=None, basis_deriv=None, bin_ind=None, basis_smooth=None,
+         basis_smooth_deriv=None):
+    B  = basis_smooth if basis_smooth is not None else binsreg_spdes(x=x, p=p+1, s=s+1, knot=knot, deriv=0, bin_ind=bin_ind)  # use smoothest spline
     k  = ncol(B)
     if w is not None: P = np.column_stack((B, w))
     else: P = B
     beta = binsreg_fit(y, P, weights=weights).params[:k]
     pos  = np.invert(np.isnan(beta))
-    basis = binsreg_spdes(x=x, p=p+1, s=s+1, knot=knot, deriv=p+1)
+    basis = basis_smooth_deriv if basis_smooth_deriv is not None else binsreg_spdes(x=x, p=p+1, s=s+1, knot=knot, deriv=p+1, bin_ind=bin_ind)
     mu_m_fit  = (np.matmul(basis[:,pos],beta[pos])).reshape(-1,1)
 
-    bias_0 = mu_m_fit * bias(x, p, s, 0, knot)    # proj component, v=0!!!
-    B = binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=0)
-    beta = binsreg_fit(bias_0, B, weights = weights).params
-    pos = np.invert(np.isnan(beta))
-    if deriv > 0:
-        basis = binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=deriv)
-        bias_v = mu_m_fit * bias(x, p, s, deriv, knot)    # need to recalculate for v>0!!!
+    bias_0 = mu_m_fit * bias(x, p, s, 0, knot, bin_ind=bin_ind)    # proj component, v=0!!!
+    B = basis0 if basis0 is not None else binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=0, bin_ind=bin_ind)
+    if p == 0 and s == 0 and deriv == 0 and weights is None:
+        xcat = bin_ind if bin_ind is not None else FindInterval(np.asarray(x).reshape(-1), knot)
+        nbins = len(knot) - 1
+        counts = np.bincount(xcat, minlength=nbins)
+        sums = np.bincount(xcat, weights=bias_0[:, 0], minlength=nbins)
+        means = np.full(nbins, np.nan, dtype=float)
+        positive = counts > 0
+        means[positive] = sums[positive] / counts[positive]
+        projected = means[xcat].reshape(-1, 1)
+        bias_l2 = bias_0 - projected
     else:
-        basis = B
-        bias_v = bias_0
-    bias_l2 = bias_v - (np.matmul(basis[:,pos], beta[pos])).reshape(-1,1)
+        beta = binsreg_fit(bias_0, B, weights = weights).params
+        pos = np.invert(np.isnan(beta))
+        if deriv > 0:
+            basis = basis_deriv if basis_deriv is not None else binsreg_spdes(x=x, p=p, s=s, knot=knot, deriv=deriv, bin_ind=bin_ind)
+            bias_v = mu_m_fit * bias(x, p, s, deriv, knot, bin_ind=bin_ind)    # need to recalculate for v>0!!!
+        else:
+            basis = B
+            bias_v = bias_0
+        bias_l2 = bias_v - (np.matmul(basis[:,pos], beta[pos])).reshape(-1,1)
     bias_cons = binsreg_summ(bias_l2**2, w=weights, std=False)[0]
 
     if return_basis:
@@ -1479,20 +1646,37 @@ def genB(y, x, w, p, s, deriv, knot, weights=None, return_basis=False):
 
 
 # DPI selector
-def binsregselect_dpi(y, x, w, p, s, deriv, vce, nbinsrot, es=False, cluster=None, weights=None):
+def binsregselect_dpi(y, x, w, p, s, deriv, vce, nbinsrot, es=False, cluster=None, weights=None,
+                      x_norm=None):
     J_rot = nbinsrot
-    x = (x - np.min(x)) / (np.max(x) - np.min(x))
+    if x_norm is None:
+        x = (x - np.min(x)) / (np.max(x) - np.min(x))
+    else:
+        x = x_norm
     ord = p+1
 
-    if es: knot = genKnot_es(0, 1, J_rot)
-    else: knot = genKnot_qs(x, J_rot)
+    knot = genKnot_es(0, 1, J_rot) if es else genKnot_qs(x, J_rot)
+    bin_ind = FindIntervalStataIrcode(x, knot)
+
+    def get_basis(pp, ss, dd):
+        return binsreg_spdes(x=x, p=pp, s=ss, knot=knot, deriv=dd, bin_ind=bin_ind)
+
+    basis0 = get_basis(p, s, 0)
+    basis_deriv = basis0 if deriv == 0 else get_basis(p, s, deriv)
+    basis_smooth = get_basis(p+1, s+1, 0)
+    basis_smooth_deriv = get_basis(p+1, s+1, p+1)
     
     # bias constant
-    bias_cons, basis0 = genB(y, x, w, p, s, deriv, knot, weights=weights, return_basis=True)
+    bias_cons, basis0 = genB(y, x, w, p, s, deriv, knot, weights=weights,
+                             return_basis=True, basis0=basis0,
+                             basis_deriv=basis_deriv, bin_ind=bin_ind,
+                             basis_smooth=basis_smooth,
+                             basis_smooth_deriv=basis_smooth_deriv)
     imse_b = bias_cons * J_rot**(2*(ord-deriv))
 
     # variance constant
-    genV_val = genV(y, x, w, p, s, deriv, knot, vce, cluster, weights=weights, basis0=basis0)
+    genV_val = genV(y, x, w, p, s, deriv, knot, vce, cluster, weights=weights,
+                    basis0=basis0, basis_deriv=basis_deriv, bin_ind=bin_ind)
     imse_v = genV_val / (J_rot**(1+2*deriv))
     aux_num = (imse_b*2*(ord-deriv)/((1+2*deriv)*imse_v))
     aux= np.ceil((imse_b*2*(ord-deriv)/((1+2*deriv)*imse_v))**(1/(2*ord+1)))

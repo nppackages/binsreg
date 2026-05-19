@@ -875,10 +875,12 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
                                  quantile = quantile, cov_type = vce_select, cluster = cluster_sub, **optmize)            
         beta = model.params[:k]
         basis_sha = binsreg_spdes(x=uni_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=deriv)
+        vcv_sha_full = model.cov_params()
 
         if estmethod=="glm" and not nolink:
             fit_sha_i, se_sha_i = binsreg_pred(X=basis_sha, model=model, type="all",
-                                            deriv=deriv, wvec=eval_w, avar=asyvar)
+                                            deriv=deriv, wvec=eval_w, avar=asyvar,
+                                            vcv=vcv_sha_full)
             basis_0 = binsreg_spdes(x=uni_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=0)
             fit_0 = binsreg_pred(basis_0, model, type = "xb", deriv=0, wvec=eval_w)[0]
             pred_sha_0  = linkinv_1(fit_0)
@@ -897,21 +899,23 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
                     basis_sha_1 = basis_sha_1
                 basis_all = ((linkinv_2(fit_0)*fit_sha_i)[:,None])*basis_sha_0 + pred_sha_0[:,None]*basis_sha_1
                 fit_sha_i = pred_sha_0 * fit_sha_i
-                se_sha_i  = binsreg_pred(basis_all, model=model, type="se", avar=True)[1]
+                se_sha_i  = binsreg_pred(basis_all, model=model, type="se",
+                                         avar=True, vcv=vcv_sha_full)[1]
         else:
             fit_sha_i, se_sha_i  = binsreg_pred(basis_sha, model, type = "all", deriv=deriv,
-                                                 wvec=eval_w, avar=asyvar)
+                                                 wvec=eval_w, avar=asyvar,
+                                                 vcv=vcv_sha_full)
         
         fit_sha += [fit_sha_i]
         se_sha += [se_sha_i]
 
         pos = np.invert(np.isnan(beta))
         k_new = np.sum(pos)
-        vcv_sha = model.cov_params()[:k_new,:k_new]
-        Sigma_root = lssqrtm(vcv_sha)
+        vcv_sha = np.asarray(vcv_sha_full)[:k_new,:k_new]
         
-        nummat += [np.matmul((basis_sha[:,pos]).reshape(-1,k_new), Sigma_root)]
-        denom += [np.sqrt(np.sum(np.matmul(basis_sha[:,pos], vcv_sha) * basis_sha[:,pos],1))]
+        num_sha, denom_sha, _ = binsreg_sim_num_denom(basis_sha, vcv_sha, pos)
+        nummat += [num_sha]
+        denom += [denom_sha]
 
         # second loop over 1:(i-1)
         if i>0:

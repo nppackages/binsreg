@@ -426,6 +426,8 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
     if selectJ: selectmethod = selectmethod + " (select # of bins)"
     else: selectmethod = selectmethod + " (select degree and smoothness)"
 
+    x_norm = (x - np.min(x)) / (np.max(x) - np.min(x))
+
     nj = len(deg_mat)
     vec_J_rot_poly = nanmat(nj)
     vec_J_rot_regul = nanmat(nj)
@@ -449,13 +451,15 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
                 warnings.warn("Too small effective sample size for bin selection.")
             if not rot_fewobs:
                 J_rot_poly, imse_b_rot, imse_v_rot = binsregselect_rot(y, x, w, p, s, deriv, eN=eN_sub, es=es,
-                                                qrot=qrot, norotnorm=norotnorm, weights=weights)
+                                                qrot=qrot, norotnorm=norotnorm, weights=weights, x_norm=x_norm)
             J_rot_regul = max(J_rot_poly, int(np.ceil((2*(p+1-deriv)/(1+2*deriv)*rot_lb*eN_sub)**(1/(2*p+3)))))
 
         # repeated knots?
         J_rot_uniq = J_rot_regul
+        knot_rot_regul = None
         if not es and not np.isnan(J_rot_regul):
-            J_rot_uniq = len(np.unique(genKnot_qs(x, J_rot_regul)[1:]))
+            knot_rot_regul = genKnot_qs(x, J_rot_regul)
+            J_rot_uniq = len(np.unique(knot_rot_regul[1:]))
 
         # Run dpi selection
         J_dpi = imse_v_dpi = imse_b_dpi = np.nan
@@ -468,14 +472,17 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
 
                 # check empty bins
                 if localcheck:
-                    uniqmin = binsreg_checklocalmass(x, J_rot_regul, es, knot = None) # mimic STATA
+                    if knot_rot_regul is None and not np.isnan(J_rot_regul):
+                        if es: knot_rot_regul = genKnot_es(np.min(x), np.max(x), J_rot_regul)
+                        else: knot_rot_regul = genKnot_qs(x, J_rot_regul)
+                    uniqmin = binsreg_checklocalmass(x, J_rot_regul, es, knot = knot_rot_regul) # mimic STATA
                     if uniqmin < p+2:
                         dpi_fewobs = True
                         warnings.warn("Some bins have too few distinct values of x for DPI selection.")
             else: dpi_fewobs = True
 
             if not dpi_fewobs:
-                J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, p, s, deriv, es=es, vce=vce, cluster=cluster, nbinsrot=J_rot_uniq, weights=weights)
+                J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, p, s, deriv, es=es, vce=vce, cluster=cluster, nbinsrot=J_rot_uniq, weights=weights, x_norm=x_norm)
                 imse_v_dpi = imse_v_dpi * eN_sub
                                                                 
         J_dpi_uniq = J_dpi
@@ -537,7 +544,7 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
         imse_b_dpi = vec_imse_b_dpi[ind_dpi]
 
         if (nbins!=vec_J_dpi[ind_dpi]):
-            J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, ord_dpi[0], ord_dpi[1], deriv, es=es, vce=vce, cluster=cluster, nbinsrot=nbins, weights=weights)
+            J_dpi, imse_v_dpi, imse_b_dpi = binsregselect_dpi(y, x, w, ord_dpi[0], ord_dpi[1], deriv, es=es, vce=vce, cluster=cluster, nbinsrot=nbins, weights=weights, x_norm=x_norm)
             imse_b_dpi_upd = imse_b_dpi
             imse_v_dpi_upd = imse_v_dpi * eN_sub
             imse_b_dpi = imse_b_dpi_upd

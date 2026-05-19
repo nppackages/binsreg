@@ -796,10 +796,12 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                                  quantile = quantile, cov_type = vce_select, cluster = cluster, **optmize)            
         beta = model.params[:k]
         basis_sha = binsreg_spdes(x=x_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=deriv)
+        vcv_sha_full = model.cov_params()
 
         if estmethod=="glm" and not nolink:
             fit_sha, se_sha = binsreg_pred(X=basis_sha, model=model, type="all",
-                                            deriv=deriv, wvec=eval_w, avar=asyvar)
+                                            deriv=deriv, wvec=eval_w, avar=asyvar,
+                                            vcv=vcv_sha_full)
             basis_0 = binsreg_spdes(x=x_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=0)
             fit_0 = binsreg_pred(basis_0, model, type = "xb", deriv=0, wvec=eval_w)[0]
             pred_sha_0  = linkinv_1(fit_0)
@@ -820,14 +822,16 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                 term2 = pred_sha_0.reshape(-1,1)*basis_sha_1
                 basis_all = term1 + term2
                 fit_sha = pred_sha_0 * fit_sha
-                se_sha  = binsreg_pred(basis_all, model=model, type="se", avar=True)[1]
+                se_sha  = binsreg_pred(basis_all, model=model, type="se",
+                                       avar=True, vcv=vcv_sha_full)[1]
         else:
             fit_sha, se_sha  = binsreg_pred(basis_sha, model, type = "all", deriv=deriv,
-                                                 wvec=eval_w, avar=asyvar)
+                                                 wvec=eval_w, avar=asyvar,
+                                                 vcv=vcv_sha_full)
 
         pos = np.invert(np.isnan(beta))
         k_new = np.sum(pos)
-        vcv_sha = model.cov_params()[:k_new,:k_new]
+        vcv_sha = np.asarray(vcv_sha_full)[:k_new,:k_new]
 
         for j in range(ntestshape):
             if j < nL:
@@ -849,10 +853,8 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         if nT > 0: stat_shape = rbind(stat_shape, stat_shape2)
         
         # Compute p-val
-        Sigma_root = lssqrtm(vcv_sha)
-        num = np.matmul(basis_sha[:,pos], Sigma_root)
-        denom_sha  = np.sqrt(np.sum(np.matmul(basis_sha[:,pos], vcv_sha) * basis_sha[:,pos],1))
-        pval_shape = binsreg_pval(num, denom_sha, nsims, tstat=stat_shape, side=None, lp=lp)[0]
+        num_sha, denom_sha, Sigma_root_sha = binsreg_sim_num_denom(basis_sha, vcv_sha, pos)
+        pval_shape = binsreg_pval(num_sha, denom_sha, nsims, tstat=stat_shape, side=None, lp=lp)[0]
         if nL!=0:
             stat_shapeL = stat_shapeL[:,0]
             pval_shapeL = pval_shape[:nL]
@@ -879,10 +881,13 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         if tmod_p==tsha_p and tmod_s==tsha_s and "vcv_sha" in locals():
             exist_mod = True
             vcv_mod  = vcv_sha
+            vcv_mod_full = vcv_sha_full
             fit_mod  = fit_sha
             se_mod   = se_sha
             basis_mod = basis_sha
             denom_mod = denom_sha
+            num_mod = num_sha
+            Sigma_root_mod = Sigma_root_sha
         else:
             exist_mod = False
             B = binsreg_spdes(x=x, p=tmod_p, s=tmod_s, knot=knot, deriv=0)
@@ -895,7 +900,11 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             k_new = np.sum(pos)
             if estmethod=="qreg": is_qreg = True
             else: is_qreg = False
-            vcv_mod = model.cov_params()[:k_new,:k_new]
+            vcv_mod_full = model.cov_params()
+            vcv_mod = np.asarray(vcv_mod_full)[:k_new,:k_new]
+            num_mod = None
+            denom_mod = None
+            Sigma_root_mod = None
            
         ######################
         # Test poly reg
@@ -905,7 +914,8 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
 
                 if estmethod=="glm" and not nolink:
                     fit_mod, se_mod = binsreg_pred(X=basis_mod, model=model, type="all",
-                                                            deriv=deriv, wvec=eval_w, avar=asyvar)
+                                                            deriv=deriv, wvec=eval_w,
+                                                            avar=asyvar, vcv=vcv_mod_full)
                     basis_0 = binsreg_spdes(x=x_grid, p=tmod_p, s=tmod_s, knot=knot, deriv=0)
                     fit_0 = binsreg_pred(basis_0, model, type = "xb", deriv=0, wvec=eval_w)[0]
                     pred_mod_0  = linkinv_1(fit_0)
@@ -924,12 +934,14 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                             basis_mod_1 = basis_mod_1
                         basis_all = ((linkinv_2(fit_0)*fit_mod)[:,None])*basis_mod_0 + pred_mod_0[:,None]*basis_mod_1
                         fit_mod = pred_mod_0 * fit_mod
-                        se_mod  = binsreg_pred(basis_all, model=model, type="se", avar=True)[1]
+                        se_mod  = binsreg_pred(basis_all, model=model, type="se",
+                                               avar=True, vcv=vcv_mod_full)[1]
                 else:
                     fit_mod, se_mod = binsreg_pred(basis_mod, model, type = "all",  deriv=deriv, wvec=eval_w,
-                                                avar=asyvar)
+                                                avar=asyvar, vcv=vcv_mod_full)
 
-                denom_mod = np.sqrt(np.sum(np.matmul(basis_mod[:,pos],vcv_mod) * basis_mod[:,pos],1))
+                num_mod, denom_mod, Sigma_root_mod = binsreg_sim_num_denom(
+                    basis_mod, vcv_mod, pos, sigma_root=Sigma_root_mod)
 
             # Run a poly reg
             x_p = nanmat(N, testmodelpoly+1)
@@ -948,9 +960,10 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             if np.isfinite(lp): stat_poly[0,0] = np.mean(np.abs((fit_mod - poly_fit) / se_mod)**lp)**(1/lp)
             else: stat_poly[0,0] = np.max(np.abs((fit_mod - poly_fit) / se_mod))
 
-            Sigma_root   = lssqrtm(vcv_mod)
-            num          = np.matmul(basis_mod[:,pos],Sigma_root)
-            pval_poly    = binsreg_pval(num, denom_mod, nsims, tstat=stat_poly, side=None, lp=lp)[0]
+            if num_mod is None:
+                num_mod, denom_mod, Sigma_root_mod = binsreg_sim_num_denom(
+                    basis_mod, vcv_mod, pos, sigma_root=Sigma_root_mod)
+            pval_poly    = binsreg_pval(num_mod, denom_mod, nsims, tstat=stat_poly, side=None, lp=lp)[0]
             stat_poly    = stat_poly[:,0]
 
         ##################################
@@ -961,7 +974,8 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
 
             if estmethod=="glm" and not nolink:
                 fit_mod, se_mod = binsreg_pred(X=basis_mod, model=model, type="all",
-                                                            deriv=deriv, wvec=eval_w, avar=asyvar)
+                                                            deriv=deriv, wvec=eval_w,
+                                                            avar=asyvar, vcv=vcv_mod_full)
                 basis_0 = binsreg_spdes(x=x_grid, p=tmod_p, s=tmod_s, knot=knot, deriv=0)
                 fit_0 = binsreg_pred(basis_0, model, type = "xb", deriv=0, wvec=eval_w)[0]
                 pred_mod_0 = linkinv_1(fit_0)
@@ -981,21 +995,20 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
                     basis_all = ((linkinv_2(fit_0)*fit_mod)[:,None])*basis_mod_0 + pred_mod_0[:,None]*basis_mod_1
                     fit_mod = pred_mod_0 * fit_mod
                     se_mod  = binsreg_pred(basis_all, model=model, type="se",
-                                                avar=True)[1]
+                                                avar=True, vcv=vcv_mod_full)[1]
             else:
                 fit_mod, se_mod  = binsreg_pred(basis_mod, model, type = "all", deriv=deriv, 
-                                            wvec=eval_w,avar=asyvar)
+                                            wvec=eval_w,avar=asyvar, vcv=vcv_mod_full)
             
-            denom_mod = np.sqrt(np.sum(np.matmul(basis_mod[:,pos],vcv_mod) * basis_mod[:,pos],1))
+            num_mod, denom_mod, Sigma_root_mod = binsreg_sim_num_denom(
+                basis_mod, vcv_mod, pos, sigma_root=Sigma_root_mod)
 
             for j in range(1,ncol(testmodelparfit)):
                 stat_mod[j-1,1] = 3
                 if np.isinf(lp): stat_mod[j-1,0] = np.max(np.abs((fit_mod - testmodelparfit[:,j]) / se_mod))
                 else: stat_mod[j-1,0] = np.mean(np.abs((fit_mod - testmodelparfit[:,j]) / se_mod)**lp)**(1/lp)
 
-            Sigma_root = lssqrtm(vcv_mod)
-            num = np.matmul(basis_mod[:,pos],Sigma_root)
-            pval_mod = binsreg_pval(num, denom_mod, nsims, tstat=stat_mod, side=None, lp=lp)[0]
+            pval_mod = binsreg_pval(num_mod, denom_mod, nsims, tstat=stat_mod, side=None, lp=lp)[0]
             stat_mod = stat_mod[:,0]
             
     ######################

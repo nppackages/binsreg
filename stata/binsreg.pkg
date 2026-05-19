@@ -25,6 +25,7 @@ f binspwc.ado
 f binspwc.sthlp
 f binsreg_irecode.ado
 f binsreg_pctile.ado
+f binsreg_bincount.mo
 f binsreg_checkdrop.mo
 f binsreg_functions.do
 f binsreg_grids.mo

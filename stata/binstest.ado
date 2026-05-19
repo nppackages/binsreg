@@ -16,7 +16,7 @@ program define binstest, eclass
 		   binspos(string) binsmethod(string) nbinsrot(string) randcut(numlist max=1 >=0 <=1) ///
 		   nsims(integer 500) simsgrid(integer 20) simsseed(numlist integer max=1 >=0) ///
 		   dfcheck(numlist integer max=2 >=0) masspoints(string) usegtools(string) ///
-		   vce(passthru) asyvar(string) ///
+		   vce(passthru) asyvar(string) precision(string) ///
 		   numdist(string) numclust(string)]
 		   /* last line only for internal use */
 
@@ -29,6 +29,15 @@ program define binstest, eclass
 	    local wt [`weight'`exp']
 		local wtype=substr("`weight'",1,1)
 	 }
+
+	 local precision = lower("`precision'")
+	 if ("`precision'"=="") local precision "double"
+	 if ("`precision'"!="single"&"`precision'"!="double") {
+	    di as error "precision() must be single or double."
+		exit 198
+	 }
+	 local precision_type "float"
+	 if ("`precision'"=="double") local precision_type "double"
 
 	 * Extract options
 	 * which model?
@@ -563,7 +572,7 @@ program define binstest, eclass
 				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(nbinsrot_regul)==.) {
 			      di as error "bin selection fails."
 				  exit
@@ -591,7 +600,7 @@ program define binstest, eclass
 								pselect(`plist') sselect(`slist') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce_select' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
-								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools')
+								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(prot_regul)==.) {
 			      di as error "Bin selection fails."
 				  exit
@@ -655,8 +664,9 @@ program define binstest, eclass
 
 	 * Generate category variable for data and save knot in matrix
 	 tempname kmat
+	 tempname xcatvec
 	 tempvar xcat
-	 qui gen `xcat'=. in 1
+	 qui gen `precision_type' `xcat'=. in 1
 
      if ("`binspos'"=="ES") {
 	    local stepsize=(`xmax'-`xmin')/`nbins'
@@ -687,12 +697,13 @@ program define binstest, eclass
 	     di as text in gr "Warning: Repeated knots. Some bins dropped."
 		 local nbins=rowsof(`kmat')-1
 	 }
+	 mata: `xcatvec'=st_data(.,"`xcat'")
 
 	 * Check for empty bins
 	 if ("`localcheck'"=="T") {
-	   mata: st_local("Ncat", strofreal(rows(uniqrows(st_data(.,"`xcat'")))))
+	   mata: st_local("Ncat", strofreal(rows(uniqrows(`xcatvec'))))
 	   if (`nbins'==`Ncat') {
-		  mata: `binedges'=binsreg_uniq(`xvec', st_data(.,"`xcat'"), `nbins', "uniqmin")
+		  mata: `binedges'=binsreg_uniq(`xvec', `xcatvec', `nbins', "uniqmin")
 		  mata: mata drop `binedges'
 	   }
 	   else {
@@ -778,11 +789,11 @@ program define binstest, eclass
 	    forvalues i=1/`nseries' {
 	       tempvar sp`i'
 	       local tsha_series `tsha_series' `sp`i''
-		   qui gen `sp`i''=. in 1
+		   qui gen `precision_type' `sp`i''=. in 1
 	    }
 
 		tempname tsha_b tsha_V
-		mata: binsreg_st_spdes(`xvec', "`tsha_series'", "`kmat'", st_data(.,"`xcat'"), `tsha_p', 0, `tsha_s')
+		mata: binsreg_st_spdes(`xvec', "`tsha_series'", "`kmat'", `xcatvec', `tsha_p', 0, `tsha_s')
 	    if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
 		    capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
 		}
@@ -951,10 +962,10 @@ program define binstest, eclass
 	       forvalues i=1/`nseries' {
 	          tempvar sp`i'
 	          local tmod_series `tmod_series' `sp`i''
-		      qui gen `sp`i''=. in 1
+		      qui gen `precision_type' `sp`i''=. in 1
 	       }
 
-		   mata: binsreg_st_spdes(`xvec', "`tmod_series'", "`kmat'", st_data(.,"`xcat'"), `tmod_p', 0, `tmod_s')
+		   mata: binsreg_st_spdes(`xvec', "`tmod_series'", "`kmat'", `xcatvec', `tmod_p', 0, `tmod_s')
 		   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
 	          capture `estcmd' `y_var' `tmod_series' `w_var' `wt', nocon `vce' `estmethodopt'
 		   }
@@ -1047,7 +1058,7 @@ program define binstest, eclass
 		   *else                                                local ini=1
 	       forval i=1/`testpolyp' {
 		      tempvar x_var_`i'
-			  qui gen `x_var_`i''=`x_var'^`i'
+			  qui gen `precision_type' `x_var_`i''=`x_var'^`i'
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 
@@ -1153,13 +1164,18 @@ program define binstest, eclass
 		   local nfitval: word count `varls'
 		   tempvar  uni_xcat uni_fit uni_se
 
-	       qui gen `uni_fit'=. in 1
-	       qui gen `uni_se'=. in 1
-		   qui gen `uni_xcat'=. in 1
+	       qui gen `precision_type' `uni_fit'=. in 1
+	       qui gen `precision_type' `uni_se'=. in 1
+		   qui gen `precision_type' `uni_xcat'=. in 1
 		   binsreg_irecode `x_var', knotmat(`kmat') bin(`uni_xcat') ///
 		                            `usegtools' nbins(`nbins') pos(`binspos') knotliston(T)
 
-		   mata: `uni_basis'=binsreg_spdes(st_data(.,"`x_var'"), "`kmat'", st_data(.,"`uni_xcat'"), ///
+		   tempname uni_xvec uni_xcatvec fitmat
+		   mata: `uni_xvec'=st_data(.,"`x_var'"); ///
+		         `uni_xcatvec'=st_data(.,"`uni_xcat'"); ///
+		         `fitmat'=st_data(.,"`varls'")
+
+		   mata: `uni_basis'=binsreg_spdes(`uni_xvec', "`kmat'", `uni_xcatvec', ///
 		                                  `tmod_p', `deriv', `tmod_s')
 
 		   if (("`estmethod'"=="logit"|"`estmethod'"=="probit")&"`transform'"=="T") {
@@ -1177,7 +1193,7 @@ program define binstest, eclass
 			     }
 		      }
 		      if (`deriv'==1) {
-		         mata: `Xm0'=binsreg_spdes(st_data(.,"`x_var'"), "`kmat'", st_data(.,"`uni_xcat'"), `tmod_p', 0, `tmod_s'); ///
+		         mata: `Xm0'=binsreg_spdes(`uni_xvec', "`kmat'", `uni_xcatvec', `tmod_p', 0, `tmod_s'); ///
 			           `Xm0'=(`Xm0', J(rows(`Xm0'),1,1)#`wvec0'); ///
 					   `fit0'=`Xm0'*st_matrix("`tmod_b'"); ///
 					   `Xm'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec')
@@ -1217,13 +1233,13 @@ program define binstest, eclass
 		   local counter=1
 		   if ("`lp'"=="inf") {
 	          foreach var of local varls {
-		         mata: `tstat'[`counter',]=(max(abs((`Xm'[,1]-st_data(.,"`var'")):/`Xm'[,2])), 3)
+		         mata: `tstat'[`counter',]=(max(abs((`Xm'[,1]-`fitmat'[,`counter']):/`Xm'[,2])), 3)
 		         local ++counter
 		      }
 		   }
 		   else {
 		      foreach var of local varls {
-		         mata: `tstat'[`counter',]=(mean(abs((`Xm'[,1]-st_data(.,"`var'")):/`Xm'[,2]):^`lp')^(1/`lp'), 3)
+		         mata: `tstat'[`counter',]=(mean(abs((`Xm'[,1]-`fitmat'[,`counter']):/`Xm'[,2]):^`lp')^(1/`lp'), 3)
 		         local ++counter
 		      }
 		   }
@@ -1249,14 +1265,14 @@ program define binstest, eclass
 		                         `=`nseries'+1', ".", 0, "`pval_model'", ".", "`lp'")
 		   }
 
-		   mata: mata drop `Xm' `tstat' `uni_basis'
+		   mata: mata drop `Xm' `tstat' `uni_basis' `uni_xvec' `uni_xcatvec' `fitmat'
 		}
 	 }
 	 else {
 	    local tmod_p=.
 		local tmod_s=.
 	 }
-	 mata: mata drop `uni_grid' `xvec' `Xm0' `fit' `se' `fit0' `wvec' `wvec0' `vcov'
+	 mata: mata drop `uni_grid' `xvec' `xcatvec' `Xm0' `fit' `se' `fit0' `wvec' `wvec0' `vcov'
 
 	 ****** End of testing *****************************************
 
