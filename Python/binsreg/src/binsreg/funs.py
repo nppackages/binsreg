@@ -1005,12 +1005,18 @@ def binsreg_grid(knot, ngrid, addmore = False):
     return grid_str(eval, bin, isknot, mid)
 
 class binsreg_fast_lm:
-    def __init__(self, params, fittedvalues, cov):
+    def __init__(self, params, fittedvalues, cov=None, cov_state=None):
         self.params = params
         self.fittedvalues = fittedvalues
         self._cov = cov
+        self._cov_state = cov_state
 
     def cov_params(self):
+        if self._cov is None:
+            if self._cov_state is None:
+                raise ValueError("covariance was not computed for this fit")
+            self._cov = binsreg_lstsq_cov(**self._cov_state)
+            self._cov_state = None
         return self._cov
 
 def binsreg_oneway_cluster(cluster):
@@ -1020,6 +1026,66 @@ def binsreg_oneway_cluster(cluster):
     elif cluster.ndim != 1:
         return None
     return cluster
+
+BINSREG_LSTSQ_NORMAL_EQ_COND_MAX = 1e6
+
+
+def binsreg_lstsq_solve(fit_x, fit_y):
+    xtx = None
+    xtx_inv = None
+    nobs, nvar = fit_x.shape
+    if nobs >= nvar:
+        xtx = np.matmul(fit_x.T, fit_x)
+        cond = np.linalg.cond(xtx)
+        if np.isfinite(cond) and cond <= BINSREG_LSTSQ_NORMAL_EQ_COND_MAX:
+            try:
+                params = solve(xtx, np.matmul(fit_x.T, fit_y))
+                return params, nvar, xtx, xtx_inv
+            except np.linalg.LinAlgError:
+                pass
+
+    params, _, rank, _ = np.linalg.lstsq(fit_x, fit_y, rcond=None)
+    return params, rank, None, None
+
+
+def binsreg_lstsq_cov(fit_x, weighted_resid, rank, cov_type=None, cluster=None, xtx=None, xtx_inv=None):
+    df_resid = max(fit_x.shape[0] - rank, 1)
+    if rank == fit_x.shape[1]:
+        if xtx_inv is None:
+            if xtx is None:
+                xtx = np.matmul(fit_x.T, fit_x)
+            xtx_inv = np.linalg.inv(xtx)
+        pinv_x = None
+    else:
+        pinv_x = np.linalg.pinv(fit_x)
+        xtx_inv = np.matmul(pinv_x, pinv_x.T)
+
+    if cluster is not None:
+        clusters, group = np.unique(cluster, return_inverse=True)
+        n_groups = len(clusters)
+        score = np.zeros((n_groups, fit_x.shape[1]))
+        np.add.at(score, group, fit_x * weighted_resid[:, None])
+        scale = (n_groups / (n_groups - 1)) * ((fit_x.shape[0] - 1) / df_resid)
+        return xtx_inv @ np.matmul(score.T, score) @ xtx_inv * scale
+
+    cov_type = "const" if cov_type is None else cov_type
+    if cov_type == "const":
+        return xtx_inv * (np.sum(weighted_resid**2) / df_resid)
+    if cov_type in ("HC0", "HC1", "HC2", "HC3"):
+        scale = weighted_resid**2
+        if cov_type == "HC1":
+            scale = scale * fit_x.shape[0] / df_resid
+        elif cov_type == "HC2":
+            leverage = np.sum(np.matmul(fit_x, xtx_inv) * fit_x, axis=1)
+            scale = scale / (1 - leverage)
+        elif cov_type == "HC3":
+            leverage = np.sum(np.matmul(fit_x, xtx_inv) * fit_x, axis=1)
+            scale = scale / (1 - leverage)**2
+        if pinv_x is not None:
+            return np.matmul(pinv_x * scale, pinv_x.T)
+        meat = np.matmul(fit_x.T * scale, fit_x)
+        return xtx_inv @ meat @ xtx_inv
+    raise ValueError("unsupported covariance type")
 
 def binsreg_lstsq_fit(y, x, weights=None, cov_type=None, cluster=None):
     x = np.asarray(x)
@@ -1036,52 +1102,39 @@ def binsreg_lstsq_fit(y, x, weights=None, cov_type=None, cluster=None):
         fit_x = x * sqrt_w[:, None]
         fit_y = y * sqrt_w
 
-    params, _, rank, _ = np.linalg.lstsq(fit_x, fit_y, rcond=None)
+    if cluster is not None:
+        cluster = binsreg_oneway_cluster(cluster)
+        if cluster is None or len(cluster) != x.shape[0] or pd.isna(cluster).any():
+            raise ValueError("cluster must be a one-dimensional vector with no missing values")
+        if len(np.unique(cluster)) <= 1:
+            raise ValueError("cluster must contain at least two groups")
+    elif cov_type is not None and cov_type not in ("const", "HC0", "HC1", "HC2", "HC3"):
+        raise ValueError("unsupported covariance type")
+
+    params, rank, xtx, xtx_inv = binsreg_lstsq_solve(fit_x, fit_y)
     fittedvalues = np.matmul(x, params)
     resid = y - fittedvalues
     weighted_resid = resid if sqrt_w is None else resid * sqrt_w
-    df_resid = max(x.shape[0] - rank, 1)
 
-    if rank == fit_x.shape[1]:
-        xtx_inv = np.linalg.inv(np.matmul(fit_x.T, fit_x))
-        pinv_x = np.matmul(xtx_inv, fit_x.T)
-    else:
+    if rank < fit_x.shape[1]:
+        xtx = None
+        xtx_inv = None
         pinv_x = np.linalg.pinv(fit_x)
         params = np.matmul(pinv_x, fit_y)
         fittedvalues = np.matmul(x, params)
         resid = y - fittedvalues
         weighted_resid = resid if sqrt_w is None else resid * sqrt_w
-        xtx_inv = np.matmul(pinv_x, pinv_x.T)
 
-    if cluster is not None:
-        cluster = binsreg_oneway_cluster(cluster)
-        if cluster is None or len(cluster) != x.shape[0] or pd.isna(cluster).any():
-            raise ValueError("cluster must be a one-dimensional vector with no missing values")
-        clusters, group = np.unique(cluster, return_inverse=True)
-        n_groups = len(clusters)
-        if n_groups <= 1:
-            raise ValueError("cluster must contain at least two groups")
-        score = np.zeros((n_groups, fit_x.shape[1]))
-        np.add.at(score, group, fit_x * weighted_resid[:, None])
-        scale = (n_groups / (n_groups - 1)) * ((x.shape[0] - 1) / df_resid)
-        cov = xtx_inv @ np.matmul(score.T, score) @ xtx_inv * scale
-    else:
-        cov_type = "const" if cov_type is None else cov_type
-        if cov_type == "const":
-            cov = xtx_inv * (np.sum(weighted_resid**2) / df_resid)
-        elif cov_type in ("HC0", "HC1", "HC2", "HC3"):
-            leverage = np.sum(fit_x * pinv_x.T, axis=1)
-            scale = weighted_resid**2
-            if cov_type == "HC1":
-                scale = scale * x.shape[0] / df_resid
-            elif cov_type == "HC2":
-                scale = scale / (1 - leverage)
-            elif cov_type == "HC3":
-                scale = scale / (1 - leverage)**2
-            cov = np.matmul(pinv_x * scale, pinv_x.T)
-        else:
-            raise ValueError("unsupported covariance type")
-    return binsreg_fast_lm(params, fittedvalues, cov)
+    cov_state = {
+        "fit_x": fit_x,
+        "weighted_resid": weighted_resid,
+        "rank": rank,
+        "cov_type": cov_type,
+        "cluster": cluster,
+        "xtx": xtx,
+        "xtx_inv": xtx_inv,
+    }
+    return binsreg_fast_lm(params, fittedvalues, cov_state=cov_state)
 
 
 class binsreg_fast_qreg:
@@ -1428,19 +1481,30 @@ def binsreg_spdes(x, p, s, knot, deriv, bin_ind=None):
                 tl = lk[:,-(i+1):]
                 tr = rk[:,:(i+1)]
                 w = (x-tl)/(tr-tl)
-                bs = np.column_stack(((1-w)*bs,np.zeros(n))) + np.column_stack((np.zeros(n),w*bs))
+                next_bs = np.zeros((n, bs.shape[1]+1))
+                next_bs[:, :-1] += (1-w)*bs
+                next_bs[:, 1:] += w*bs
+                bs = next_bs
             if deriv > 0: # loop: derivative
                 for i in range(p-deriv,p):
                     tl = lk[:,-(i+1):]
                     tr = rk[:,:(i+1)]
                     w = 1/(tr-tl)
-                    bs = (np.column_stack((np.zeros(n),w*bs)) - np.column_stack((w*bs,np.zeros(n))))*(i+1)
+                    next_bs = np.zeros((n, bs.shape[1]+1))
+                    wbs = w*bs
+                    next_bs[:, 1:] += wbs
+                    next_bs[:, :-1] -= wbs
+                    bs = next_bs*(i+1)
         else: # degree=deriv, so only need to account for derivative
             for i in range(p):
                 tl = lk[:,-(i+1):]
                 tr = rk[:,:(i+1)]
                 w = 1/(tr-tl)
-                bs = (np.column_stack((np.zeros(n),w*bs)) - np.column_stack((w*bs,np.zeros(n))))*(i+1)
+                next_bs = np.zeros((n, bs.shape[1]+1))
+                wbs = w*bs
+                next_bs[:, 1:] += wbs
+                next_bs[:, :-1] -= wbs
+                bs = next_bs*(i+1)
     
     # bs should be an n by p+1 matrix containing nonzeros of the design matrix
     # The design should be a n by (k-2)*(p-s+1) + p+1 matrix 

@@ -1239,7 +1239,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       }
       B    <- binsreg.spdes(eval=x.sub, p=dots.p, s=dots.s, deriv=0, knot=knot)
       P    <- binsreg.cbind(B, w.sub)         # full design matrix
-      model.dots <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
+      model.dots <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
       check.drop(model.dots$coeff, ncol(B))
 
       basis <- binsreg.spdes(eval=dots.x, p=dots.p, s=dots.s, knot=knot, deriv=deriv)
@@ -1267,7 +1267,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       if (line.reg.ON) {
         B     <- binsreg.spdes(eval=x.sub, p=line.p, s=line.s, deriv=0, knot=knot)
         P     <- binsreg.cbind(B, w.sub)         # full design matrix
-        model.line <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
+        model.line <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
         check.drop(model.line$coeff, ncol(B))
       }
 
@@ -1298,7 +1298,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       x.p <- matrix(NA, N, polyreg+1)
       for (j in 1:(polyreg+1))  x.p[,j] <- x.sub^(j-1)
       P.poly <- binsreg.cbind(x.p, w.sub)
-      model.poly <- binsreg.fit.lm(y.sub, P.poly, weights=weights.sub)
+      model.poly <- binsreg.fit.lm(y.sub, P.poly, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
       beta.poly <- model.poly$coefficients
       beta.poly[is.na(beta.poly)] <- 0
       poly.fit  <- 0
@@ -1377,7 +1377,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       if (ci.reg.ON) {
         B    <- binsreg.spdes(eval=x.sub, p=ci.p, s=ci.s, deriv=0, knot=knot)
         P    <- binsreg.cbind(B, w.sub)            # full design matrix
-        model.ci <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
+        model.ci <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
         check.drop(model.ci$coeff, ncol(B))
       }
 
@@ -1423,7 +1423,7 @@ binsreg <- function(y, x, w=NULL, data=NULL, at=NULL, deriv=0,
       if (cb.reg.ON) {
         B    <- binsreg.spdes(eval=x.sub, p=cb.p, s=cb.s, deriv=0, knot=knot)
         P    <- binsreg.cbind(B, w.sub)            # full design matrix
-        model.cb <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
+        model.cb <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
         check.drop(model.cb$coeff, ncol(B))
       }
 

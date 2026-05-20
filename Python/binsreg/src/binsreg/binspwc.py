@@ -920,15 +920,19 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         # second loop over 1:(i-1)
         if i>0:
             for j in range(i):
+                tval = (fit_sha[i]-fit_sha[j]) / np.sqrt(se_sha[i]**2+se_sha[j]**2)
                 if testtype=="left":
-                    tstat[counter,:] = np.array((np.max((fit_sha[i]-fit_sha[j]) / np.sqrt(se_sha[i]**2+se_sha[j]**2)), i, j))
+                    stat = np.max(tval)
                 elif testtype=="right":
-                    tstat[counter,:] = np.array((np.min((fit_sha[i]-fit_sha[j]) / np.sqrt(se_sha[i]**2+se_sha[j]**2)), i, j))
+                    stat = np.min(tval)
                 else:
                     if not np.isfinite(lp):
-                        tstat[counter,:] = np.array((np.max(np.abs((fit_sha[i]-fit_sha[j]) / np.sqrt(se_sha[i]**2+se_sha[j]**2))), i, j))
+                        stat = np.max(np.abs(tval))
                     else:
-                        tstat[counter,:] = np.array((np.mean(((fit_sha[i]-fit_sha[j]) / np.sqrt(se_sha[i]**2+se_sha[j]**2))**lp)**(1/lp), i, j))               
+                        stat = np.mean(tval**lp)**(1/lp)
+                tstat[counter,0] = stat
+                tstat[counter,1] = i
+                tstat[counter,2] = j
                 pval[counter,0] = binspwc_pval(nummat[i], nummat[j], denom[i], denom[j], nsims, tstat=tstat[counter,0], testtype=testtype, lp=lp)
                 counter += 1
         

@@ -788,7 +788,7 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
     k    <- ncol(B)
     P    <- binsreg.cbind(B, w)
     if (estmethod=="reg") {
-      model <- binsreg.fit.lm(y, P, weights=weights)
+      model <- binsreg.fit.lm(y, P, weights=weights, vcov.type=vce, cluster=cluster)
     } else if (estmethod=="qreg") {
       model <- binsreg.fit.rq(y, P, tau=quantile, weights=weights, qregopt=estmethodopt)
     } else if (estmethod=="glm") {
@@ -918,7 +918,7 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       k    <- ncol(B)
       P    <- binsreg.cbind(B, w)
       if (estmethod=="reg") {
-        model  <- binsreg.fit.lm(y, P, weights=weights)
+        model  <- binsreg.fit.lm(y, P, weights=weights, vcov.type=vce, cluster=cluster)
       } else if (estmethod=="qreg") {
         model  <- binsreg.fit.rq(y, P, tau=quantile, weights=weights, qregopt=estmethodopt)
       } else {
@@ -985,7 +985,7 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       for (j in 1:(testmodelpoly+1))  x.p[,j] <- x^(j-1)
       P.poly <- binsreg.cbind(x.p, w)
       if (estmethod=="reg") {
-        model.poly <- binsreg.fit.lm(y, P.poly, weights=weights)
+        model.poly <- binsreg.fit.lm(y, P.poly, weights=weights, vcov.type=vce, cluster=cluster)
       } else if (estmethod=="qreg") {
         model.poly <- binsreg.fit.rq(y, P.poly, tau=quantile, weights=weights, qregopt=estmethodopt, design.name="P.poly")
       } else if (estmethod=="glm") {

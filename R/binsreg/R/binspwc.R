@@ -906,7 +906,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
     k    <- ncol(B)
     P    <- binsreg.cbind(B, w.sub)
     if (estmethod=="reg") {
-      model <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
+      model <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
     } else if (estmethod=="qreg") {
       model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
     } else if (estmethod=="glm") {
@@ -969,7 +969,7 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
         k    <- ncol(B)
         P    <- binsreg.cbind(B, w.sub)
         if (estmethod=="reg") {
-          model <- binsreg.fit.lm(y.sub, P, weights=weights.sub)
+          model <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
         } else if (estmethod=="qreg") {
           model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
         } else if (estmethod=="glm") {
@@ -1006,17 +1006,21 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
     if (i>1) {
       for (j in 1:(i-1)) {
         # tests
+        tval <- (fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2)
         if (testtype=="left") {
-          tstat[counter,] <- c(max((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2)), i, j)
+          stat <- max(tval)
         } else if (testtype=="right") {
-          tstat[counter,] <- c(min((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2)), i, j)
+          stat <- min(tval)
         } else {
           if (is.infinite(lp)) {
-            tstat[counter,] <- c(max(abs((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2))), i, j)
+            stat <- max(abs(tval))
           } else {
-            tstat[counter,] <- c(mean(((fit.sha[[i]]-fit.sha[[j]]) / sqrt(se.sha[[i]]^2+se.sha[[j]]^2))^lp)^(1/lp), i, j)
+            stat <- mean(tval^lp)^(1/lp)
           }
         }
+        tstat[counter,1] <- stat
+        tstat[counter,2] <- i
+        tstat[counter,3] <- j
 
         binspwc.simul <- binspwc.pval(nummat[[i]], nummat[[j]], denom[[i]], denom[[j]], nsims, tstat=tstat[counter,1], testtype=testtype, lp=lp, alpha=level)
         pval[counter,1] <- binspwc.simul$pval

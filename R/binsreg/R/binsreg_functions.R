@@ -188,10 +188,18 @@ binsreg.rq.complete <- function(model) {
 }
 
 # wrapper of vcov and vcovCL
+binsreg.lm.normal.eq.cond.max <- 1e6
+
+binsreg.vcov.fast.lm.supports <- function(type, cluster) {
+  if (is.null(type)) return(TRUE)
+  if (is.null(cluster)) return(type %in% c("const", "HC1", "HC2", "HC3"))
+  return(type == "HC1")
+}
+
 binsreg.vcov.fast.lm <- function(model, type, cluster) {
   if (is.null(model$x)) return(NULL)
-  if (!(type %in% c("const", "HC1"))) return(NULL)
-  if (!is.null(cluster) && type == "const") return(NULL)
+  if (!(type %in% c("const", "HC1", "HC2", "HC3"))) return(NULL)
+  if (!is.null(cluster) && type != "HC1") return(NULL)
 
   X <- model$x
   rank <- model$rank
@@ -202,19 +210,26 @@ binsreg.vcov.fast.lm <- function(model, type, cluster) {
   df.resid <- model$df.residual
   if (is.null(df.resid) || is.na(df.resid) || df.resid <= 0) return(NULL)
 
-  R <- qr.R(model$qr)[seq_len(rank), seq_len(rank), drop=FALSE]
-  XtX.inv.pivot <- tryCatch(chol2inv(R), error=function(e) NULL)
-  if (is.null(XtX.inv.pivot)) return(NULL)
-
-  XtX.inv.full <- matrix(0, ncol(X), ncol(X))
-  pivot <- model$qr$pivot[seq_len(rank)]
-  XtX.inv.full[pivot, pivot] <- XtX.inv.pivot
-  if (rank == ncol(X)) {
-    XtX.inv <- XtX.inv.full
+  if (!is.null(model$binsreg.xtx)) {
+    if (rank != ncol(X)) return(NULL)
+    XtX.inv <- tryCatch(solve(model$binsreg.xtx), error=function(e) NULL)
+    if (is.null(XtX.inv)) return(NULL)
     X.vcov <- X
   } else {
-    XtX.inv <- XtX.inv.full[nonalias, nonalias, drop=FALSE]
-    X.vcov <- X[, nonalias, drop=FALSE]
+    R <- qr.R(model$qr)[seq_len(rank), seq_len(rank), drop=FALSE]
+    XtX.inv.pivot <- tryCatch(chol2inv(R), error=function(e) NULL)
+    if (is.null(XtX.inv.pivot)) return(NULL)
+
+    XtX.inv.full <- matrix(0, ncol(X), ncol(X))
+    pivot <- model$qr$pivot[seq_len(rank)]
+    XtX.inv.full[pivot, pivot] <- XtX.inv.pivot
+    if (rank == ncol(X)) {
+      XtX.inv <- XtX.inv.full
+      X.vcov <- X
+    } else {
+      XtX.inv <- XtX.inv.full[nonalias, nonalias, drop=FALSE]
+      X.vcov <- X[, nonalias, drop=FALSE]
+    }
   }
 
   resid <- as.vector(model$residuals)
@@ -225,7 +240,15 @@ binsreg.vcov.fast.lm <- function(model, type, cluster) {
   }
 
   if (is.null(cluster)) {
-    scale <- weights^2 * resid^2 * length(resid) / df.resid
+    scale <- weights^2 * resid^2
+    if (type == "HC1") {
+      scale <- scale * length(resid) / df.resid
+    } else if (type %in% c("HC2", "HC3")) {
+      leverage <- weights * rowSums((X.vcov %*% XtX.inv) * X.vcov)
+      leverage <- pmin(leverage, 1 - .Machine$double.eps)
+      scale <- scale / (1 - leverage)
+      if (type == "HC3") scale <- scale / (1 - leverage)
+    }
     return(XtX.inv %*% crossprod(X.vcov, X.vcov * scale) %*% XtX.inv)
   }
 
@@ -259,7 +282,48 @@ binsreg.vcov <- function(model, type, cluster, is.qreg=FALSE, ...) {
 }
 
 # faster internal lm/glm fitters for already-built numeric design matrices
-binsreg.fit.lm <- function(y, P, weights=NULL) {
+binsreg.fit.lm <- function(y, P, weights=NULL, vcov.type=NULL, cluster=NULL) {
+  if (binsreg.vcov.fast.lm.supports(vcov.type, cluster)) {
+    y.vec <- as.vector(y)
+    n <- length(y.vec)
+    k <- ncol(P)
+    if (n >= k && k > 0L) {
+      if (is.null(weights)) {
+        fit.x <- P
+        fit.y <- y.vec
+      } else {
+        sqrt.weights <- sqrt(weights)
+        fit.x <- P * sqrt.weights
+        fit.y <- y.vec * sqrt.weights
+      }
+      XtX <- crossprod(fit.x)
+      cond <- tryCatch(kappa(XtX, exact=TRUE), error=function(e) Inf)
+      if (is.finite(cond) && cond <= binsreg.lm.normal.eq.cond.max) {
+        beta <- tryCatch(solve(XtX, crossprod(fit.x, fit.y)), error=function(e) NULL)
+        if (!is.null(beta)) {
+          beta <- as.vector(beta)
+          names(beta) <- colnames(P)
+          fitted <- as.vector(P %*% beta)
+          model <- list(
+            coefficients = beta,
+            residuals = y.vec - fitted,
+            fitted.values = fitted,
+            rank = k,
+            df.residual = n - k,
+            x = P,
+            y = y.vec,
+            binsreg.xtx = XtX
+          )
+          if (!is.null(weights)) model$weights <- weights
+          model$terms <- terms(y ~ -1 + P)
+          model$call <- match.call()
+          class(model) <- "lm"
+          return(model)
+        }
+      }
+    }
+  }
+
   if (is.null(weights)) {
     model <- lm.fit(x=P, y=y)
   } else {
@@ -700,7 +764,7 @@ genV <- function(y, x, w, p, s, deriv, knot, vce, cluster=NULL, weights=NULL,
      basis <- B
   }
   P     <- binsreg.cbind(B, w)
-  model  <- binsreg.fit.lm(y, P, weights=weights)
+  model  <- binsreg.fit.lm(y, P, weights=weights, vcov.type=vce, cluster=cluster)
   pos <- !is.na(model$coeff[1:k])
   k.new <- sum(pos)
   vcv <- binsreg.vcov(model, type=vce, cluster=cluster)[1:k.new, 1:k.new]
