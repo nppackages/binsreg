@@ -633,6 +633,14 @@ binsreg.pval <- function(num, denom, rep, tstat=NULL, side=NULL, alpha, lp=Inf) 
   if (!is.null(tstat)) pval <- numeric(nrow(tstat))
   cval <- NA
   k <- ncol(num)
+  need.max <- !is.null(side) && side == "left"
+  need.min <- !is.null(side) && side == "right"
+  need.abs <- !is.null(side) && side == "two"
+  if (!is.null(tstat)) {
+    need.max <- need.max || any(tstat[, 2] == 1)
+    need.min <- need.min || any(tstat[, 2] == 2)
+    need.abs <- need.abs || any(tstat[, 2] == 3)
+  }
 
   chunk.size <- min(rep, max(1L, floor(5e6 / max(1L, nrow(num)))))
   start <- 1L
@@ -641,12 +649,14 @@ binsreg.pval <- function(num, denom, rep, tstat=NULL, side=NULL, alpha, lp=Inf) 
     eps <- matrix(rnorm(k * chunk, 0, 1), nrow = k)
     tx <- (num %*% eps) / denom
 
-    max.tx <- matrixStats::colMaxs(tx)
-    min.tx <- matrixStats::colMins(tx)
-    abs.tx <- if (is.infinite(lp)) {
-      matrixStats::colMaxs(abs(tx))
-    } else {
-      colMeans(abs(tx)^lp)^(1/lp)
+    if (need.max) max.tx <- matrixStats::colMaxs(tx)
+    if (need.min) min.tx <- matrixStats::colMins(tx)
+    if (need.abs) {
+      abs.tx <- if (is.infinite(lp)) {
+        matrixStats::colMaxs(abs(tx))
+      } else {
+        colMeans(abs(tx)^lp)^(1/lp)
+      }
     }
 
     if (!is.null(side)) {
@@ -692,6 +702,9 @@ binspwc.pval <- function(nummat1, nummat2, denom1, denom2, rep, tstat=NULL, test
   tvec <- numeric(rep)
   k1 <- ncol(nummat1); k2 <- ncol(nummat2)
   denom <- sqrt(denom1^2+denom2^2)
+  need.max <- testtype == "left"
+  need.min <- testtype == "right"
+  need.test.abs <- !(need.max || need.min)
 
   chunk.size <- min(rep, max(1L, floor(5e6 / max(1L, nrow(nummat1)))))
   start <- 1L
@@ -702,12 +715,16 @@ binspwc.pval <- function(nummat1, nummat2, denom1, denom2, rep, tstat=NULL, test
     eps2 <- eps[k1 + seq_len(k2), , drop=F]
     tx <- (nummat1 %*% eps1 - nummat2 %*% eps2) / denom
 
-    max.tx <- matrixStats::colMaxs(tx)
-    min.tx <- matrixStats::colMins(tx)
-    abs.tx <- if (is.infinite(lp)) {
-      matrixStats::colMaxs(abs(tx))
-    } else {
-      colMeans(abs(tx)^lp)^(1/lp)
+    if (need.max) max.tx <- matrixStats::colMaxs(tx)
+    if (need.min) min.tx <- matrixStats::colMins(tx)
+    abs.tx.matrix <- abs(tx)
+    abs.cb <- matrixStats::colMaxs(abs.tx.matrix)
+    if (need.test.abs) {
+      abs.tx <- if (is.infinite(lp)) {
+        abs.cb
+      } else {
+        colMeans(abs.tx.matrix^lp)^(1/lp)
+      }
     }
 
     if (testtype == "left") {
@@ -719,7 +736,7 @@ binspwc.pval <- function(nummat1, nummat2, denom1, denom2, rep, tstat=NULL, test
     }
 
     idx <- start:(start + chunk - 1L)
-    tvec[idx] <- matrixStats::colMaxs(abs(tx))
+    tvec[idx] <- abs.cb
     start <- start + chunk
   }
   pval <- pval / rep
