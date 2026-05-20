@@ -69,7 +69,10 @@ binsreg.spdes <- function(eval, p, s, knot, deriv, pos=NULL) {
 
   if (p == 0 && s == 0) {
     P <- matrix(0, n, k-1L)
-    if (deriv == 0 && n > 0) P[cbind(seq_len(n), pos)] <- 1
+    if (deriv == 0 && n > 0) {
+      idx <- seq_len(n)
+      P[idx + (pos - 1L)*n] <- 1
+    }
     return(P)
   }
 
@@ -80,13 +83,16 @@ binsreg.spdes <- function(eval, p, s, knot, deriv, pos=NULL) {
       h <- knot[pos+1L] - knot[pos]
       w <- (eval - knot[pos]) / h
       if (deriv == 0) {
-        local <- cbind(1-w, w)
+        left <- 1-w
+        right <- w
       } else {
-        local <- cbind(-1/h, 1/h)
+        left <- -1/h
+        right <- 1/h
       }
       col.base <- if (s == 1) pos else 2L*pos - 1L
-      P[cbind(seq_len(n), col.base)] <- local[, 1L]
-      P[cbind(seq_len(n), col.base+1L)] <- local[, 2L]
+      idx <- seq_len(n)
+      P[idx + (col.base - 1L)*n] <- left
+      P[idx + col.base*n] <- right
     }
     return(P)
   }
