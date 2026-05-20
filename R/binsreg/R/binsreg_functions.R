@@ -825,12 +825,11 @@ binsregselect.rot <- function(y, x, w, p, s, deriv, es=F, eN, norotnorm=F, qrot=
 
   x.p <- matrix(NA, N, p+qrot+1)
   for (j in 1:(p+qrot+1))  x.p[,j] <- x^(j-1)
-  P <- binsreg.cbind(x.p, w)
-  est <- binsreg.fit.lm(y, P, weights=weights)
+  est <- binsreg.fit.lm.design(y, x.p, w, weights=weights)
   beta <- est$coefficients; est <- est$fitted.values
 
   # variance constant
-  s2 <- binsreg.fit.lm(y^2, P, weights=weights)$fitted.values - est^2
+  s2 <- binsreg.fit.lm.design(y^2, x.p, w, weights=weights)$fitted.values - est^2
   if (norotnorm) {
     fz <- 1
   } else {
@@ -898,8 +897,7 @@ genV <- function(y, x, w, p, s, deriv, knot, vce, cluster=NULL, weights=NULL,
   } else {
      basis <- B
   }
-  P     <- binsreg.cbind(B, w)
-  model  <- binsreg.fit.lm(y, P, weights=weights, vcov.type=vce, cluster=cluster)
+  model  <- binsreg.fit.lm.design(y, B, w, weights=weights, vcov.type=vce, cluster=cluster)
   pos <- !is.na(model$coeff[1:k])
   k.new <- sum(pos)
   vcv <- binsreg.vcov(model, type=vce, cluster=cluster)[1:k.new, 1:k.new]
@@ -925,8 +923,7 @@ genB <- function(y, x, w, p, s, deriv, knot, weights=NULL,
     B <- basis.smooth
   }
   k    <- ncol(B)
-  P    <- binsreg.cbind(B, w)
-  beta <- binsreg.fit.lm(y, P, weights=weights)$coefficients[1:k]
+  beta <- binsreg.fit.lm.design(y, B, w, weights=weights)$coefficients[1:k]
   pos  <- !is.na(beta)
   if (is.null(basis.smooth.deriv)) {
     basis <- binsreg.spdes(eval=x, p=p+1, s=s+1, knot=knot, deriv=p+1, pos=bin.pos)
