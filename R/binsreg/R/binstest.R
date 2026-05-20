@@ -786,13 +786,15 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
   if (ntestshape != 0 & !tsha.fewobs) {
     B    <- binsreg.spdes(eval=x, p=tsha.p, s=tsha.s, knot=knot, deriv=0)
     k    <- ncol(B)
-    P    <- binsreg.cbind(B, w)
     if (estmethod=="reg") {
-      model <- binsreg.fit.lm(y, P, weights=weights, vcov.type=vce, cluster=cluster)
-    } else if (estmethod=="qreg") {
-      model <- binsreg.fit.rq(y, P, tau=quantile, weights=weights, qregopt=estmethodopt)
-    } else if (estmethod=="glm") {
-      model <- do.call(binsreg.fit.glm, c(list(y=y, P=P, family=family, weights=weights), estmethodopt))
+      model <- binsreg.fit.lm.design(y, B, w, weights=weights, vcov.type=vce, cluster=cluster)
+    } else {
+      P    <- binsreg.cbind(B, w)
+      if (estmethod=="qreg") {
+        model <- binsreg.fit.rq(y, P, tau=quantile, weights=weights, qregopt=estmethodopt)
+      } else if (estmethod=="glm") {
+        model <- do.call(binsreg.fit.glm, c(list(y=y, P=P, family=family, weights=weights), estmethodopt))
+      }
     }
     beta <- model$coeff[1:k]
     basis.sha <- binsreg.spdes(eval=x.grid, p=tsha.p, s=tsha.s, knot=knot, deriv=deriv)
@@ -916,13 +918,15 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       exist.mod <- F
       B    <- binsreg.spdes(eval=x, p=tmod.p, s=tmod.s, knot=knot, deriv=0)
       k    <- ncol(B)
-      P    <- binsreg.cbind(B, w)
       if (estmethod=="reg") {
-        model  <- binsreg.fit.lm(y, P, weights=weights, vcov.type=vce, cluster=cluster)
-      } else if (estmethod=="qreg") {
-        model  <- binsreg.fit.rq(y, P, tau=quantile, weights=weights, qregopt=estmethodopt)
+        model  <- binsreg.fit.lm.design(y, B, w, weights=weights, vcov.type=vce, cluster=cluster)
       } else {
-        model  <- do.call(binsreg.fit.glm, c(list(y=y, P=P, family=family, weights=weights), estmethodopt))
+        P    <- binsreg.cbind(B, w)
+        if (estmethod=="qreg") {
+          model  <- binsreg.fit.rq(y, P, tau=quantile, weights=weights, qregopt=estmethodopt)
+        } else {
+          model  <- do.call(binsreg.fit.glm, c(list(y=y, P=P, family=family, weights=weights), estmethodopt))
+        }
       }
 
       beta <- model$coeff[1:k]
@@ -983,13 +987,15 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       # Run a poly reg
       x.p <- matrix(NA, N, testmodelpoly+1)
       for (j in 1:(testmodelpoly+1))  x.p[,j] <- x^(j-1)
-      P.poly <- binsreg.cbind(x.p, w)
       if (estmethod=="reg") {
-        model.poly <- binsreg.fit.lm(y, P.poly, weights=weights, vcov.type=vce, cluster=cluster)
-      } else if (estmethod=="qreg") {
-        model.poly <- binsreg.fit.rq(y, P.poly, tau=quantile, weights=weights, qregopt=estmethodopt, design.name="P.poly")
-      } else if (estmethod=="glm") {
-        model.poly <- do.call(binsreg.fit.glm, c(list(y=y, P=P.poly, family=family, weights=weights), estmethodopt))
+        model.poly <- binsreg.fit.lm.design(y, x.p, w, weights=weights, vcov.type=vce, cluster=cluster)
+      } else {
+        P.poly <- binsreg.cbind(x.p, w)
+        if (estmethod=="qreg") {
+          model.poly <- binsreg.fit.rq(y, P.poly, tau=quantile, weights=weights, qregopt=estmethodopt, design.name="P.poly")
+        } else if (estmethod=="glm") {
+          model.poly <- do.call(binsreg.fit.glm, c(list(y=y, P=P.poly, family=family, weights=weights), estmethodopt))
+        }
       }
       beta.poly <- model.poly$coefficients
       poly.fit <- 0

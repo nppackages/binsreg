@@ -904,13 +904,15 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
     #######################################
     B    <- binsreg.spdes(eval=x.sub, p=tsha.p, s=tsha.s, knot=knot, deriv=0)
     k    <- ncol(B)
-    P    <- binsreg.cbind(B, w.sub)
     if (estmethod=="reg") {
-      model <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
-    } else if (estmethod=="qreg") {
-      model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
-    } else if (estmethod=="glm") {
-      model <- do.call(binsreg.fit.glm, c(list(y=y.sub, P=P, family=family, weights=weights.sub), estmethodopt))
+      model <- binsreg.fit.lm.design(y.sub, B, w.sub, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
+    } else {
+      P    <- binsreg.cbind(B, w.sub)
+      if (estmethod=="qreg") {
+        model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
+      } else if (estmethod=="glm") {
+        model <- do.call(binsreg.fit.glm, c(list(y=y.sub, P=P, family=family, weights=weights.sub), estmethodopt))
+      }
     }
     beta <- model$coeff[1:k]
     basis.sha <- binsreg.spdes(eval=uni_grid, p=tsha.p, s=tsha.s, knot=knot, deriv=deriv)
@@ -967,13 +969,15 @@ binspwc <- function(y, x, w=NULL,data=NULL, estmethod="reg", family=gaussian(),
         # since p and s for point estimates are different, run regression again
         B    <- binsreg.spdes(eval=x.sub, p=est.p, s=est.s, knot=knot, deriv=0)
         k    <- ncol(B)
-        P    <- binsreg.cbind(B, w.sub)
         if (estmethod=="reg") {
-          model <- binsreg.fit.lm(y.sub, P, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
-        } else if (estmethod=="qreg") {
-          model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
-        } else if (estmethod=="glm") {
-          model <- do.call(binsreg.fit.glm, c(list(y=y.sub, P=P, family=family, weights=weights.sub), estmethodopt))
+          model <- binsreg.fit.lm.design(y.sub, B, w.sub, weights=weights.sub, vcov.type=vce, cluster=cluster.sub)
+        } else {
+          P    <- binsreg.cbind(B, w.sub)
+          if (estmethod=="qreg") {
+            model <- binsreg.fit.rq(y.sub, P, tau=quantile, weights=weights.sub, qregopt=estmethodopt)
+          } else if (estmethod=="glm") {
+            model <- do.call(binsreg.fit.glm, c(list(y=y.sub, P=P, family=family, weights=weights.sub), estmethodopt))
+          }
         }
       } else {
         est.p <- tsha.p; est.s <- tsha.s
