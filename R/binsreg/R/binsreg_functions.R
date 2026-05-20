@@ -249,7 +249,8 @@ binsreg.vcov.fast.lm <- function(model, type, cluster) {
       scale <- scale / (1 - leverage)
       if (type == "HC3") scale <- scale / (1 - leverage)
     }
-    return(XtX.inv %*% crossprod(X.vcov, X.vcov * scale) %*% XtX.inv)
+    X.scaled <- X.vcov * sqrt(scale)
+    return(XtX.inv %*% crossprod(X.scaled) %*% XtX.inv)
   }
 
   cluster <- as.data.frame(cluster)
