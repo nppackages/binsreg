@@ -1,8 +1,8 @@
 Package: binsreg
 Type: Package
 Title: Binscatter Estimation and Inference
-Date: 2026-05-14
-Version: 2.0
+Date: 2026-05-20
+Version: 2.1
 Authors@R: c(
     person("Matias D.", "Cattaneo", email = "matias.d.cattaneo@gmail.com", role = c("aut", "cre")),
     person("Richard K.", "Crump", email = "richard.crump@gmail.com", role = "aut"),

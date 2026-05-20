@@ -2,6 +2,15 @@
 
 Notable project changes are listed from newest to oldest.
 
+## 2026-05-20 - Release Candidate: Precision Defaults And OLS Performance
+
+- Bumped release metadata for this checkpoint: R `2.1`, Python `3.1.0`, and Stata command/help headers dated `20-MAY-2026` with distribution date `20260520`.
+- Kept Stata `precision(double)` as the default so Stata uses double floating precision for internally generated variables whenever appropriate, better matching R and Python's double-precision numerical path.
+- Backwards compatibility reference: Stata users who need to reproduce the legacy pre-double-precision numerical path should add `precision(single)` explicitly; this preserves the old Stata behavior that stored internally generated variables as `float`.
+- Completed the OLS-focused speed checkpoint across R and Python for `binsreg`, `binsregselect`, `binstest`, and `binspwc`, including fast least-squares/covariance paths, covariance reuse, lower-allocation p-value simulation, and R spline-basis fast paths.
+- Benchmarked a pure-R local/sparse basis prototype and left it out because dense BLAS remained faster; future sparse-basis gains should use compiled helpers rather than R-level bookkeeping.
+- Revalidated the modernization round with local package checks, replication smoke checks, Stata package checks, and cross-language numerical/speed snapshots.
+
 ## 2026-05-19 - Numerical Precision And Cross-Language Alignment
 
 - Added Stata `precision(single)` and `precision(double)` options across the public Stata commands and internal helpers.

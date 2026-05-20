@@ -1,4 +1,4 @@
-*! version 2.0 14-MAY-2026
+*! version 2.1 20-MAY-2026
 
 capture program drop binslogit
 program define binslogit, eclass
