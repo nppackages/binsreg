@@ -420,6 +420,24 @@ program define binsregselect, eclass
 		}
 
 		if ("`rot_fewobs'"!="T"&`J_rot_reg'==.) {
+			local fast_rot_done ""
+			if ("`precision'"=="double"&"`absorb'"==""&"`wt'"==""&`deriv'==0) {
+				tempname fastrot wmatrot
+				if ("`w_var'"!="") mata: `wmatrot'=st_data(., tokens("`w_var'"))
+				else                mata: `wmatrot'=J(rows(`zvec'),0,.)
+				mata: st_matrix("`fastrot'", binsregselect_rot_fast(st_data(.,"`y_var'"), ///
+					`zvec', `wmatrot', `p', `deriv', `qrot', `eN_sub', "`binspos'", ///
+					"`norotnorm'", `den_alp'))
+				mata: mata drop `wmatrot'
+				if (`fastrot'[1,1]<.) {
+					local J_rot_unreg=`fastrot'[1,1]
+					local imse_b=`fastrot'[1,2]
+					local imse_v=`fastrot'[1,3]
+					local fast_rot_done "T"
+				}
+			}
+
+		if ("`fast_rot_done'"!="T") {
 			* Power series
 			local series_rot ""
 			forvalues i=1/`=`p'+`qrot'' {
@@ -517,6 +535,7 @@ program define binsregselect, eclass
 			local J_rot_unreg=ceil((`imse_b'*2*(`p'+1-`deriv')/               ///
 				(`imse_v'*(1+2*`deriv')))^(1/(2*`p'+2+1))* ///
 				`eN_sub'^(1/(2*`p'+2+1)))
+		}
 			local J_rot_reg=max(`J_rot_unreg', ///
 				  ceil((2*(`p'+1-`deriv')/(1+2*`deriv')*`rot_lb'*`eN_sub')^(1/(2*`p'+2+1))))
 
@@ -613,6 +632,29 @@ program define binsregselect, eclass
 				}
 			}
 
+			local fast_dpi_done ""
+			if ("`precision'"=="double"&"`absorb'"==""&"`wt'"==""&"`clusterON'"==""& ///
+				`deriv'==0&"`vce'"=="vce(robust)") {
+				tempname fastdpi wmat
+				if ("`w_var'"!="") mata: `wmat'=st_data(., tokens("`w_var'"))
+				else                mata: `wmat'=J(rows(`zvec'),0,.)
+				mata: st_matrix("`fastdpi'", binsregselect_dpi_fast(st_data(.,"`y_var'"), ///
+					`zvec', `wmat', `zcatvec', "`kmat'", `p', `s', `deriv', `eN_sub'))
+				mata: mata drop `wmat'
+				if (`fastdpi'[1,1]<.) {
+					local J_dpi=`fastdpi'[1,1]
+					local imse_b=`fastdpi'[1,2]
+					local imse_v=`fastdpi'[1,3]
+					local imse_bsq_dpi=`imse_b'
+					local imse_var_dpi=`imse_v'*`eN_sub'
+
+					mat `mat_imse_bsq_dpi'[`num',1]=`imse_bsq_dpi'
+					mat `mat_imse_var_dpi'[`num',1]=`imse_var_dpi'
+					local fast_dpi_done "T"
+				}
+			}
+
+		if ("`fast_dpi_done'"!="T") {
 			**************************************
 			* Start computation
 			tempvar derivfit derivse biasterm biasterm_v projbias
@@ -754,6 +796,7 @@ program define binsregselect, eclass
 			mat `mat_imse_bsq_dpi'[`num',1]=`imse_bsq_dpi'
 			mat `mat_imse_var_dpi'[`num',1]=`imse_var_dpi'
 
+		}
 		}
 		local J_dpi_uniq=`J_dpi'
 
@@ -1443,6 +1486,134 @@ mata:
         }
       }
     }
+  }
+
+  real rowvector binsregselect_dpi_fast(real vector y, real vector z,
+                                        real matrix W, real vector xcat,
+                                        string scalar knotname,
+                                        real scalar degree, real scalar smooth,
+                                        real scalar deriv, real scalar eN_sub)
+  {
+    real matrix B, Bs, Bsd, X, XtXi, beta, resid, meat, V, Vb, biascoef
+    real vector derivfit, biasterm, projbias, se2
+	real scalar n, nseries, nseries_smooth, k, df, J, imse_b, imse_v, J_dpi
+
+	if (deriv!=0) return((.,.,.))
+	J=rows(st_matrix(knotname))-1
+	if (J<=0) return((.,.,.))
+
+	n=rows(z)
+	nseries_smooth=(degree-smooth+1)*(J-1)+degree+2
+	Bs=binsreg_spdes(z, knotname, xcat, degree+1, 0, smooth+1)
+	if (cols(W)>0) X=(Bs,W)
+	else           X=Bs
+	k=cols(X)
+	if (rows(y)!=n | rows(X)!=n | k==0 | n<=k) return((.,.,.))
+	XtXi=invsym(quadcross(X,X))
+	if (diag0cnt(XtXi)>0) return((.,.,.))
+	beta=XtXi*quadcross(X,y)
+	if (rows(beta)!=k | cols(beta)!=1) return((.,.,.))
+
+	Bsd=binsreg_spdes(z, knotname, xcat, degree+1, degree+1, smooth+1)
+	derivfit=Bsd*beta[|1 \ nseries_smooth|]
+	biasterm=derivfit:*binsregselect_bias_vec(z, xcat, knotname, degree, 0)
+
+	nseries=(degree-smooth+1)*(J-1)+degree+1
+	B=binsreg_spdes(z, knotname, xcat, degree, 0, smooth)
+	XtXi=invsym(quadcross(B,B))
+	if (diag0cnt(XtXi)>0) return((.,.,.))
+	biascoef=XtXi*quadcross(B,biasterm)
+	projbias=B*biascoef
+	imse_b=mean((biasterm-projbias):^2)*J^(2*(degree+1-deriv))
+
+	if (cols(W)>0) X=(B,W)
+	else           X=B
+	k=cols(X)
+	if (rows(X)!=n | k==0 | n<=k) return((.,.,.))
+	XtXi=invsym(quadcross(X,X))
+	if (diag0cnt(XtXi)>0) return((.,.,.))
+	beta=XtXi*quadcross(X,y)
+	if (rows(beta)!=k | cols(beta)!=1) return((.,.,.))
+	resid=y-X*beta
+	df=n-k
+	if (df<=0) return((.,.,.))
+	meat=quadcross(X:*resid, X:*resid)
+	V=(n/df)*XtXi*meat*XtXi
+	Vb=V[|1,1 \ nseries,nseries|]
+	se2=rowsum((B*Vb):*B)
+	imse_v=mean(se2)/(J^(1+2*deriv))
+	if (imse_b<=0 | imse_v<=0) return((.,.,.))
+	J_dpi=ceil((imse_b*2*(degree+1-deriv)/(imse_v*(1+2*deriv)))^(1/(2*degree+3)))
+	return((J_dpi, imse_b, imse_v))
+  }
+
+  real rowvector binsregselect_rot_fast(real vector y, real vector z,
+                                        real matrix W,
+                                        real scalar degree, real scalar deriv,
+                                        real scalar qrot, real scalar eN_sub,
+                                        string scalar binspos,
+                                        string scalar norotnorm,
+                                        real scalar den_alp)
+  {
+    real matrix P, X, XtXi, beta, beta2
+	real vector y2, fit, fit2, s2, fz, muhat
+	real scalar n, k, j, ord, zbar, zsd, cutval, vcons, bcons
+	real scalar imse_v, imse_b, J_rot
+
+	if (deriv!=0) return((.,.,.))
+	n=rows(z)
+	k=degree+qrot
+	if (rows(y)!=n | k<=0 | n<=k+cols(W)+1) return((.,.,.))
+
+	P=J(n,k,1)
+	P[,1]=z
+	if (k>1) {
+		for (j=2; j<=k; j++) P[,j]=P[,j-1]:*z
+	}
+	if (cols(W)>0) X=(P,W,J(n,1,1))
+	else           X=(P,J(n,1,1))
+
+	XtXi=invsym(quadcross(X,X))
+	if (diag0cnt(XtXi)>0) return((.,.,.))
+	beta=XtXi*quadcross(X,y)
+	if (rows(beta)!=cols(X) | cols(beta)!=1) return((.,.,.))
+	fit=X*beta
+
+	y2=y:^2
+	beta2=XtXi*quadcross(X,y2)
+	if (rows(beta2)!=cols(X) | cols(beta2)!=1) return((.,.,.))
+	fit2=X*beta2
+	s2=fit2:-fit:^2
+
+	if (norotnorm=="") {
+		zbar=mean(z)
+		zsd=sqrt(quadcross(z:-zbar,z:-zbar)/(n-1))
+		if (zsd<=0) return((.,.,.))
+		fz=exp(-0.5*((z:-zbar):/zsd):^2):/(sqrt(2*pi())*zsd)
+		cutval=exp(-0.5*(invnormal(den_alp)^2))/(sqrt(2*pi())*zsd)
+		fz=rowmax((fz, J(n,1,cutval)))
+		if (binspos=="ES") s2=s2:/fz
+		else               s2=s2:*(fz:^(2*deriv))
+	}
+
+	vcons=degree+1
+	imse_v=mean(s2)*vcons
+
+	ord=degree+1
+	bcons=1/(2*(ord-deriv)+1)/factorial(ord-deriv)^2/comb(2*(ord-deriv), ord-deriv)^2
+	muhat=J(n,1,0)
+	for (j=degree+1; j<=degree+qrot; j++) {
+		muhat=muhat:+(z:^(j-degree-1))*beta[j]*factorial(j)/factorial(j-degree-1)
+	}
+	muhat=muhat:^2
+	if (norotnorm=="") {
+		if (binspos=="QS") muhat=muhat:/(fz:^(2*ord-2*deriv))
+	}
+	imse_b=mean(muhat)*bcons
+	if (imse_b<=0 | imse_v<=0) return((.,.,.))
+	J_rot=ceil((imse_b*2*(degree+1-deriv)/(imse_v*(1+2*deriv)))^(1/(2*degree+3))* ///
+		eN_sub^(1/(2*degree+3)))
+	return((J_rot, imse_b, imse_v))
   }
 
   // find the minimum

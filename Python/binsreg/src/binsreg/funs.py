@@ -1153,6 +1153,15 @@ def binsreg_fast_logit_fit(y, x, fit_kwargs):
     return fit
 
 
+def binsreg_fast_probit_fit(y, x, fit_kwargs):
+    fit_kwargs = dict(fit_kwargs)
+    fit_kwargs.setdefault("maxiter", 100)
+    fit = sm.Probit(np.asarray(y), np.asarray(x)).fit(disp=0, **fit_kwargs)
+    if not fit.mle_retvals.get("converged", True):
+        raise RuntimeError("Probit fast path did not converge")
+    return fit
+
+
 class binsreg_fast_qreg:
     def __init__(self, params, fittedvalues, cov, q, iterations, sparsity, bandwidth, history):
         self.params = params
@@ -1176,7 +1185,7 @@ def binsreg_solve_qr_step(xtx, xty):
 
 
 def binsreg_qreg_fit(y, x, q=0.5, vcov="robust", kernel="epa", bandwidth="hsheather",
-                     max_iter=1000, p_tol=1e-6, **kwargs):
+                     max_iter=1000, p_tol=1e-6, _inplace_xstar=False, **kwargs):
     if q <= 0 or q >= 1:
         raise Exception("q must be strictly between 0 and 1")
 
@@ -1198,6 +1207,7 @@ def binsreg_qreg_fit(y, x, q=0.5, vcov="robust", kernel="epa", bandwidth="hsheat
     nobs = len(endog)
     n_iter = 0
     xstar = exog
+    xstar_buffer = None
     beta = np.ones(exog.shape[1])
     diff = 10
     cycle = False
@@ -1215,7 +1225,15 @@ def binsreg_qreg_fit(y, x, q=0.5, vcov="robust", kernel="epa", bandwidth="hsheat
         resid[mask] = ((resid[mask] >= 0) * 2 - 1) * 0.000001
         resid = np.where(resid < 0, q * resid, (1 - q) * resid)
         resid = np.abs(resid)
-        xstar = exog / resid[:, np.newaxis]
+        if _inplace_xstar:
+            if xstar_buffer is None:
+                xstar = exog / resid[:, np.newaxis]
+                xstar_buffer = xstar
+            else:
+                np.divide(exog, resid[:, np.newaxis], out=xstar_buffer)
+                xstar = xstar_buffer
+        else:
+            xstar = exog / resid[:, np.newaxis]
         diff = np.max(np.abs(beta - beta0))
         history["params"].append(beta)
 
@@ -1263,7 +1281,7 @@ def binsreg_qreg_fit(y, x, q=0.5, vcov="robust", kernel="epa", bandwidth="hsheat
 
 # Wrapper for statsmodel.api
 def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile = None,
-                cov_type = None, cluster = None, **optmize):
+                cov_type = None, cluster = None, qreg_inplace_xstar = True, **optmize):
 
     if family is None and not is_qreg and cov_type is None and cluster is None and len(optmize)==0:
         return binsreg_lstsq_fit(y, x, weights=weights)
@@ -1284,6 +1302,7 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
     if is_qreg:
         fit_kwargs["q"] = quantile
         fit_kwargs.update(optmize)
+        fit_kwargs["_inplace_xstar"] = qreg_inplace_xstar
         return binsreg_qreg_fit(y, x, **fit_kwargs)
 
     if family is None:
@@ -1313,6 +1332,13 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
                 fit_kwargs["cov_kwds"] = {"groups": cluster_fast}
             try:
                 return binsreg_fast_logit_fit(y, x, fit_kwargs)
+            except Exception:
+                pass
+        if family_name == "Binomial" and link_name == "Probit" and cluster_ok and cov_ok:
+            if cluster_fast is not None:
+                fit_kwargs["cov_kwds"] = {"groups": cluster_fast}
+            try:
+                return binsreg_fast_probit_fit(y, x, fit_kwargs)
             except Exception:
                 pass
     return sm.GLM(y, x, **model_kwargs).fit(**fit_kwargs)
