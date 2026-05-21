@@ -2,6 +2,10 @@
 
 Notable project changes are listed from newest to oldest.
 
+## 2026-05-21 - Nonlinear Performance Follow-up
+
+- Reduced Python quantile-regression fitting overhead by removing an unused per-iteration internal history statistic, preserving fitted coefficients and covariance calculations while lowering memory and arithmetic work in large `binsqreg` fits.
+
 ## 2026-05-20 - Release Candidate: Precision Defaults And OLS Performance
 
 - Bumped release metadata for this checkpoint: R `2.1`, Python `3.1.0`, and Stata command/help headers dated `20-MAY-2026` with distribution date `20260520`.

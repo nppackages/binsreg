@@ -1202,7 +1202,6 @@ def binsreg_qreg_fit(y, x, q=0.5, vcov="robust", kernel="epa", bandwidth="hsheat
         xstar = exog / resid[:, np.newaxis]
         diff = np.max(np.abs(beta - beta0))
         history["params"].append(beta)
-        history["mse"].append(np.mean(resid * resid))
 
         if (n_iter >= 300) and (n_iter % 100 == 0):
             for ii in range(2, 10):
