@@ -1458,6 +1458,8 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             vcv_ci = model_ci.cov_params()
             ci_fit, ci_se = binsreg_pred(X=basis, model=model_ci, type="all", deriv=deriv,
                                          wvec=eval_w, avar=asyvar, vcv=vcv_ci)
+            ci_pred_fit = ci_fit
+            ci_pred_se = ci_se
             
             if not nolink:
                 basis_0 = binsreg_spdes(x=ci_x, p=ci_p, s=ci_s, knot=knot, deriv=0)
@@ -1538,6 +1540,8 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 vcv_cb = model_cb.cov_params()
             cb_fit, cb_se = binsreg_pred(X=basis, model=model_cb, type="all", deriv=deriv,
                                          wvec=eval_w, avar=asyvar, vcv=vcv_cb)
+            cb_pred_fit = cb_fit
+            cb_pred_se = cb_se
             
             if not nolink:
                 basis_0 = binsreg_spdes(x=cb_x, p=cb_p, s=cb_s, knot=knot, deriv=0)

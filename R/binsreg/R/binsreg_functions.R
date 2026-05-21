@@ -203,6 +203,7 @@ binsreg.vcov.fast.lm.supports <- function(type, cluster) {
 }
 
 binsreg.vcov.fast.lm <- function(model, type, cluster) {
+  if (inherits(model, "glm")) return(NULL)
   if (is.null(model$x)) return(NULL)
   if (!(type %in% c("const", "HC1", "HC2", "HC3"))) return(NULL)
   if (!is.null(cluster) && type != "HC1") return(NULL)
