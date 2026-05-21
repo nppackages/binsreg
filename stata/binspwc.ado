@@ -80,6 +80,7 @@ program define binspwc, eclass
 	 local vcetemp: subinstr local vce "vce(" "", all
      local vcetemp: subinstr local vcetemp ")" "", all
 	 tokenize "`vcetemp'", parse(", ")
+	 local vce_type "`1'"
 	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| ///
 		 "`1'"=="cluste"|"`1'"=="cluster") {
 		if ("`3'"==""|"`3'"==",") local clusterON "T"           /* Mark cluster is specified */
@@ -110,6 +111,10 @@ program define binspwc, eclass
 	 }
 
 	 if ("`asyvar'"=="") local asyvar "off"
+
+	 local fastregON "F"
+	 if ("`estmethod'"=="reg"&"`precision'"=="double"&"`weight'"==""&"`clusterON'"==""&"`boot'"=="off"& ///
+	     `"`estmethodopt'"'==`""'&"`absorb'"==""&inlist("`vce_type'","robust","r")) local fastregON "T"
 
 
 	 * vce for bin selection
@@ -464,8 +469,12 @@ program define binspwc, eclass
 
 
 	 * Temp name in MATA
-	 tempname xvec yvec byvec cluvec binedges
-	 mata: `xvec'=st_data(., "`x_var'"); `yvec'=st_data(.,"`y_var'"); `byvec'=.; `cluvec'=.
+	 tempname xvec yvec wmat byvec cluvec binedges
+	 mata: `xvec'=st_data(., "`x_var'"); `yvec'=J(rows(`xvec'),1,.); `wmat'=J(0,0,.); `byvec'=.; `cluvec'=.
+	 if ("`fastregON'"=="T") {
+		mata: `yvec'=st_data(.,"`y_var'"); `wmat'=J(rows(`xvec'),0,.)
+		if (`nwvar'>0) mata: `wmat'=st_data(., tokens("`w_var'"))
+	 }
 
 	 *******************************************************
 	 *** Mass point counting *******************************
@@ -951,37 +960,48 @@ program define binspwc, eclass
 	    * Regression
 	    local nseries=(`tsha_p'-`tsha_s'+1)*(`nbins'-1)+`tsha_p'+1
 	    local tsha_series ""
-	    forvalues i=1/`nseries' {
-	       tempvar sp`i'
-	       local tsha_series `tsha_series' `sp`i''
-		   qui gen `precision_type' `sp`i''=. in 1
-	    }
-
 		tempname tsha_b tsha_V
-		mata: binsreg_st_spdes(`xsub', "`tsha_series'", "`kmat'", `xcatsub', `tsha_p', 0, `tsha_s', "`bycond'")
-	    if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
+		tempname fastreg_ok tsha_fitbasis wsub
+		scalar `fastreg_ok'=0
+		if ("`fastregON'"=="T") {
+		   mata: `tsha_fitbasis'=binsreg_spdes(`xsub', "`kmat'", `xcatsub', `tsha_p', 0, `tsha_s')
+		   mata: `wsub'=J(rows(`ysub'),0,.)
+		   if (`nwvar'>0) mata: `wsub'=select(`wmat', `byindex')
+		   mata: st_numscalar("`fastreg_ok'", binsreg_fast_reg(`tsha_fitbasis', `ysub', `wsub', "`tsha_b'", "`tsha_V'", "robust"))
+		   mata: mata drop `tsha_fitbasis' `wsub'
 		}
-		else if ("`estmethod'"=="qreg") {
-		   if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
-		   else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
-		}
-		else {
-		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
-		}
+		if (`fastreg_ok'==0) {
+	       forvalues i=1/`nseries' {
+	          tempvar sp`i'
+	          local tsha_series `tsha_series' `sp`i''
+		      qui gen `precision_type' `sp`i''=. in 1
+	       }
 
-	    * store results
-	    if (_rc==0) {
-		    matrix `tsha_b'=e(b)
-		    matrix `tsha_V'=e(V)
-			if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
-			else                                                mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries', "T")
-			matrix `tsha_b'=`tsha_b''
-	    }
-	    else {
-	        error  _rc
-	   	    exit _rc
-        }
+		   mata: binsreg_st_spdes(`xsub', "`tsha_series'", "`kmat'", `xcatsub', `tsha_p', 0, `tsha_s', "`bycond'")
+	       if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
+		      capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
+		   }
+		   else if ("`estmethod'"=="qreg") {
+		      if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
+		      else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
+		   }
+		   else {
+		      capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
+		   }
+
+	       * store results
+	       if (_rc==0) {
+		       matrix `tsha_b'=e(b)
+		       matrix `tsha_V'=e(V)
+			   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
+			   else                                                mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries', "T")
+			   matrix `tsha_b'=`tsha_b''
+	       }
+	       else {
+	           error  _rc
+	           exit _rc
+           }
+		}
 
 		* Predict
 		mata: `uni_grid_bin'`counter'=binspwc_locate(`uni_grid', st_matrix("`kmat'"))
@@ -1095,7 +1115,7 @@ program define binspwc, eclass
 		   }
 		}
 
-		drop `tsha_series'
+		if ("`tsha_series'"!="") drop `tsha_series'
 
 	    local ++counter
 
@@ -1105,7 +1125,7 @@ program define binspwc, eclass
 
 	 * drop objects in MATA
 	 mata: mata drop `Xm' `uni_grid' `uni_basis' `tstat' `pmat' `xsub' `ysub' `byindex' `xcatsub' ///
-	                 `xvec' `yvec' `byvec' `cluvec' `Xm0' `fit' `fit0' `se' `vcov' `wvec' `wvec0'
+	                 `xvec' `yvec' `wmat' `byvec' `cluvec' `Xm0' `fit' `fit0' `se' `vcov' `wvec' `wvec0'
 
 	 mata: mata drop `uni_grid_bin'* `num'* `denom'* `nummat'* `se'*
 

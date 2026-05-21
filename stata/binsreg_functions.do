@@ -308,6 +308,47 @@ version 13
   mata mosave binsreg_pred(), replace
 
 
+  // Fast unweighted OLS fit for small dense systems.
+  real scalar binsreg_fast_reg(real matrix B, real vector y, real matrix W, ///
+                               string scalar betaname, string scalar covname, ///
+                               string scalar vcetype)
+  {
+    real matrix X, XtX, XtXi, beta, resid, V, meat
+	real scalar n, k, df
+
+	if (cols(W)>0) X=(B,W)
+	else           X=B
+	n=rows(X)
+	k=cols(X)
+	if (rows(y)!=n | k==0 | n<=k) return(0)
+
+	XtX=quadcross(X,X)
+	XtXi=invsym(XtX)
+	if (diag0cnt(XtXi)>0) return(0)
+	beta=XtXi*quadcross(X,y)
+	if (rows(beta)!=k | cols(beta)!=1) return(0)
+	resid=y-X*beta
+	df=n-k
+	if (df<=0) return(0)
+
+	if (vcetype=="robust") {
+	    meat=quadcross(X:*resid, X:*resid)
+		V=(n/df)*XtXi*meat*XtXi
+	}
+	else if (vcetype=="ols") {
+	    V=(sum(resid:^2)/df)*XtXi
+	}
+	else {
+	    return(0)
+	}
+
+	st_matrix(betaname, beta)
+	st_matrix(covname, V)
+	return(1)
+  }
+  mata mosave binsreg_fast_reg(), replace
+
+
   // Simulation-based pval and critical value
   void binsreg_pval(real matrix X, real vector se, ///
                     string scalar covname, string scalar mtest, ///
@@ -550,4 +591,3 @@ version 13
    mata mosave binsreg_cquantile(), replace
 
 end
-

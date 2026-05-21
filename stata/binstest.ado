@@ -94,6 +94,7 @@ program define binstest, eclass
 	 local vcetemp: subinstr local vce "vce(" "", all
      local vcetemp: subinstr local vcetemp ")" "", all
 	 tokenize "`vcetemp'", parse(", ")
+	 local vce_type "`1'"
 	 if ("`1'"=="boot" | "`1'"=="bootstrap") {
 		local boot "on"
 		local repstemp `3'
@@ -119,6 +120,10 @@ program define binstest, eclass
 	 }
 
 	 if ("`asyvar'"=="") local asyvar "off"
+
+	 local fastregON "F"
+	 if ("`estmethod'"=="reg"&"`precision'"=="double"&"`weight'"==""&"`clusterON'"==""&"`boot'"=="off"& ///
+	     `"`estmethodopt'"'==`""'&"`absorb'"==""&inlist("`vce_type'","robust","r")) local fastregON "T"
 
 	 if ("`binspos'"=="es") local binspos "ES"
 	 if ("`binspos'"=="qs") local binspos "QS"
@@ -478,8 +483,12 @@ program define binstest, eclass
 	 local xmax=r(max)
 	 local N=r(N)        /* sample size, with wt */
 
-	 tempname xvec binedges
-	 mata: `xvec'=st_data(., "`x_var'")
+	 tempname xvec yvec wmat binedges
+	 mata: `xvec'=st_data(., "`x_var'"); `yvec'=J(rows(`xvec'),1,.); `wmat'=J(0,0,.)
+	 if ("`fastregON'"=="T") {
+		mata: `yvec'=st_data(.,"`y_var'"); `wmat'=J(rows(`xvec'),0,.)
+		if (`nwvar'>0) mata: `wmat'=st_data(., tokens("`w_var'"))
+	 }
 	 * effective sample size
      local Ndist=.
 	 if ("`massadj'"=="T") {
@@ -786,37 +795,46 @@ program define binstest, eclass
 	    * Regression
 	    local nseries=(`tsha_p'-`tsha_s'+1)*(`nbins'-1)+`tsha_p'+1
 	    local tsha_series ""
-	    forvalues i=1/`nseries' {
-	       tempvar sp`i'
-	       local tsha_series `tsha_series' `sp`i''
-		   qui gen `precision_type' `sp`i''=. in 1
-	    }
-
 		tempname tsha_b tsha_V
-		mata: binsreg_st_spdes(`xvec', "`tsha_series'", "`kmat'", `xcatvec', `tsha_p', 0, `tsha_s')
-	    if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-		    capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
+		tempname fastreg_ok tsha_fitbasis
+		scalar `fastreg_ok'=0
+		if ("`fastregON'"=="T") {
+		   mata: `tsha_fitbasis'=binsreg_spdes(`xvec', "`kmat'", `xcatvec', `tsha_p', 0, `tsha_s')
+		   mata: st_numscalar("`fastreg_ok'", binsreg_fast_reg(`tsha_fitbasis', `yvec', `wmat', "`tsha_b'", "`tsha_V'", "robust"))
+		   mata: mata drop `tsha_fitbasis'
 		}
-		else if ("`estmethod'"=="qreg") {
-		   if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
-		   else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
-		}
-		else {
-		   capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
-		}
+		if (`fastreg_ok'==0) {
+	       forvalues i=1/`nseries' {
+	          tempvar sp`i'
+	          local tsha_series `tsha_series' `sp`i''
+		      qui gen `precision_type' `sp`i''=. in 1
+	       }
 
-	    * store results
-	    if (_rc==0) {
-		    matrix `tsha_b'=e(b)
-		    matrix `tsha_V'=e(V)
-			if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
-			else                                                mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries', "T")
-			matrix `tsha_b'=`tsha_b''
-	    }
-	    else {
-	        error  _rc
-	   	    exit _rc
-        }
+		   mata: binsreg_st_spdes(`xvec', "`tsha_series'", "`kmat'", `xcatvec', `tsha_p', 0, `tsha_s')
+	       if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
+		       capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
+		   }
+		   else if ("`estmethod'"=="qreg") {
+		      if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
+		      else                capture qreg `y_var' `tsha_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
+		   }
+		   else {
+		      capture `estcmd' `y_var' `tsha_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
+		   }
+
+	       * store results
+	       if (_rc==0) {
+		       matrix `tsha_b'=e(b)
+		       matrix `tsha_V'=e(V)
+			   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
+			   else                                                mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries', "T")
+			   matrix `tsha_b'=`tsha_b''
+	       }
+	       else {
+	           error  _rc
+	           exit _rc
+           }
+		}
 
 		* Predict
 	    * fitted values & standard errors
@@ -917,7 +935,7 @@ program define binstest, eclass
 		                      ".", 0, "`pval_shape'", ".", "`lp'")
 		}
 
-		drop `tsha_series'
+		if ("`tsha_series'"!="") drop `tsha_series'
 		mata: mata drop `Xm' `uni_basis' `tstat'
 
 		if ("`testshapel'"!="") {
@@ -959,38 +977,47 @@ program define binstest, eclass
 		}
 		else {
 		   local tmod_series ""
-	       forvalues i=1/`nseries' {
-	          tempvar sp`i'
-	          local tmod_series `tmod_series' `sp`i''
-		      qui gen `precision_type' `sp`i''=. in 1
-	       }
+		   tempname fastreg_ok tmod_fitbasis
+		   scalar `fastreg_ok'=0
+		   if ("`fastregON'"=="T") {
+		      mata: `tmod_fitbasis'=binsreg_spdes(`xvec', "`kmat'", `xcatvec', `tmod_p', 0, `tmod_s')
+		      mata: st_numscalar("`fastreg_ok'", binsreg_fast_reg(`tmod_fitbasis', `yvec', `wmat', "`tmod_b'", "`tmod_V'", "robust"))
+		      mata: mata drop `tmod_fitbasis'
+		   }
+		   if (`fastreg_ok'==0) {
+	          forvalues i=1/`nseries' {
+	             tempvar sp`i'
+	             local tmod_series `tmod_series' `sp`i''
+		         qui gen `precision_type' `sp`i''=. in 1
+	          }
 
-		   mata: binsreg_st_spdes(`xvec', "`tmod_series'", "`kmat'", `xcatvec', `tmod_p', 0, `tmod_s')
-		   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-	          capture `estcmd' `y_var' `tmod_series' `w_var' `wt', nocon `vce' `estmethodopt'
-		   }
-		   else if ("`estmethod'"=="qreg") {
-		      if ("`boot'"=="on") capture bsqreg `y_var' `tmod_series' `w_var', quantile(`quantile') reps(`reps')
-			  else                capture qreg `y_var' `tmod_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
-		   }
-		   else {
-		      capture `estcmd' `y_var' `tmod_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
-		   }
+		      mata: binsreg_st_spdes(`xvec', "`tmod_series'", "`kmat'", `xcatvec', `tmod_p', 0, `tmod_s')
+		      if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
+	             capture `estcmd' `y_var' `tmod_series' `w_var' `wt', nocon `vce' `estmethodopt'
+		      }
+		      else if ("`estmethod'"=="qreg") {
+		         if ("`boot'"=="on") capture bsqreg `y_var' `tmod_series' `w_var', quantile(`quantile') reps(`reps')
+			     else                capture qreg `y_var' `tmod_series' `w_var' `wt', quantile(`quantile') `vce' `estmethodopt'
+		      }
+		      else {
+		         capture `estcmd' `y_var' `tmod_series' `w_var' `wt', absorb(`absorb') `reghdfeopt' `vce'
+		      }
 
-	       * store results
-	       if (_rc==0) {
-		       matrix `tmod_b'=e(b)
-		       matrix `tmod_V'=e(V)
-			   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries')
-			   else                                                mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries', "T")
-	           matrix `tmod_b'=`tmod_b''
-		   }
-	       else {
-	           error  _rc
-	   	       exit _rc
-           }
+	          * store results
+	          if (_rc==0) {
+		          matrix `tmod_b'=e(b)
+		          matrix `tmod_V'=e(V)
+			      if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries')
+			      else                                                mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries', "T")
+	              matrix `tmod_b'=`tmod_b''
+		      }
+	          else {
+	              error  _rc
+	              exit _rc
+              }
 
-		   drop `tmod_series'
+		      drop `tmod_series'
+		   }
 		}
 
 
@@ -1056,43 +1083,60 @@ program define binstest, eclass
 	       local poly_series ""
 		   *if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") local ini=0
 		   *else                                                local ini=1
-	       forval i=1/`testpolyp' {
-		      tempvar x_var_`i'
-			  qui gen `precision_type' `x_var_`i''=`x_var'^`i'
-	          local poly_series `poly_series' `x_var_`i''
+		   tempname poly_b poly_adjw
+		   tempname fastreg_ok poly_fitX poly_fitW poly_V
+		   scalar `fastreg_ok'=0
+		   if ("`fastregON'"=="T") {
+		      mata: `poly_fitX'=J(rows(`xvec'),0,.)
+		      forval i=1/`testpolyp' {
+		         mata: `poly_fitX'=(`poly_fitX', `xvec':^`i')
+		      }
+		      mata: `poly_fitW'=(`wmat', J(rows(`xvec'),1,1))
+		      mata: st_numscalar("`fastreg_ok'", binsreg_fast_reg(`poly_fitX', `yvec', `poly_fitW', "`poly_b'", "`poly_V'", "robust"))
+		      mata: mata drop `poly_fitX' `poly_fitW'
 		   }
+		   if (`fastreg_ok'==0) {
+	          forval i=1/`testpolyp' {
+		         tempvar x_var_`i'
+			     qui gen `precision_type' `x_var_`i''=`x_var'^`i'
+	             local poly_series `poly_series' `x_var_`i''
+		      }
 
-		   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-		      capture `estcmd' `y_var' `poly_series' `w_var' `wt', `estmethodopt'
-		   }
-		   else if ("`estmethod'"=="qreg") {
-		      capture qreg `y_var' `poly_series' `w_var' `wt', quantile(`quantile') `estmethodopt'
+		      if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
+		         capture `estcmd' `y_var' `poly_series' `w_var' `wt', `estmethodopt'
+		      }
+		      else if ("`estmethod'"=="qreg") {
+		         capture qreg `y_var' `poly_series' `w_var' `wt', quantile(`quantile') `estmethodopt'
+		      }
+		      else {
+		         capture `estcmd' `y_var' `poly_series' `w_var' `wt', absorb(`absorb') `reghdfeopt'
+		      }
+
+	          * store results
+	          if (_rc==0) {
+	              matrix `poly_b'=e(b)
+	          }
+	          else {
+	              error  _rc
+	              exit _rc
+              }
 		   }
 		   else {
-		      capture `estcmd' `y_var' `poly_series' `w_var' `wt', absorb(`absorb') `reghdfeopt'
+		      matrix `poly_b'=`poly_b''
 		   }
 
-		   * store results
-		   tempname poly_b poly_adjw
-	       if (_rc==0) {
-	 	       matrix `poly_b'=e(b)
-			   if (`nwvar'>0&`deriv'==0) matrix `poly_adjw'=`wval'*`poly_b'[1, `=`testpolyp'+1'..`=`testpolyp'+`nwvar'']'
-               else                      matrix `poly_adjw'=0
+		   if (`nwvar'>0&`deriv'==0) matrix `poly_adjw'=`wval'*`poly_b'[1, `=`testpolyp'+1'..`=`testpolyp'+`nwvar'']'
+           else                      matrix `poly_adjw'=0
 
-			   if (`deriv'==0) {
-			      if (`testpolyp'>0) matrix `poly_b'=(`poly_b'[1, `=`testpolyp'+`nwvar'+1'], `poly_b'[1,1..`testpolyp'])
-				  else               matrix `poly_b'=`poly_b'[1, `=`testpolyp'+`nwvar'+1']
-               }
-			   else {
-			      matrix `poly_b'=`poly_b'[1, `deriv'..`testpolyp']
-			   }
-			   *if ("`estmethod'"=="qreg") matrix `poly_b'=(`poly_b'[1,colsof(`poly_b')], `poly_b'[1, 1..`testpolyp'])
-			   *matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`testpolyp'+1']
-	       }
-	       else {
-	           error  _rc
-	   	       exit _rc
+		   if (`deriv'==0) {
+		      if (`testpolyp'>0) matrix `poly_b'=(`poly_b'[1, `=`testpolyp'+`nwvar'+1'], `poly_b'[1,1..`testpolyp'])
+			  else               matrix `poly_b'=`poly_b'[1, `=`testpolyp'+`nwvar'+1']
            }
+		   else {
+		      matrix `poly_b'=`poly_b'[1, `deriv'..`testpolyp']
+		   }
+		   *if ("`estmethod'"=="qreg") matrix `poly_b'=(`poly_b'[1,colsof(`poly_b')], `poly_b'[1, 1..`testpolyp'])
+		   *matrix `poly_b'=`poly_b'[1, `=`deriv'+1'..`=`testpolyp'+1']
 
 		   * Data for derivative
 		   tempname polym polym0
@@ -1272,7 +1316,7 @@ program define binstest, eclass
 	    local tmod_p=.
 		local tmod_s=.
 	 }
-	 mata: mata drop `uni_grid' `xvec' `xcatvec' `Xm0' `fit' `se' `fit0' `wvec' `wvec0' `vcov'
+	 mata: mata drop `uni_grid' `xvec' `yvec' `wmat' `xcatvec' `Xm0' `fit' `se' `fit0' `wvec' `wvec0' `vcov'
 
 	 ****** End of testing *****************************************
 
@@ -1482,4 +1526,3 @@ program define binstest, eclass
 	 }
 
 end
-
