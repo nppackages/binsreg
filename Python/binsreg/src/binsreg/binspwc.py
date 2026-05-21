@@ -347,13 +347,14 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
             estmethod = "glm"
 
     ### extract family obj using dist and link
+    family = None
     family_str = None
     if estmethod == "glm":
         if link is None: 
             family_str = f'sm.families.{dist}()'
             link = 'default'
         else: 
-            family_str = f'sm.families.{dist}(sm.families.links.{link})'
+            family_str = f'sm.families.{dist}(sm.families.links.{link}())'
         
         family = eval(family_str)
         linkinv = family.link.inverse
@@ -871,7 +872,7 @@ def binspwc(y, x, w=None,data=None, estmethod="reg", dist=None, link=None,
         B = binsreg_spdes(x=x_sub, p=tsha_p, s=tsha_s, knot=knot, deriv=0)
         k = ncol(B)
         P = cbind(B, w_sub)
-        model = binsreg_fit(y=y_sub, x=P, weights=weights_sub, family=family_str, is_qreg=is_qreg,
+        model = binsreg_fit(y=y_sub, x=P, weights=weights_sub, family=family, is_qreg=is_qreg,
                                  quantile = quantile, cov_type = vce_select, cluster = cluster_sub, **optmize)            
         beta = model.params[:k]
         basis_sha = binsreg_spdes(x=uni_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=deriv)

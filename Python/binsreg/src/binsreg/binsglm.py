@@ -1173,9 +1173,9 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
 
             design = binsreg_spdes(x=x_sub, p=0, s=0, deriv=0, knot=xcat_few)
             if w_sub is not None: design = np.column_stack((design,w_sub))
-            model = binsreg_fit(y=y, x=design, family=family_str, weights = weights_sub,
+            model = binsreg_fit(y=y, x=design, family=family, weights = weights_sub,
                                 cov_type = vce, cluster = cluster_sub, **optimize)
-            beta = model.params[:k].values
+            beta = np.asarray(model.params[:k])
             beta[np.isnan(beta)] = 0
             vcv = model.cov_params()
 
@@ -1243,7 +1243,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             B = binsreg_spdes(x=x_sub, p=dots_p, s=dots_s, deriv=0, knot=knot)
             if w_sub is not None: design = np.column_stack((B, w_sub))
             else: design = B
-            model_dots = binsreg_fit(y=y_sub, x=design, family=family_str, weights = weights_sub,
+            model_dots = binsreg_fit(y=y_sub, x=design, family=family, weights = weights_sub,
                                         cov_type = vce, cluster = cluster_sub, **optimize)
             check_drop(model_dots.params, ncol(B))
 
@@ -1286,7 +1286,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 B  = binsreg_spdes(x=x_sub, p=line_p, s=line_s, deriv=0, knot=knot)
                 if w_sub is not None: design = np.column_stack((B, w_sub))
                 else: design = B
-                model_line = binsreg_fit(y=y_sub, x=design, family=family_str, weights=weights_sub,
+                model_line = binsreg_fit(y=y_sub, x=design, family=family, weights=weights_sub,
                                             cov_type = vce, cluster = cluster_sub, **optimize)
                 check_drop(model_line.params, ncol(B))
 
@@ -1327,7 +1327,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             for j in range(polyreg+1):  x_p[:,j] = (x_sub**j).reshape(-1)
             if w_sub is not None: design = np.column_stack((x_p, w_sub))
             else: design = x_p
-            model_poly = binsreg_fit(y=y_sub, x=design, family=family_str, weights=weights_sub,
+            model_poly = binsreg_fit(y=y_sub, x=design, family=family, weights=weights_sub,
                                         cov_type = vce, cluster = cluster_sub, **optimize)
             beta_poly = model_poly.params
             beta_poly[np.isnan(beta_poly)] = 0
@@ -1450,7 +1450,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 B  = binsreg_spdes(x=x_sub, p=ci_p, s=ci_s, deriv=0, knot=knot)
                 if w_sub is not None: design = np.column_stack((B, w_sub))
                 else: design = B
-                model_ci = binsreg_fit(y=y_sub, x=design, family=family_str, weights=weights_sub,
+                model_ci = binsreg_fit(y=y_sub, x=design, family=family, weights=weights_sub,
                                         cov_type = vce, cluster = cluster_sub, **optimize)
                 check_drop(model_ci.params, ncol(B))
             
@@ -1527,7 +1527,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 B = binsreg_spdes(x=x_sub, p=cb_p, s=cb_s, deriv=0, knot=knot)
                 if w_sub is not None: design = np.column_stack((B, w_sub))
                 else: design = B
-                model_cb = binsreg_fit(y=y_sub, x=design, family=family_str, weights=weights_sub,
+                model_cb = binsreg_fit(y=y_sub, x=design, family=family, weights=weights_sub,
                                         cov_type = vce, cluster = cluster_sub, **optimize)
                 check_drop(model_cb.params, ncol(B))
             

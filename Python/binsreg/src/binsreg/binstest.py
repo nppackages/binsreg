@@ -358,12 +358,13 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             estmethod = "glm"
 
     ### extract family obj using dist and link
+    family = None
     family_str = None
     if estmethod == "glm":
         if link is None: 
             family_str = f'sm.families.{dist}()'
         else: 
-            family_str = f'sm.families.{dist}(sm.families.links.{link})'
+            family_str = f'sm.families.{dist}(sm.families.links.{link}())'
         
         family = eval(family_str)
         linkinv = family.link.inverse
@@ -792,7 +793,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
         B = binsreg_spdes(x=x, p=tsha_p, s=tsha_s, knot=knot, deriv=0)
         k = ncol(B)
         P = cbind(B, w)
-        model = binsreg_fit(y=y, x=P, weights=weights, family=family_str, is_qreg=is_qreg,
+        model = binsreg_fit(y=y, x=P, weights=weights, family=family, is_qreg=is_qreg,
                                  quantile = quantile, cov_type = vce_select, cluster = cluster, **optmize)            
         beta = model.params[:k]
         basis_sha = binsreg_spdes(x=x_grid, p=tsha_p, s=tsha_s, knot=knot, deriv=deriv)
@@ -893,7 +894,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             B = binsreg_spdes(x=x, p=tmod_p, s=tmod_s, knot=knot, deriv=0)
             k = ncol(B)
             P = cbind(B, w)
-            model = binsreg_fit(y=y, x=P, weights=weights, family=family_str, is_qreg=is_qreg,
+            model = binsreg_fit(y=y, x=P, weights=weights, family=family, is_qreg=is_qreg,
                                  quantile=quantile,cov_type=vce_select,cluster=cluster, **optmize) 
             beta = model.params[:k]
             pos = np.invert(np.isnan(beta))
@@ -947,7 +948,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             x_p = nanmat(N, testmodelpoly+1)
             for j in range(testmodelpoly+1):  x_p[:,j] =(x**j).reshape(-1)
             P_poly = cbind(x_p, w)
-            model_poly = binsreg_fit(y=y, x=P_poly, weights=weights, family=family_str, is_qreg=is_qreg,
+            model_poly = binsreg_fit(y=y, x=P_poly, weights=weights, family=family, is_qreg=is_qreg,
                                  quantile = quantile, cov_type = vce_select, cluster = cluster, **optmize) 
             beta_poly = model_poly.params
             poly_fit = 0

@@ -1137,6 +1137,22 @@ def binsreg_lstsq_fit(y, x, weights=None, cov_type=None, cluster=None):
     return binsreg_fast_lm(params, fittedvalues, cov_state=cov_state)
 
 
+def binsreg_glm_family_kind(family_obj):
+    return (
+        family_obj.__class__.__name__,
+        getattr(family_obj, "link", None).__class__.__name__,
+    )
+
+
+def binsreg_fast_logit_fit(y, x, fit_kwargs):
+    fit_kwargs = dict(fit_kwargs)
+    fit_kwargs.setdefault("maxiter", 100)
+    fit = sm.Logit(np.asarray(y), np.asarray(x)).fit(disp=0, **fit_kwargs)
+    if not fit.mle_retvals.get("converged", True):
+        raise RuntimeError("Logit fast path did not converge")
+    return fit
+
+
 class binsreg_fast_qreg:
     def __init__(self, params, fittedvalues, cov, q, iterations, sparsity, bandwidth, history):
         self.params = params
@@ -1282,6 +1298,23 @@ def binsreg_fit(y, x, weights = None, family = None, is_qreg = False, quantile =
     if weights is not None:
         model_kwargs["weights"] = weights
     fit_kwargs.update(optmize)
+    if weights is None and len(optmize) == 0:
+        family_name, link_name = binsreg_glm_family_kind(family_obj)
+        cluster_fast = binsreg_oneway_cluster(cluster) if cluster is not None else None
+        cluster_ok = cluster is None or (
+            cluster_fast is not None and len(cluster_fast) == len(y) and not pd.isna(cluster_fast).any()
+        )
+        cov_ok = (
+            cluster is not None
+            or cov_type in ("HC0", "HC1", "HC2", "HC3")
+        )
+        if family_name == "Binomial" and link_name == "Logit" and cluster_ok and cov_ok:
+            if cluster_fast is not None:
+                fit_kwargs["cov_kwds"] = {"groups": cluster_fast}
+            try:
+                return binsreg_fast_logit_fit(y, x, fit_kwargs)
+            except Exception:
+                pass
     return sm.GLM(y, x, **model_kwargs).fit(**fit_kwargs)
 
 # check drop, display warning

@@ -5,6 +5,8 @@ Notable project changes are listed from newest to oldest.
 ## 2026-05-21 - Nonlinear Performance Follow-up
 
 - Reduced Python quantile-regression fitting overhead by removing an unused per-iteration internal history statistic, preserving fitted coefficients and covariance calculations while lowering memory and arithmetic work in large `binsqreg` fits.
+- Added a guarded Python fast path for unweighted binomial-logit generalized linear fits by using `statsmodels`' discrete `Logit` backend when it matches the previous GLM coefficients and robust covariance to machine precision; unsupported cases automatically fall back to the established GLM path.
+- Fixed Python `binstest` and `binspwc` generalized-model family construction for non-default links such as `Binomial`/`Logit` and `Binomial`/`Probit`, and reused already-constructed family objects to avoid repeated parsing in GLM-heavy paths.
 
 ## 2026-05-20 - Release Candidate: Precision Defaults And OLS Performance
 
