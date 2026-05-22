@@ -1,7 +1,7 @@
 ################################################################################
-# Binsreg: illustration file
-# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng
-# Last update: May 14, 2026
+# BINSREG Package
+# Numerical Illustration
+################################################################################
 rm(list=ls(all=TRUE))
 library(binsreg); library(ggplot2)
 

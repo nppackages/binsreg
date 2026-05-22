@@ -17,7 +17,7 @@ Source code: [https://github.com/nppackages/binsreg](https://github.com/nppackag
 
 ## Authors
 
-Matias D. Cattaneo, maintainer (<matias.d.cattaneo@gmail.com>)
+Matias D. Cattaneo (<matias.d.cattaneo@gmail.com>)
 
 Richard K. Crump (<richard.crump@gmail.com>)
 

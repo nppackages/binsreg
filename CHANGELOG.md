@@ -4,6 +4,8 @@ Notable project changes are listed from newest to oldest.
 
 ## 2026-05-21 - Nonlinear Performance Follow-up
 
+- Added a narrow R fast covariance path for internal fixed-dispersion GLM fits with `vce="HC1"` and one-way or no clustering, matching `sandwich::vcovCL()` to numerical precision while reducing `binsglm` logit/probit runtime.
+- Trimmed unused R internal GLM metadata and avoided unnecessary confidence-band fit prediction work when only simulation standard errors are needed, preserving existing numerical output.
 - Reduced Python quantile-regression fitting overhead by removing an unused per-iteration internal history statistic, preserving fitted coefficients and covariance calculations while lowering memory and arithmetic work in large `binsqreg` fits.
 - Added a guarded Python fast path for unweighted binomial-logit generalized linear fits by using `statsmodels`' discrete `Logit` backend when it matches the previous GLM coefficients and robust covariance to machine precision; unsupported cases automatically fall back to the established GLM path.
 - Fixed Python `binstest` and `binspwc` generalized-model family construction for non-default links such as `Binomial`/`Logit` and `Binomial`/`Probit`, and reused already-constructed family objects to avoid repeated parsing in GLM-heavy paths.

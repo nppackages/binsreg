@@ -1,7 +1,6 @@
 ################################################################################
-# Binsreg: illustration file for plot
-# Authors: Matias D. Cattaneo, Richard K. Crump, Max H. Farrell, Yingjie Feng, Ricardo Masini
-# Last update: May 14, 2026
+# BINSREG Package
+# Plot Illustration
 ################################################################################
 
 import pandas as pd
