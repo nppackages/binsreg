@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 20-MAY-2026}{...}
+{* *! version 2.1 22-MAY-2026}{...}
 {viewerjumpto "Syntax" "binspwc##syntax"}{...}
 {viewerjumpto "Description" "binspwc##description"}{...}
 {viewerjumpto "Options" "binspwc##options"}{...}

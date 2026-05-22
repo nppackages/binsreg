@@ -1,4 +1,4 @@
-*! version 2.1 20-MAY-2026
+*! version 2.1 22-MAY-2026
 
 capture program drop binsqreg
 program define binsqreg, eclass

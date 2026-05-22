@@ -2,7 +2,7 @@
 
 Notable project changes are listed from newest to oldest.
 
-## 2026-05-21 - Nonlinear Performance Follow-up
+## 2026-05-22 - Nonlinear Performance Follow-up
 
 - Added a narrow R fast covariance path for internal fixed-dispersion GLM fits with `vce="HC1"` and one-way or no clustering, matching `sandwich::vcovCL()` to numerical precision while reducing `binsglm` logit/probit runtime.
 - Trimmed unused R internal GLM metadata and avoided unnecessary confidence-band fit prediction work when only simulation standard errors are needed, preserving existing numerical output.
@@ -12,9 +12,9 @@ Notable project changes are listed from newest to oldest.
 - Fixed Python `binsglm(..., nolink=True)` confidence-interval and confidence-band paths so linear-predictor fits and standard errors are used directly instead of relying on inverse-link branch temporaries.
 - Guarded the R least-squares covariance fast path so generalized linear model objects always use the established GLM covariance backend.
 
-## 2026-05-20 - Release Candidate: Precision Defaults And OLS Performance
+## 2026-05-22 - Release Candidate: Precision Defaults And OLS Performance
 
-- Bumped release metadata for this checkpoint: R `2.1`, Python `3.1.0`, and Stata command/help headers dated `20-MAY-2026` with distribution date `20260520`.
+- Bumped release metadata for this checkpoint: R `2.1`, Python `3.1.0`, and Stata command/help headers dated `22-MAY-2026` with distribution date `20260522`.
 - Kept Stata `precision(double)` as the default so Stata uses double floating precision for internally generated variables whenever appropriate, better matching R and Python's double-precision numerical path.
 - Backwards compatibility reference: Stata users who need to reproduce the legacy pre-double-precision numerical path should add `precision(single)` explicitly; this preserves the old Stata behavior that stored internally generated variables as `float`.
 - Completed the OLS-focused speed checkpoint across R and Python for `binsreg`, `binsregselect`, `binstest`, and `binspwc`, including fast least-squares/covariance paths, covariance reuse, lower-allocation p-value simulation, and R spline-basis fast paths.
