@@ -437,6 +437,52 @@ binsreg.vcov.fast.lm <- function(model, type, cluster) {
   return(XtX.inv %*% crossprod(score) %*% XtX.inv * scale)
 }
 
+binsreg.vcov.fast.glm <- function(model, type, cluster) {
+  if (!inherits(model, "glm")) return(NULL)
+  if (is.null(model$x) || is.null(model$qr)) return(NULL)
+  if (is.null(type) || type != "HC1") return(NULL)
+  if (!(substr(model$family$family, 1L, 17L) %in% c("poisson", "binomial", "Negative Binomial"))) {
+    return(NULL)
+  }
+
+  X <- model$x
+  rank <- model$rank
+  coefficients <- model$coefficients
+  nonalias <- !is.na(coefficients)
+  if (sum(nonalias) != rank) return(NULL)
+  df.resid <- model$df.residual
+  if (is.null(df.resid) || is.na(df.resid) || df.resid <= 0) return(NULL)
+
+  R <- qr.R(model$qr)[seq_len(rank), seq_len(rank), drop=FALSE]
+  XtWX.inv.pivot <- tryCatch(chol2inv(R), error=function(e) NULL)
+  if (is.null(XtWX.inv.pivot)) return(NULL)
+  pivot <- model$qr$pivot[seq_len(rank)]
+  nonalias.idx <- which(nonalias)
+  pivot.order <- match(pivot, nonalias.idx)
+  if (anyNA(pivot.order)) return(NULL)
+  XtWX.inv <- matrix(0, rank, rank)
+  XtWX.inv[pivot.order, pivot.order] <- XtWX.inv.pivot
+  dimnames(XtWX.inv) <- list(names(coefficients)[nonalias], names(coefficients)[nonalias])
+
+  wres <- as.vector(model$residuals) * model$weights
+  estfun <- X[, nonalias, drop=FALSE] * wres
+  n <- length(wres)
+  if (is.null(cluster)) {
+    scale <- n / df.resid
+    return(XtWX.inv %*% crossprod(estfun) %*% XtWX.inv * scale)
+  }
+
+  cluster <- as.data.frame(cluster)
+  if (ncol(cluster) != 1L || nrow(cluster) != n || anyNA(cluster)) return(NULL)
+  cluster <- cluster[[1L]]
+  G <- if (is.factor(cluster)) length(levels(cluster)) else length(unique(cluster))
+  if (G <= 1L) return(NULL)
+
+  score <- rowsum(estfun, group=cluster, reorder=FALSE)
+  scale <- (G / (G - 1L)) * ((n - 1L) / df.resid)
+  return(XtWX.inv %*% crossprod(score) %*% XtWX.inv * scale)
+}
+
 binsreg.vcov <- function(model, type, cluster, is.qreg=FALSE, ...) {
   if (is.qreg) {
     model <- binsreg.rq.complete(model)
@@ -447,7 +493,8 @@ binsreg.vcov <- function(model, type, cluster, is.qreg=FALSE, ...) {
         identical(model$binsreg.vcov.has.cluster, !is.null(cluster))) {
       return(model$binsreg.vcov)
     }
-    V <- binsreg.vcov.fast.lm(model, type=type, cluster=cluster)
+    V <- binsreg.vcov.fast.glm(model, type=type, cluster=cluster)
+    if (is.null(V)) V <- binsreg.vcov.fast.lm(model, type=type, cluster=cluster)
     if (is.null(V)) {
       if (type=="const") {
         V <- vcov(model)
@@ -678,15 +725,13 @@ binsreg.fit.glm <- function(y, P, family, weights=NULL, ...) {
   if (length(dots) && (is.null(dot.names) || any(dot.names == "") || any(!dot.names %in% allowed))) {
     return(glm(y ~ P - 1, family=family, weights=weights, ...))
   }
-  model <- do.call(glm.fit, c(list(x=P, y=y, weights=weights, family=family), dots))
-  model$terms <- terms(y ~ -1 + P)
-  model$call <- match.call()
+  if (length(dots)) {
+    model <- do.call(glm.fit, c(list(x=P, y=y, weights=weights, family=family), dots))
+  } else {
+    model <- glm.fit(x=P, y=y, weights=weights, family=family)
+  }
   model$x <- P
   model$y <- y
-  model$prior.weights <- if (is.null(weights)) rep.int(1, length(y)) else weights
-  model$contrasts <- NULL
-  model$xlevels <- list()
-  model$formula <- y ~ -1 + P
   class(model) <- c("glm", "lm")
   return(model)
 }

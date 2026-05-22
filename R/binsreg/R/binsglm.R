@@ -1580,7 +1580,7 @@ binsglm  <- function(y, x, w=NULL, data=NULL, at=NULL, family=gaussian(), deriv=
       ### Compute cval ####
       x.grid    <- binsreg.grid(knot, simsgrid)$eval
       basis.sim <- binsreg.spdes(eval=x.grid, p=cb.p, s=cb.s, knot=knot, deriv=deriv)
-      sim.pred  <- binsreg.pred(X=basis.sim, model=model.cb, type="all", vce=vce, cluster=cluster.sub, avar=T, vcv=vcv.cb)
+      sim.pred  <- binsreg.pred(X=basis.sim, model=model.cb, type="se", vce=vce, cluster=cluster.sub, avar=T, vcv=vcv.cb)
       vcv <- vcv.cb[1:k.new, 1:k.new]
       Sigma.root <- lssqrtm(vcv)
       num        <- basis.sim[,pos,drop=F] %*% Sigma.root
