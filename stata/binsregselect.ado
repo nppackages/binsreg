@@ -1,4 +1,4 @@
-*! version 2.1 22-MAY-2026
+*! version 2.1 27-MAY-2026
 
 capture program drop binsregselect
 program define binsregselect, eclass
@@ -16,6 +16,7 @@ program define binsregselect, eclass
 			/* last line only for internal use */
 
 	 set more off
+	 quietly mata: mata mlib index
 
 	 **************************************
 	 ******** Regularization constant  ****

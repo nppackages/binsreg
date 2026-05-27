@@ -1,4 +1,4 @@
-*! version 2.1 22-MAY-2026
+*! version 2.1 27-MAY-2026
 
 capture program drop binsreg
 program define binsreg, eclass
@@ -20,6 +20,8 @@ program define binsreg, eclass
 			vce(passthru) level(real 95) asyvar(string) precision(string) ///
 			noplot savedata(string) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
+
+	 quietly mata: mata mlib index
 
 	 *********************************************
 	 * Regularization constant (for checking only)

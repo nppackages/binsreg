@@ -1,4 +1,4 @@
-*! version 2.1 22-MAY-2026
+*! version 2.1 27-MAY-2026
 
 capture program drop binspwc
 program define binspwc, eclass
@@ -15,6 +15,8 @@ program define binspwc, eclass
 		   vce(passthru) asyvar(string) precision(string) ///
 		   numdist(string) numclust(string)]
 		   /* last line only for internal use */
+
+	 quietly mata: mata mlib index
 
 	 * Regularization constant (for checking only)
 	 local qrot=2

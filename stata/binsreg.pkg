@@ -6,8 +6,8 @@ d          Richard K. Crump, richard.crump@gmail.com
 d          Max H. Farrell, mhfarrell@gmail.com
 d          Yingjie Feng, fengyingjiepku@gmail.com
 d
-d Date: 22-MAY-2026
-d Distribution-Date: 20260522
+d Date: 27-MAY-2026
+d Distribution-Date: 20260527
 d
 f binsreg.ado
 f binsreg.sthlp
@@ -25,18 +25,8 @@ f binspwc.ado
 f binspwc.sthlp
 f binsreg_irecode.ado
 f binsreg_pctile.ado
-f binsreg_bincount.mo
-f binsreg_checkdrop.mo
-f binsreg_fast_reg.mo
+f lbinsreg.mlib
 f binsreg_functions.do
-f binsreg_grids.mo
 f binsreg_illustration.do
-f binsreg_pred.mo
-f binsreg_pval.mo
 f binsreg_simdata.dta
-f binsreg_spdes.mo
-f binsreg_st_spdes.mo
-f binsreg_uniq.mo
-f binsreg_cquantile.mo
-f binsreg_stat.mo
 f stata.toc

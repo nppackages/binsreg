@@ -1,9 +1,21 @@
-* version 2.0, 14-MAY-2026
+* version 2.1, 27-MAY-2026
 *****************************************************************
 ****** This file contains necessary mata functions used in ******
 ******************** BINSREG Package ****************************
 version 13
- mata:
+args build_mode
+local build_mode = lower("`build_mode'")
+if "`build_mode'" == "" local build_mode "release"
+if !inlist("`build_mode'", "release", "dev") {
+   display as error "Usage: do binsreg_functions.do [release|dev]"
+   exit 198
+}
+
+local binsreg_mata_functions binsreg_spdes binsreg_st_spdes binsreg_bincount binsreg_grids binsreg_pred binsreg_fast_reg binsreg_pval binsreg_checkdrop binsreg_uniq binsreg_stat binsreg_cquantile
+local binsreg_mlib_functions binsreg_spdes() binsreg_st_spdes() binsreg_bincount() binsreg_grids() binsreg_pred() binsreg_fast_reg() binsreg_pval() binsreg_checkdrop() binsreg_uniq() binsreg_stat() binsreg_cquantile()
+
+mata:
+   mata clear
 
   // Generate spline design matrix using MATA objects
   real matrix binsreg_spdes(real vector xvar, ///
@@ -590,4 +602,14 @@ version 13
 
    mata mosave binsreg_cquantile(), replace
 
+   mata mlib create lbinsreg, replace
+   mata mlib add lbinsreg `binsreg_mlib_functions'
+   mata mlib index
+
 end
+
+if "`build_mode'" == "release" {
+   foreach function of local binsreg_mata_functions {
+      capture erase "`function'.mo"
+   }
+}

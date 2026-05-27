@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 22-MAY-2026}{...}
+{* *! version 2.1 27-MAY-2026}{...}
 {viewerjumpto "Syntax" "binstest##syntax"}{...}
 {viewerjumpto "Description" "binstest##description"}{...}
 {viewerjumpto "Options" "binstest##options"}{...}
@@ -109,7 +109,7 @@ When {cmd:absorb()} is specified, the community-contributed command {cmd:reghdfe
 Important: {cmd:absorb()} and {cmd:vce()} should not be specified within this option.
 {p_end}
 
-{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
+{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "https://scorreia.com/software/reghdfe/":https://scorreia.com/software/reghdfe/}.
 
 {dlgtab:Parametric Model Specification Testing}
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 22-MAY-2026}{...}
+{* *! version 2.1 27-MAY-2026}{...}
 {viewerjumpto "Syntax" "binsreg##syntax"}{...}
 {viewerjumpto "Description" "binsreg##description"}{...}
 {viewerjumpto "Options" "binsreg##options"}{...}
@@ -114,7 +114,7 @@ at which the function is evaluated in another file, say,
 An older version may result in an error in Mata.
 {p_end}
 
-{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "http://scorreia.com/software/reghdfe/":http://scorreia.com/software/reghdfe/}.
+{p 4 8} For more information about the community-contributed command {cmd:reghdfe}, please see {browse "https://scorreia.com/software/reghdfe/":https://scorreia.com/software/reghdfe/}.
 {p_end}
 
 {dlgtab:Dots}
