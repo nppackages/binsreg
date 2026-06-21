@@ -29,7 +29,7 @@ To install/update in R type:
 install.packages('binsreg')
 ```
 
-- Help: [R Manual](R/binsreg.pdf), [CRAN repository](https://cran.r-project.org/package=binsreg).
+- Help: [R Manual](https://cran.r-project.org/web/packages/binsreg/binsreg.pdf), [CRAN repository](https://cran.r-project.org/package=binsreg).
 
 - Replication: [R-script](R/binsreg_illustration.R), [plot illustration](R/binsreg_illustration_plot.R), [data](R/binsreg_sim.csv).
 
