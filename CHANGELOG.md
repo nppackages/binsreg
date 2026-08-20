@@ -4,6 +4,7 @@ Notable project changes are listed from newest to oldest.
 
 ## 2026-08-20 - Nonlinear Specification-Test Corrections
 
+- Bumped release metadata to R `2.2` and Python `3.2.0`.
 - Fixed R and Python `binstest` polynomial specification tests for generalized linear models so response-scale tests transform the polynomial null fit through the inverse link, including the chain-rule adjustment for first derivatives. Index-scale tests requested with `nolink=TRUE` are unchanged, and the corrected behavior now matches the nonlinear binscatter methodology and the Stata implementation.
 - Added fixed-seed R and Python regression tests covering response-level, index-level, and response-scale first-derivative polynomial tests with covariate adjustment.
 
