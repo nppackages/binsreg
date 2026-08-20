@@ -1,4 +1,4 @@
-* version 2.1, 27-MAY-2026
+* version 2.2, 20-AUG-2026
 *****************************************************************
 ****** This file contains necessary mata functions used in ******
 ******************** BINSREG Package ****************************
@@ -11,8 +11,8 @@ if !inlist("`build_mode'", "release", "dev") {
    exit 198
 }
 
-local binsreg_mata_functions binsreg_spdes binsreg_st_spdes binsreg_bincount binsreg_grids binsreg_pred binsreg_fast_reg binsreg_pval binsreg_checkdrop binsreg_uniq binsreg_stat binsreg_cquantile
-local binsreg_mlib_functions binsreg_spdes() binsreg_st_spdes() binsreg_bincount() binsreg_grids() binsreg_pred() binsreg_fast_reg() binsreg_pval() binsreg_checkdrop() binsreg_uniq() binsreg_stat() binsreg_cquantile()
+local binsreg_mata_functions binsreg_spdes binsreg_st_spdes binsreg_bincount binsreg_grids binsreg_pred binsreg_fast_reg binsreg_pval binsreg_checkdrop binsreg_uniq binsreg_stat binsreg_cquantile binsreg_linkinv binsreg_linkinv1 binsreg_linkinv2
+local binsreg_mlib_functions binsreg_spdes() binsreg_st_spdes() binsreg_bincount() binsreg_grids() binsreg_pred() binsreg_fast_reg() binsreg_pval() binsreg_checkdrop() binsreg_uniq() binsreg_stat() binsreg_cquantile() binsreg_linkinv() binsreg_linkinv1() binsreg_linkinv2()
 
 mata:
    mata clear
@@ -601,6 +601,92 @@ mata:
    }
 
    mata mosave binsreg_cquantile(), replace
+
+   // Inverse link and its first two derivatives. The link name is normalized
+   // by the calling ado code; power is used only for power and odds-power links.
+   real matrix binsreg_linkinv(real matrix eta, string scalar link, real scalar power)
+   {
+      real matrix z
+
+      if (link=="identity" | link=="glim_l01") return(eta)
+      if (link=="log" | link=="glim_l03") return(exp(eta))
+      if (link=="logit" | link=="glim_l02") return(logistic(eta))
+      if (link=="probit" | link=="glim_l08") return(normal(eta))
+      if (link=="cloglog" | link=="glim_l07") return(1:-exp(-exp(eta)))
+      if (link=="loglog" | link=="glim_l06") return(exp(-exp(-eta)))
+      if (link=="logc" | link=="glim_l05") return(1:-exp(eta))
+      if (link=="power" | link=="glim_l09" | link=="glim_l10" | link=="glim_l11") return(eta:^(1/power))
+      if (link=="opower" | link=="glim_l12") {
+         z=(1:+power:*eta):^(1/power)
+         return(z:/(1:+z))
+      }
+
+      _error(3498, "unsupported GLM link")
+   }
+   mata mosave binsreg_linkinv(), replace
+
+   real matrix binsreg_linkinv1(real matrix eta, string scalar link, real scalar power)
+   {
+      real matrix mu, q, z, z1
+
+      if (link=="identity" | link=="glim_l01") return(J(rows(eta), cols(eta), 1))
+      if (link=="log" | link=="glim_l03") return(exp(eta))
+      if (link=="logit" | link=="glim_l02") {
+         mu=logistic(eta)
+         return(mu:*(1:-mu))
+      }
+      if (link=="probit" | link=="glim_l08") return(normalden(eta))
+      if (link=="cloglog" | link=="glim_l07") return(exp(eta:-exp(eta)))
+      if (link=="loglog" | link=="glim_l06") {
+         mu=exp(-exp(-eta))
+         return(exp(-eta):*mu)
+      }
+      if (link=="logc" | link=="glim_l05") return(-exp(eta))
+      if (link=="power" | link=="glim_l09" | link=="glim_l10" | link=="glim_l11") return((1/power):*eta:^(1/power-1))
+      if (link=="opower" | link=="glim_l12") {
+         q=1:+power:*eta
+         z=q:^(1/power)
+         z1=q:^(1/power-1)
+         return(z1:/(1:+z):^2)
+      }
+
+      _error(3498, "unsupported GLM link")
+   }
+   mata mosave binsreg_linkinv1(), replace
+
+   real matrix binsreg_linkinv2(real matrix eta, string scalar link, real scalar power)
+   {
+      real matrix mu, mu1, q, z, z1, z2
+
+      if (link=="identity" | link=="glim_l01") return(J(rows(eta), cols(eta), 0))
+      if (link=="log" | link=="glim_l03") return(exp(eta))
+      if (link=="logit" | link=="glim_l02") {
+         mu=logistic(eta)
+         return(mu:*(1:-mu):*(1:-2:*mu))
+      }
+      if (link=="probit" | link=="glim_l08") return(-eta:*normalden(eta))
+      if (link=="cloglog" | link=="glim_l07") {
+         mu1=exp(eta:-exp(eta))
+         return(mu1:*(1:-exp(eta)))
+      }
+      if (link=="loglog" | link=="glim_l06") {
+         mu=exp(-exp(-eta))
+         mu1=exp(-eta):*mu
+         return(mu1:*(exp(-eta):-1))
+      }
+      if (link=="logc" | link=="glim_l05") return(-exp(eta))
+      if (link=="power" | link=="glim_l09" | link=="glim_l10" | link=="glim_l11") return((1/power)*(1/power-1):*eta:^(1/power-2))
+      if (link=="opower" | link=="glim_l12") {
+         q=1:+power:*eta
+         z=q:^(1/power)
+         z1=q:^(1/power-1)
+         z2=(1-power):*q:^(1/power-2)
+         return(z2:/(1:+z):^2-2:*z1:^2:/(1:+z):^3)
+      }
+
+      _error(3498, "unsupported GLM link")
+   }
+   mata mosave binsreg_linkinv2(), replace
 
    mata mlib create lbinsreg, replace
    mata mlib add lbinsreg `binsreg_mlib_functions'

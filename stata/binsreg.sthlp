@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 27-MAY-2026}{...}
+{* *! version 2.2 20-AUG-2026}{...}
 {viewerjumpto "Syntax" "binsreg##syntax"}{...}
 {viewerjumpto "Description" "binsreg##description"}{...}
 {viewerjumpto "Options" "binsreg##options"}{...}
@@ -64,6 +64,7 @@ Companion R and Python packages with the same capabilities are available (see we
 
 {p 4 8} Companion commands: {help binstest:binstest} for hypothesis testing for parametric specifications
 and shape restrictions, {help binspwc:binspwc} for hypothesis testing for pairwise group comparisons,
+{help binsglm:binsglm} for generalized linear model binscatter estimation and inference,
 and {help binsregselect:binsregselect} for data-driven binning selection.
 {p_end}
 

@@ -1,24 +1,25 @@
 {smcl}
 {* *! version 2.2 20-AUG-2026}{...}
-{viewerjumpto "Syntax" "binslogit##syntax"}{...}
-{viewerjumpto "Description" "binslogit##description"}{...}
-{viewerjumpto "Options" "binslogit##options"}{...}
-{viewerjumpto "Examples" "binslogit##examples"}{...}
-{viewerjumpto "Stored results" "binslogit##stored_results"}{...}
-{viewerjumpto "References" "binslogit##references"}{...}
-{viewerjumpto "Authors" "binslogit##authors"}{...}
-{cmd:help binslogit}
+{viewerjumpto "Syntax" "binsglm##syntax"}{...}
+{viewerjumpto "Description" "binsglm##description"}{...}
+{viewerjumpto "Options" "binsglm##options"}{...}
+{viewerjumpto "Examples" "binsglm##examples"}{...}
+{viewerjumpto "Stored results" "binsglm##stored_results"}{...}
+{viewerjumpto "References" "binsglm##references"}{...}
+{viewerjumpto "Authors" "binsglm##authors"}{...}
+{cmd:help binsglm}
 {hline}
 
 {title:Title}
 
-{p 4 8}{hi:binslogit} {hline 2} Data-Driven Binscatter Logit Estimation with Robust Inference Procedures and Plots.{p_end}
+{p 4 8}{hi:binsglm} {hline 2} Data-Driven Binscatter Generalized Linear Model Estimation with Robust Inference Procedures and Plots.{p_end}
 
 
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 14} {cmdab:binslogit} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [ {cmd:,} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
+{p 4 14} {cmdab:binsglm} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} [ {cmd:,} {opt family(family)} {opt link(link)}{p_end}
+{p 14 14} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 14 14} {opt dots(dotsopt)} {opt dotsgrid(dotsgridoption)} {opt dotsplotopt(dotsoption)}{p_end}
 {p 14 14} {opt line(lineopt)} {opt linegrid(#)} {opt lineplotopt(lineoption)}{p_end}
 {p 14 14} {opt ci(ciopt)} {opt cigrid(cigridoption)} {opt ciplotopt(rcapoption)}{p_end}
@@ -30,12 +31,12 @@
 {p 14 14} {opt nsims(#)} {opt simsgrid(#)} {opt simsseed(seed)}{p_end}
 {p 14 14} {opt dfcheck(n1 n2)} {opt masspoints(masspointsoption)}{p_end}
 {p 14 14} {cmd:vce(}{it:{help vcetype}}{cmd:)} {opt asyvar(on/off)}{p_end}
-{p 14 14} {opt level(level)} {opt logitopt(logit_option)} {opt usegtools(on/off)} {opt precision(single/double)} {opt noplot} {opt savedata(filename)} {opt replace}{p_end}
+{p 14 14} {opt level(level)} {opt glmopt(glm_option)} {opt usegtools(on/off)} {opt precision(single/double)} {opt noplot} {opt savedata(filename)} {opt replace}{p_end}
 {p 14 14} {opt plotxrange(min max)} {opt plotyrange(min max)} {it:{help twoway_options}} ]{p_end}
 
 {p 4 8} where {depvar} is the dependent variable, {it:indvar} is the independent variable for binning, and {it:othercovs} are other covariates to be controlled for.{p_end}
 
-{p 4 8} The degree of the piecewise polynomial p, the number of smoothness constraints s, and the derivative order v are integers 
+{p 4 8} The degree of the piecewise polynomial p, the number of smoothness constraints s, and the derivative order v are integers
 satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 
 {p 4 8} {opt fweight}s and {opt pweight}s are allowed; see {help weight}.{p_end}
@@ -43,19 +44,18 @@ satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 {marker description}{...}
 {title:Description}
 
-{p 4 8} {cmd:binslogit} implements binscatter logit estimation with robust inference procedures and plots, following the results in
+{p 4 8} {cmd:binsglm} implements binscatter generalized linear model estimation with robust inference procedures and plots, following the results in
 {browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2024_AER.pdf":Cattaneo, Crump, Farrell and Feng (2024)} and
 {browse "https://nppackages.github.io/references/Cattaneo-Crump-Farrell-Feng_2026_RESTAT.pdf":Cattaneo, Crump, Farrell and Feng (2026)}.
 Binscatter provides a flexible way of describing the mean relationship between two variables, after possibly adjusting for other covariates, based on partitioning/binning of the independent variable of interest.
+The command uses Stata's {help glm:glm} estimator and supports the built-in Gaussian, binomial, Poisson, gamma, inverse Gaussian, and negative-binomial families.
+It reports the conditional mean and its first derivative on the response scale by default, while {opt nolink} reports the corresponding index-scale function.
 The main purpose of this command is to generate binned scatter plots with curve estimation with robust pointwise confidence intervals and uniform confidence band.
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter
 in a data-driven way.
 Hypothesis testing for parametric specifications of and shape restrictions on the regression function can be conducted via the
 companion command {help binstest:binstest}. Hypothesis testing for pairwise group comparisons can be conducted via the
 companion command {help binspwc: binspwc}. Binscatter estimation based on the least squares method can be conducted via the command {help binsreg: binsreg}.
-{p_end}
-
-{p 4 8} The generalized interface {help binsglm:binsglm} with {cmd:family(binomial)} and {cmd:link(logit)} fits the same binscatter model and also supports fractional responses and other GLM families and links.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
@@ -78,8 +78,21 @@ and {help binsregselect:binsregselect} for data-driven binning selection.
 
 {dlgtab:Estimand}
 
+{p 4 8} {opt family(family)} specifies the {help glm:glm} family.
+Supported families are {cmd:gaussian}, {cmd:binomial}, {cmd:poisson}, {cmd:gamma}, {cmd:igaussian}, and {cmd:nbinomial}.
+The default is {cmd:family(gaussian)}.
+For the binomial family, only unit-denominator models are supported; the outcome may be binary or fractional on [0,1].
+{p_end}
+
+{p 4 8} {opt link(link)} specifies a built-in {help glm:glm} link.
+Supported links are {cmd:identity}, {cmd:log}, {cmd:logit}, {cmd:probit}, {cmd:cloglog}, {cmd:loglog}, {cmd:logc}, {cmd:reciprocal}, {cmd:power #}, and {cmd:opower #}.
+If omitted, {cmd:glm} uses the canonical link for the selected family.
+The canonical negative-binomial link is not supported; specify another link such as {cmd:link(log)} with {cmd:family(nbinomial)}.
+{p_end}
+
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation and plotting.
 The default is {cmd:deriv(0)}, which corresponds to the function itself.
+Response-scale estimation supports {cmd:deriv(0)} and {cmd:deriv(1)}. Higher index derivatives may be requested together with {opt nolink}.
 {p_end}
 
 {p 4 8} {opt at(position)} specifies the values of {it:othercovs} at which the estimated function is evaluated for plotting.
@@ -90,17 +103,17 @@ The default is {cmd:at(mean)}, which corresponds to the mean of {it:othercovs}. 
 {p 4 8} Note: When {cmd:at(mean)} or {cmd:at(median)} is specified, all factor variables in {it:othercovs} (if specified) are excluded from the evaluation (set as zero).
 {p_end}
 
-{p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of the conditional probability function.
+{p 4 8}{opt nolink} specifies that the linear index be reported instead of applying the inverse link to obtain the conditional mean.
 {p_end}
 
 {dlgtab:Dots}
 
 {p 4 8} {opt dots(dotsopt)} sets the degree of polynomial and the number of smoothness for point estimation and plotting as "dots".
-If {cmd:dots(p s)} is specified, a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints is used.  
-The default is {cmd:dots(0 0)}, which corresponds to piecewise constant (canonical binscatter). 
+If {cmd:dots(p s)} is specified, a piecewise polynomial of degree {it:p} with {it:s} smoothness constraints is used.
+The default is {cmd:dots(0 0)}, which corresponds to piecewise constant (canonical binscatter).
 If {cmd:dots(T)} is specified, the default {cmd:dots(0 0)} is used unless the degree {it:p} or smoothness {it:s} selection
-is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation 
-of {cmd:pselect()} and {cmd:sselect()}).  
+is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation
+of {cmd:pselect()} and {cmd:sselect()}).
 If {cmd:dots(F)} is specified, the dots are not included in the plot.
 {p_end}
 
@@ -119,12 +132,12 @@ The default is {opt dotsgrid(mean)}, which corresponds to one dot per bin evalua
 
 {dlgtab:Line}
 
-{p 4 8} {opt line(lineopt)} sets the degree of polynomial and the number of smoothness constraints 
-for plotting as a "line". If {cmd:line(p s)} is specified, a piecewise polynomial of 
-degree {it:p} with {it:s} smoothness constraints is used.  
+{p 4 8} {opt line(lineopt)} sets the degree of polynomial and the number of smoothness constraints
+for plotting as a "line". If {cmd:line(p s)} is specified, a piecewise polynomial of
+degree {it:p} with {it:s} smoothness constraints is used.
 If {cmd:line(T)} is specified, {cmd:line(0 0)} is used unless the degree {it:p} or smoothness {it:s} selection
-is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation 
-of {cmd:pselect()} and {cmd:sselect()}). 
+is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation
+of {cmd:pselect()} and {cmd:sselect()}).
 If {cmd:line(F)} or {cmd:line()} is specified, the line is not included in the plot.
 The default is {cmd:line()}.
 {p_end}
@@ -141,12 +154,12 @@ the {help twoway:twoway} command to modify the appearance of the plotted line.
 {dlgtab:Confidence Intervals}
 
 {p 4 8} {opt ci(ciopt)} specifies the degree of polynomial and the number of smoothness constraints
-for constructing confidence intervals. If {cmd:ci(p s)} is specified, a piecewise polynomial of 
-degree {it:p} with {it:s} smoothness constraints is used.  
+for constructing confidence intervals. If {cmd:ci(p s)} is specified, a piecewise polynomial of
+degree {it:p} with {it:s} smoothness constraints is used.
 If {cmd:ci(T)} is specified, {cmd:ci(1 1)} is used unless the degree {it:p} or smoothness {it:s} selection
-is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation 
-of {cmd:pselect()} and {cmd:sselect()}). 
-If {cmd:ci(F)} or {cmd:ci()} is specified, the confidence intervals are not included in the plot. 
+is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation
+of {cmd:pselect()} and {cmd:sselect()}).
+If {cmd:ci(F)} or {cmd:ci()} is specified, the confidence intervals are not included in the plot.
 The default is {cmd:ci()}.
 {p_end}
 
@@ -165,11 +178,11 @@ The default is {opt cigrid(mean)}, which corresponds to one evaluation point set
 {dlgtab:Confidence Band}
 
 {p 4 8} {opt cb(cbopt)} specifies the degree of polynomial and the number of smoothness constraints
-for constructing the confidence band. If {cmd:cb(p s)} is specified, a piecewise polynomial of 
-degree {it:p} with {it:s} smoothness constraints is used. 
+for constructing the confidence band. If {cmd:cb(p s)} is specified, a piecewise polynomial of
+degree {it:p} with {it:s} smoothness constraints is used.
 If the option {cmd:cb(T)} is specified, {cmd:cb(1 1)} is used unless the degree {it:p} or smoothness {it:s} selection
-is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation 
-of {cmd:pselect()} and {cmd:sselect()}). 
+is requested via the option {cmd:pselect()} or {cmd:sselect()} (see more details in the explanation
+of {cmd:pselect()} and {cmd:sselect()}).
 If {cmd:cb(F)} or {cmd:cb()} is specified, the confidence band is not included in the plot.
 The default is {cmd:cb()}.
 {p_end}
@@ -187,7 +200,7 @@ the {help twoway:twoway} command to modify the appearance of the confidence band
 
 {p 4 8} {opt polyreg(p)} sets the degree {it:p} of a global polynomial regression model for plotting.
 By default, this fit is not included in the plot unless explicitly specified.
-Recommended specification is {cmd:polyreg(3)}, which adds a cubic polynomial fit of the regression function of interest to the binned scatter plot. 
+Recommended specification is {cmd:polyreg(3)}, which adds a cubic polynomial fit of the regression function of interest to the binned scatter plot.
 {p_end}
 
 {p 4 8} {opt polyreggrid(#)} specifies the number of evaluation points of an evenly-spaced grid
@@ -206,7 +219,7 @@ The default is {cmd:polyregcigrid(0)}, which corresponds to not plotting confide
 
 {p 4 8} {opt by(varname)} specifies the variable containing the group indicator to perform subgroup analysis;
 both numeric and string variables are supported.
-When {opt by(varname)} is specified, {cmdab:binslogit} implements estimation and inference for each subgroup separately,
+When {opt by(varname)} is specified, {cmdab:binsglm} implements estimation and inference for each subgroup separately,
 but produces a common binned scatter plot.
 By default, the binning structure is selected for each subgroup separately,
 but see the option {cmd:samebinsby} below for imposing a common binning structure across subgroups.
@@ -226,9 +239,9 @@ for plotting each subgroup series defined by the option {opt by()}.
 
 {dlgtab:Binning/Degree/Smoothness Selection}
 
-{p 4 8} {opt nbins(nbinsopt)} sets the number of bins for partitioning/binning of {it:indvar}. 
-If {cmd:nbins(T)} or {cmd:nbins()} (default) is specified, the number of bins is selected via the companion command {help binsregselect:binsregselect} 
-in a data-driven, optimal way whenever possible. If a {help numlist:numlist} with more than one number is specified, 
+{p 4 8} {opt nbins(nbinsopt)} sets the number of bins for partitioning/binning of {it:indvar}.
+If {cmd:nbins(T)} or {cmd:nbins()} (default) is specified, the number of bins is selected via the companion command {help binsregselect:binsregselect}
+in a data-driven, optimal way whenever possible. If a {help numlist:numlist} with more than one number is specified,
 the number of bins is selected within this list via the companion command {help binsregselect:binsregselect}.
 {p_end}
 
@@ -253,31 +266,31 @@ If {cmd:nbins()} is not specified, then the number of bins is selected via the c
 {help binsregselect:binsregselect} and using the full sample.
 {p_end}
 
-{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample 
+{p 4 8} {opt randcut(#)} specifies the upper bound on a uniformly distributed variable used to draw a subsample
 for bins/degree/smoothness selection.
-Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1. 
+Observations for which {cmd:runiform()<=#} are used. # must be between 0 and 1.
 By default, max(5000, 0.01n) observations are used if the samples size n>5000.
 {p_end}
 
-{p 4 8} {opt pselect(numlist)} specifies a list of numbers within which the degree of polynomial {it:p} for 
-point estimation is selected. Piecewise polynomials of the selected optimal degree {it:p} 
-are used to construct dots or line if {cmd:dots(T)} or {cmd:line(T)} is specified, 
+{p 4 8} {opt pselect(numlist)} specifies a list of numbers within which the degree of polynomial {it:p} for
+point estimation is selected. Piecewise polynomials of the selected optimal degree {it:p}
+are used to construct dots or line if {cmd:dots(T)} or {cmd:line(T)} is specified,
 whereas piecewise polynomials of degree {it:p+1} are used to construct confidence intervals
 or confidence band if {cmd:ci(T)} or {cmd:cb(T)} is specified.
 {p_end}
 
-{p 4 8} {opt sselect(numlist)} specifies a list of numbers within which 
+{p 4 8} {opt sselect(numlist)} specifies a list of numbers within which
 the number of smoothness constraints {it:s}
-for point estimation.  Piecewise polynomials with the selected optimal 
-{it:s} smoothness constraints are used to construct dots or line 
-if {cmd:dots(T)} or {cmd:line(T)} is specified, 
-whereas piecewise polynomials with {it:s+1} constraints are used to construct 
-confidence intervals or confidence band if {cmd:ci(T)} or {cmd:cb(T)} is specified. 
-If not specified, for each value {it:p} supplied in the 
-option {cmd:pselect()}, only the piecewise polynomial with the maximum smoothness is considered, i.e., {it:s=p}. 
+for point estimation.  Piecewise polynomials with the selected optimal
+{it:s} smoothness constraints are used to construct dots or line
+if {cmd:dots(T)} or {cmd:line(T)} is specified,
+whereas piecewise polynomials with {it:s+1} constraints are used to construct
+confidence intervals or confidence band if {cmd:ci(T)} or {cmd:cb(T)} is specified.
+If not specified, for each value {it:p} supplied in the
+option {cmd:pselect()}, only the piecewise polynomial with the maximum smoothness is considered, i.e., {it:s=p}.
 {p_end}
 
-{p 4 8} Note: To implement the degree or smoothness selection, in addition to {cmd:pselect()} 
+{p 4 8} Note: To implement the degree or smoothness selection, in addition to {cmd:pselect()}
 or {cmd:sselect()}, {cmd:nbins(#)} must be specified.
 {p_end}
 
@@ -290,7 +303,7 @@ Setting at least {cmd:nsims(2000)} is recommended to obtain the final results.
 
 {p 4 8} {opt simsgrid(#)} specifies the number of evaluation points of an evenly-spaced grid
 within each bin used for evaluation of the supremum operation needed to construct confidence bands.
-The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin 
+The default is {cmd:simsgrid(20)}, which corresponds to 20 evenly-spaced evaluation points within each bin
 for approximating the supremum operator.
 Setting at least {cmd:simsgrid(50)} is recommended to obtain the final results.
 {p_end}
@@ -319,7 +332,7 @@ In other words, forces the command to proceed as if the mass point and degrees o
 {dlgtab:Standard Error}
 
 {p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by
-the command {help logit##options:logit}.
+the command {help glm##options:glm}.
 The default is {cmd:vce(robust)}.
 {p_end}
 
@@ -333,8 +346,10 @@ Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:othercovs}
 {p 4 8} {opt level(#)} sets the nominal confidence level for confidence interval and confidence band estimation. Default is {cmd:level(95)}.
 {p_end}
 
-{p 4 8} {opt logitopt(logit_option)} options to be passed on to the command {help logit##options:logit}. 
-For example, options that control for the optimization process can be added here.
+{p 4 8} {opt glmopt(glm_option)} specifies options to be passed to {help glm##options:glm}.
+Specify the family and link through {opt family()} and {opt link()}, not within {opt glmopt()}.
+The {cmd:offset()} and {cmd:exposure()} options are not supported.
+Other options controlling estimation and optimization can be supplied here.
 {p_end}
 
 {p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package {cmd:gtools} to speed the computation up, if {it:on} is specified.
@@ -373,17 +388,31 @@ Stata matrix and Mata computations remain double precision in either case.
 {p 4 8}  Setup{p_end}
 {p 8 8} . {stata sysuse auto}{p_end}
 
-{p 4 8} Run a binscatter logit regression and report the plot{p_end}
-{p 8 8} . {stata binslogit foreign weight mpg}{p_end}
+{p 4 8} Run a binomial-logit binscatter and report the conditional probability{p_end}
+{p 8 8} . {stata binsglm foreign weight mpg, family(binomial) link(logit)}{p_end}
 
-{p 4 8} Add confidence intervals and confidence band{p_end}
-{p 8 8} . {stata binslogit foreign weight mpg, ci(T) cb(T) nbins(5)}{p_end}
+{p 4 8} Add confidence intervals and a confidence band{p_end}
+{p 8 8} . {stata binsglm foreign weight mpg, family(binomial) link(logit) ci(T) cb(T) nbins(5)}{p_end}
+
+{p 4 8} Poisson binscatter with a log link{p_end}
+{p 8 8} . {stata binsglm rep78 weight mpg, family(poisson) link(log) line(1 1)}{p_end}
+
+{p 4 8} Report the Poisson linear index instead of the conditional mean{p_end}
+{p 8 8} . {stata binsglm rep78 weight mpg, family(poisson) link(log) nolink line(1 1)}{p_end}
+
+{p 4 8} Fractional-logit binscatter{p_end}
+{p 8 8} . {stata generate fraction=(rep78-1)/4 if !missing(rep78)}{p_end}
+{p 8 8} . {stata binsglm fraction weight mpg, family(binomial) link(logit)}{p_end}
 
 
 {marker stored_results}{...}
 {title:Stored results}
 
 {synoptset 17 tabbed}{...}
+{p2col 5 17 21 2: Macros}{p_end}
+{synopt:{cmd:e(cmd)}}{cmd:binsglm}{p_end}
+{synopt:{cmd:e(family)}}family specification{p_end}
+{synopt:{cmd:e(link)}}link specification, or {cmd:canonical} when omitted{p_end}
 {p2col 5 17 21 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
@@ -451,4 +480,3 @@ Stata Journal 25(1): 3-50.
 {p 4 8} Yingjie Feng.
 {browse "mailto:fengyingjiepku@gmail.com":fengyingjiepku@gmail.com}.
 {p_end}
-

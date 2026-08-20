@@ -1,11 +1,22 @@
-*! version 2.1 27-MAY-2026
+*! version 2.2 20-AUG-2026
 
 capture program drop binstest
 program define binstest, eclass
-    version 13
+    version 16
+
+	* Parse link() separately because Stata maps nolink to the same local macro.
+	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, LINK(string asis) *]
+	local linkfunction `"`link'"'
+	local first_varlist `"`varlist'"'
+	local first_if `"`if'"'
+	local first_in `"`in'"'
+	local first_weight ""
+	if ("`weight'"!="") local first_weight "[`weight'`exp']"
+	local 0 `"`first_varlist' `first_if' `first_in' `first_weight', `options'"'
 
 	syntax varlist(min=2 numeric fv ts) [if] [in] [fw aw pw] [, deriv(integer 0) at(string asis) nolink ///
 	       estmethod(string) estmethodopt(string asis) absorb(string asis) reghdfeopt(string asis) ///
+		   family(string asis) ///
 		   testmodel(string)  ///
 		   testmodelparfit(string asis) testmodelpoly(string) ///
 		   testshape(string) ///
@@ -19,6 +30,19 @@ program define binstest, eclass
 		   vce(passthru) asyvar(string) precision(string) ///
 		   numdist(string) numclust(string)]
 		   /* last line only for internal use */
+
+	 local nolink_requested `"`link'"'
+	 local link `"`nolink_requested'"'
+	 local family_specified=(`"`family'"'!=`""')
+	 if ((`family_specified' | `"`linkfunction'"'!=`""') & `"`estmethod'"'==`""') local estmethod "glm"
+	 if (`"`family'"'==`""') local family "gaussian"
+	 local glmlinkopt ""
+	 if (`"`linkfunction'"'!=`""') local glmlinkopt `"link(`linkfunction')"'
+	 local glmspec `"family(`family') `glmlinkopt'"'
+	 local glm_link ""
+	 local glm_linkt ""
+	 local glm_family ""
+	 local glm_power=.
 
 	 quietly mata: mata mlib index
 
@@ -69,9 +93,45 @@ program define binstest, eclass
 	 else if ("`estmethod'"=="probit") {
 	    local estcmd "probit"
 	 }
+	 else if ("`estmethod'"=="glm") {
+	    local estcmd "glm"
+	 }
 	 else if ("`estmethod'"=="reghdfe") {
 	    local estcmd "reghdfe"
 	 }
+	 else {
+	    di as error "estmethod() incorrectly specified."
+		exit 198
+	 }
+	 if ("`estmethod'"!="glm" & (`family_specified' | `"`linkfunction'"'!=`""')) {
+	    di as error "family() and link() may be used only with estmethod(glm)."
+		exit 198
+	 }
+	 if ("`estmethod'"=="logit") {
+	    local glm_link "glim_l02"
+		local glm_linkt "Logit"
+		local glm_family "Bernoulli"
+		local glm_power=0
+	 }
+	 else if ("`estmethod'"=="probit") {
+	    local glm_link "glim_l08"
+		local glm_linkt "Probit"
+		local glm_family "Bernoulli"
+		local glm_power=.
+	 }
+	 if ("`estmethod'"=="glm") {
+	    local estmethodopt_lower=lower(`"`estmethodopt'"')
+		if (strpos(`"`estmethodopt_lower'"', "family(") | strpos(`"`estmethodopt_lower'"', "link(")) {
+		   di as error "Specify the GLM family and link using family() and link(), not estmethodopt()."
+		   exit 198
+		}
+		if (strpos(`"`estmethodopt_lower'"', "offset(") | strpos(`"`estmethodopt_lower'"', "exposure(")) {
+		   di as error "offset() and exposure() are not supported with estmethod(glm)."
+		   exit 198
+		}
+	 }
+	 local estcmdspec ""
+	 if ("`estmethod'"=="glm") local estcmdspec `"`glmspec'"'
 
 	 * report the results for the cond. mean model?
 	 if ("`link'"!="") local transform "F"
@@ -84,7 +144,7 @@ program define binstest, eclass
 	    if ("`vce'"=="vce(iid)") local vce_select "vce(ols)"
 		else                     local vce_select "vce(robust)"
 	 }
-	 else if ("`estmethod'"=="logit"|"`estmethod'"=="probit") {
+	 else if ("`estmethod'"=="logit"|"`estmethod'"=="probit"|"`estmethod'"=="glm") {
 	    if ("`vce'"=="oim"|"`vce'"=="opg") local vce_select "vce(ols)"
 		else                               local vce_select "`vce'"
 	 }
@@ -393,6 +453,14 @@ program define binstest, eclass
 	 }
 
 	 * Error check
+	 if (`deriv'<0) {
+	    di as error "derivative incorrectly specified."
+		exit 198
+	 }
+	 if (inlist("`estmethod'","logit","probit","glm") & "`transform'"=="T" & `deriv'>1) {
+	    di as error "deriv cannot be greater than 1 if the conditional mean is requested."
+		exit 198
+	 }
 	 if (`"`testmodelparfit'"'==`""'&`ntestshape'==0&"`testmodelpoly'"=="") {
 	     di as error "No tests specified."
 		 exit
@@ -814,7 +882,7 @@ program define binstest, eclass
 
 		   mata: binsreg_st_spdes(`xvec', "`tsha_series'", "`kmat'", `xcatvec', `tsha_p', 0, `tsha_s')
 	       if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-		       capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `vce' `estmethodopt'
+		       capture `estcmd' `y_var' `tsha_series' `w_var' `wt', nocon `estcmdspec' `vce' `estmethodopt'
 		   }
 		   else if ("`estmethod'"=="qreg") {
 		      if ("`boot'"=="on") capture bsqreg `y_var' `tsha_series' `w_var', quantile(`quantile') reps(`reps')
@@ -826,6 +894,13 @@ program define binstest, eclass
 
 	       * store results
 	       if (_rc==0) {
+		       if ("`estmethod'"=="glm") {
+			      binstest_checklink
+				  local glm_link `"`r(link)'"'
+				  local glm_linkt `"`r(linkt)'"'
+				  local glm_family `"`r(family)'"'
+				  local glm_power=r(power)
+			   }
 		       matrix `tsha_b'=e(b)
 		       matrix `tsha_V'=e(V)
 			   if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tsha_b'", "`tsha_V'", `nseries')
@@ -841,49 +916,28 @@ program define binstest, eclass
 		* Predict
 	    * fitted values & standard errors
 		mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tsha_p', `deriv', `tsha_s')
-		if (("`estmethod'"=="logit"|"`estmethod'"=="probit")&"`transform'"=="T") {
+		if (inlist("`estmethod'","logit","probit","glm")&"`transform'"=="T") {
 		   if (`deriv'==0) {
 		      mata: `fit0'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec0')*st_matrix("`tsha_b'")
-			  if ("`estmethod'"=="logit") {
-			     mata: `fit'=logistic(`fit0'); ///
-				       `se'=logisticden(`fit0'):* ///
-					        binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tsha_V'"),"se")[,2]
-			  }
-			  else {
-			     mata: `fit'=normal(`fit0'); ///
-				       `se'=normalden(`fit0'):* ///
-					        binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tsha_V'"),"se")[,2]
-			  }
+			  mata: `fit'=binsreg_linkinv(`fit0', "`glm_link'", `glm_power'); ///
+			        `se'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):* ///
+				         binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tsha_V'"),"se")[,2]
 		   }
 		   if (`deriv'==1) {
 		      mata: `Xm0'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tsha_p', 0, `tsha_s'); ///
 			        `Xm0'=(`Xm0', J(rows(`Xm0'),1,1)#`wvec0'); ///
 					`fit0'=`Xm0'*st_matrix("`tsha_b'"); ///
 					`Xm'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec')
-			  if ("`estmethod'"=="logit") {
-			     mata: `fit'=binsreg_pred(`Xm',st_matrix("`tsha_b'"),.,"xb")[,1]
-				 if ("`asyvar'"=="off") {
-					mata: `Xm'=logisticden(`fit0'):*(1:-2*logistic(`fit0')):*`fit':*`Xm0' + ///
-					           logisticden(`fit0'):*`Xm'; ///
-				          `se'=sqrt(rowsum((`Xm'*st_matrix("`tsha_V'")):*`Xm'))
-				 }
-				 else {
-				    mata: `se'=logisticden(`fit0'):*(binsreg_pred(`Xm',.,st_matrix("`tsha_V'"),"se")[,2])
-				 }
-				 mata: `fit'=logisticden(`fit0'):*`fit'
+			  mata: `fit'=binsreg_pred(`Xm',st_matrix("`tsha_b'"),.,"xb")[,1]
+			  if ("`asyvar'"=="off") {
+				 mata: `Xm'=binsreg_linkinv2(`fit0', "`glm_link'", `glm_power'):*`fit':*`Xm0' + ///
+				             binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*`Xm'; ///
+				       `se'=sqrt(rowsum((`Xm'*st_matrix("`tsha_V'")):*`Xm'))
 			  }
 			  else {
-			     mata: `fit'=binsreg_pred(`Xm',st_matrix("`tsha_b'"),.,"xb")[,1]
-				 if ("`asyvar'"=="off") {
-					 mata:`Xm'=(-`fit0'):*normalden(`fit0'):*`fit':*`Xm0' + ///
-                                normalden(`fit0'):*`Xm'; ///
-						  `se'=sqrt(rowsum((`Xm'*st_matrix("`tsha_V'")):*`Xm'))
-				 }
-				 else {
-				    mata: `se'=normalden(`fit0'):*(binsreg_pred(`Xm',.,st_matrix("`tsha_V'"),"se")[,2])
-				 }
-				 mata: `fit'=normalden(`fit0'):*`fit'
+				 mata: `se'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*(binsreg_pred(`Xm',.,st_matrix("`tsha_V'"),"se")[,2])
 			  }
+			  mata: `fit'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*`fit'
 		   }
 		   mata: `Xm'=(`fit', `se')
 		}
@@ -995,7 +1049,7 @@ program define binstest, eclass
 
 		      mata: binsreg_st_spdes(`xvec', "`tmod_series'", "`kmat'", `xcatvec', `tmod_p', 0, `tmod_s')
 		      if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-	             capture `estcmd' `y_var' `tmod_series' `w_var' `wt', nocon `vce' `estmethodopt'
+	             capture `estcmd' `y_var' `tmod_series' `w_var' `wt', nocon `estcmdspec' `vce' `estmethodopt'
 		      }
 		      else if ("`estmethod'"=="qreg") {
 		         if ("`boot'"=="on") capture bsqreg `y_var' `tmod_series' `w_var', quantile(`quantile') reps(`reps')
@@ -1007,6 +1061,13 @@ program define binstest, eclass
 
 	          * store results
 	          if (_rc==0) {
+		          if ("`estmethod'"=="glm") {
+			         binstest_checklink
+				     local glm_link `"`r(link)'"'
+				     local glm_linkt `"`r(linkt)'"'
+				     local glm_family `"`r(family)'"'
+				     local glm_power=r(power)
+			      }
 		          matrix `tmod_b'=e(b)
 		          matrix `tmod_V'=e(V)
 			      if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") mata: binsreg_checkdrop("`tmod_b'", "`tmod_V'", `nseries')
@@ -1029,49 +1090,28 @@ program define binstest, eclass
 		   	* fitted values
   	       mata: `uni_basis'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tmod_p', `deriv', `tmod_s')
 
-		   if (("`estmethod'"=="logit"|"`estmethod'"=="probit")&"`transform'"=="T") {
+		   if (inlist("`estmethod'","logit","probit","glm")&"`transform'"=="T") {
 		      if (`deriv'==0) {
 		         mata: `fit0'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec0')*st_matrix("`tmod_b'")
-			     if ("`estmethod'"=="logit") {
-			        mata: `fit'=logistic(`fit0'); ///
-				          `se'=logisticden(`fit0'):* ///
-					           binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tmod_V'"),"se")[,2]
-			     }
-			     else {
-			        mata: `fit'=normal(`fit0'); ///
-				          `se'=normalden(`fit0'):* ///
-					           binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tmod_V'"),"se")[,2]
-			     }
+			     mata: `fit'=binsreg_linkinv(`fit0', "`glm_link'", `glm_power'); ///
+			           `se'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):* ///
+				            binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tmod_V'"),"se")[,2]
 		      }
 		      if (`deriv'==1) {
 		         mata: `Xm0'=binsreg_spdes(`uni_grid'[,1], "`kmat'", `uni_grid'[,3], `tmod_p', 0, `tmod_s'); ///
 			           `Xm0'=(`Xm0', J(rows(`Xm0'),1,1)#`wvec0'); ///
 					   `fit0'=`Xm0'*st_matrix("`tmod_b'"); ///
 					   `Xm'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec')
-			     if ("`estmethod'"=="logit") {
-			        mata: `fit'=binsreg_pred(`Xm',st_matrix("`tmod_b'"),.,"xb")[,1]
-				    if ("`asyvar'"=="off") {
-				       mata: `Xm'=logisticden(`fit0'):*(1:-2*logistic(`fit0')):*`fit':*`Xm0' + ///
-				                  logisticden(`fit0'):*`Xm'; ///
-				             `se'=sqrt(rowsum((`Xm'*st_matrix("`tmod_V'")):*`Xm'))
-				    }
-				    else {
-				       mata: `se'=logisticden(`fit0'):*(binsreg_pred(`Xm',.,st_matrix("`tmod_V'"),"se")[,2])
-				    }
-				    mata: `fit'=logisticden(`fit0'):*`fit'
+			     mata: `fit'=binsreg_pred(`Xm',st_matrix("`tmod_b'"),.,"xb")[,1]
+			     if ("`asyvar'"=="off") {
+				    mata: `Xm'=binsreg_linkinv2(`fit0', "`glm_link'", `glm_power'):*`fit':*`Xm0' + ///
+				                binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*`Xm'; ///
+				          `se'=sqrt(rowsum((`Xm'*st_matrix("`tmod_V'")):*`Xm'))
 			     }
 			     else {
-			        mata: `fit'=binsreg_pred(`Xm',st_matrix("`tmod_b'"),.,"xb")[,1]
-				    if ("`asyvar'"=="off") {
-					    mata:`Xm'=(-`fit0'):*normalden(`fit0'):*`fit':*`Xm0' + ///
-                                  normalden(`fit0'):*`Xm'; ///
-						     `se'=sqrt(rowsum((`Xm'*st_matrix("`tmod_V'")):*`Xm'))
-				    }
-				    else {
-				       mata: `se'=normalden(`fit0'):*(binsreg_pred(`Xm',.,st_matrix("`tmod_V'"),"se")[,2])
-				    }
-				    mata: `fit'=normalden(`fit0'):*`fit'
+				    mata: `se'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*(binsreg_pred(`Xm',.,st_matrix("`tmod_V'"),"se")[,2])
 			     }
+			     mata: `fit'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*`fit'
 		      }
 		      mata: `Xm'=(`fit', `se')
 		   }
@@ -1105,7 +1145,7 @@ program define binstest, eclass
 		      }
 
 		      if ("`estmethod'"!="qreg"&"`estmethod'"!="reghdfe") {
-		         capture `estcmd' `y_var' `poly_series' `w_var' `wt', `estmethodopt'
+		         capture `estcmd' `y_var' `poly_series' `w_var' `wt', `estcmdspec' `estmethodopt'
 		      }
 		      else if ("`estmethod'"=="qreg") {
 		         capture qreg `y_var' `poly_series' `w_var' `wt', quantile(`quantile') `estmethodopt'
@@ -1116,6 +1156,13 @@ program define binstest, eclass
 
 	          * store results
 	          if (_rc==0) {
+		          if ("`estmethod'"=="glm") {
+			         binstest_checklink
+				     local glm_link `"`r(link)'"'
+				     local glm_linkt `"`r(linkt)'"'
+				     local glm_family `"`r(family)'"'
+				     local glm_power=r(power)
+			      }
 	              matrix `poly_b'=e(b)
 	          }
 	          else {
@@ -1149,7 +1196,7 @@ program define binstest, eclass
 
 		   mata: `polym'=`polym'*st_matrix("`poly_b'")':+st_matrix("`poly_adjw'")
 
-		   if (("`estmethod'"=="logit"|"`estmethod'"=="probit")&"`transform'"=="T") {
+		   if (inlist("`estmethod'","logit","probit","glm")&"`transform'"=="T") {
 		      mata: `polym0'=J(rows(`uni_grid'),0,.)
 			  if (`deriv'==1) {
 			     forval i=1/`testpolyp' {
@@ -1159,14 +1206,8 @@ program define binstest, eclass
 				 mata: `polym0'=(`polym0', J(rows(`polym0'),1,1))
 			  }
 
-			  if ("`estmethod'"=="logit") {
-			     if (`deriv'==0) mata: `polym'=logistic(`polym')
-				 if (`deriv'==1) mata: `polym'=logisticden(`polym0'*st_matrix("e(b)")'):*`polym'
-			  }
-			  else {
-			     if (`deriv'==0) mata: `polym'=normal(`polym')
-			     if (`deriv'==1) mata: `polym'=normalden(`polym0'*st_matrix("e(b)")'):*`polym'
-			  }
+			  if (`deriv'==0) mata: `polym'=binsreg_linkinv(`polym', "`glm_link'", `glm_power')
+			  if (`deriv'==1) mata: `polym'=binsreg_linkinv1(`polym0'*st_matrix("e(b)")', "`glm_link'", `glm_power'):*`polym'
 			  mata: mata drop `polym0'
 		   }
 
@@ -1224,49 +1265,28 @@ program define binstest, eclass
 		   mata: `uni_basis'=binsreg_spdes(`uni_xvec', "`kmat'", `uni_xcatvec', ///
 		                                  `tmod_p', `deriv', `tmod_s')
 
-		   if (("`estmethod'"=="logit"|"`estmethod'"=="probit")&"`transform'"=="T") {
+		   if (inlist("`estmethod'","logit","probit","glm")&"`transform'"=="T") {
 		      if (`deriv'==0) {
 		         mata: `fit0'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec0')*st_matrix("`tmod_b'")
-			     if ("`estmethod'"=="logit") {
-			        mata: `fit'=logistic(`fit0'); ///
-				          `se'=logisticden(`fit0'):* ///
-					           binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tmod_V'"),"se")[,2]
-			     }
-			     else {
-			        mata: `fit'=normal(`fit0'); ///
-				          `se'=normalden(`fit0'):* ///
-					           binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tmod_V'"),"se")[,2]
-			     }
+			     mata: `fit'=binsreg_linkinv(`fit0', "`glm_link'", `glm_power'); ///
+			           `se'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):* ///
+				            binsreg_pred((`uni_basis', J(rows(`uni_basis'),1,1)#`wvec'),.,st_matrix("`tmod_V'"),"se")[,2]
 		      }
 		      if (`deriv'==1) {
 		         mata: `Xm0'=binsreg_spdes(`uni_xvec', "`kmat'", `uni_xcatvec', `tmod_p', 0, `tmod_s'); ///
 			           `Xm0'=(`Xm0', J(rows(`Xm0'),1,1)#`wvec0'); ///
 					   `fit0'=`Xm0'*st_matrix("`tmod_b'"); ///
 					   `Xm'=(`uni_basis', J(rows(`uni_basis'),1,1)#`wvec')
-			     if ("`estmethod'"=="logit") {
-			        mata: `fit'=binsreg_pred(`Xm',st_matrix("`tmod_b'"),.,"xb")[,1]
-				    if ("`asyvar'"=="off") {
-				       mata: `Xm'=logisticden(`fit0'):*(1:-2*logistic(`fit0')):*`fit':*`Xm0' + ///
-				                  logisticden(`fit0'):*`Xm'; ///
-				             `se'=sqrt(rowsum((`Xm'*st_matrix("`tmod_V'")):*`Xm'))
-				    }
-				    else {
-				       mata: `se'=logisticden(`fit0'):*(binsreg_pred(`Xm',.,st_matrix("`tmod_V'"),"se")[,2])
-				    }
-				    mata: `fit'=logisticden(`fit0'):*`fit'
+			     mata: `fit'=binsreg_pred(`Xm',st_matrix("`tmod_b'"),.,"xb")[,1]
+			     if ("`asyvar'"=="off") {
+				    mata: `Xm'=binsreg_linkinv2(`fit0', "`glm_link'", `glm_power'):*`fit':*`Xm0' + ///
+				                binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*`Xm'; ///
+				          `se'=sqrt(rowsum((`Xm'*st_matrix("`tmod_V'")):*`Xm'))
 			     }
 			     else {
-			        mata: `fit'=binsreg_pred(`Xm',st_matrix("`tmod_b'"),.,"xb")[,1]
-				    if ("`asyvar'"=="off") {
-					    mata:`Xm'=(-`fit0'):*normalden(`fit0'):*`fit':*`Xm0' + ///
-                                  normalden(`fit0'):*`Xm'; ///
-						     `se'=sqrt(rowsum((`Xm'*st_matrix("`tmod_V'")):*`Xm'))
-				    }
-				    else {
-				       mata: `se'=normalden(`fit0'):*(binsreg_pred(`Xm',.,st_matrix("`tmod_V'"),"se")[,2])
-				    }
-				    mata: `fit'=normalden(`fit0'):*`fit'
+				    mata: `se'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*(binsreg_pred(`Xm',.,st_matrix("`tmod_V'"),"se")[,2])
 			     }
+			     mata: `fit'=binsreg_linkinv1(`fit0', "`glm_link'", `glm_power'):*`fit'
 		      }
 		      mata: `Xm'=(`fit', `se')
 		   }
@@ -1526,5 +1546,32 @@ program define binstest, eclass
 		   ereturn matrix pval_model=`pval_model'
 	    }
 	 }
+	 ereturn local estmethod "`estmethod'"
+	 if (inlist("`estmethod'","logit","probit","glm")) {
+	    ereturn local family `"`glm_family'"'
+		ereturn local link `"`glm_linkt'"'
+		ereturn local linkprogram `"`glm_link'"'
+		ereturn scalar link_power=`glm_power'
+	 }
 
+end
+
+program define binstest_checklink, rclass
+     version 16
+	 local glm_link `"`e(link)'"'
+	 if (!inlist(`"`glm_link'"', "glim_l01", "glim_l02", "glim_l03", "glim_l05", "glim_l06", "glim_l07", "glim_l08", "glim_l09", "glim_l10") & ///
+	     !inlist(`"`glm_link'"', "glim_l11", "glim_l12")) {
+	    di as error "The GLM link selected by glm is not supported by binstest."
+		exit 198
+	 }
+	 if (`"`e(m)'"'!=`"1"') {
+	    di as error "Binomial denominators other than one are not supported by binstest."
+		exit 198
+	 }
+	 return local link `"`glm_link'"'
+	 return local linkt `"`e(linkt)'"'
+	 return local family `"`e(varfunct)'"'
+	 local glm_power `"`e(power)'"'
+	 if (`"`glm_power'"'==`""') local glm_power=.
+	 return scalar power=`glm_power'
 end

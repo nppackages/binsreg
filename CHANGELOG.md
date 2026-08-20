@@ -2,11 +2,14 @@
 
 Notable project changes are listed from newest to oldest.
 
-## 2026-08-20 - Nonlinear Specification-Test Corrections
+## 2026-08-20 - Nonlinear Corrections and Stata GLM Support
 
-- Bumped release metadata to R `2.2` and Python `3.2.0`.
+- Bumped release metadata to R `2.2`, Python `3.2.0`, and Stata `2.2`.
 - Fixed R and Python `binstest` polynomial specification tests for generalized linear models so response-scale tests transform the polynomial null fit through the inverse link, including the chain-rule adjustment for first derivatives. Index-scale tests requested with `nolink=TRUE` are unchanged, and the corrected behavior now matches the nonlinear binscatter methodology and the Stata implementation.
 - Added fixed-seed R and Python regression tests covering response-level, index-level, and response-scale first-derivative polynomial tests with covariate adjustment.
+- Added Stata `binsglm`, extending nonlinear binscatter estimation and inference to the built-in Gaussian, binomial (including fractional-response), Poisson, gamma, inverse-Gaussian, and negative-binomial GLM families and supported built-in links, with response- and index-scale output.
+- Extended Stata `binstest` and `binspwc` with `estmethod(glm)`, `family()`, and `link()` so specification, shape, and pairwise-comparison tests can use the same generalized linear models.
+- Added exact inverse-link derivatives to the shared Stata Mata library, Stata 16 smoke and numerical alignment checks, updated Stata documentation and examples, and a generated PDF manual for `binsglm`.
 
 ## 2026-05-22 - Nonlinear Performance Follow-up
 

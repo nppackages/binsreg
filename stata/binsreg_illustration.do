@@ -202,6 +202,22 @@ qui binslogit d x w, logitopt(iterate(1000))
 sjlog close, replace
 
 ********************************************************************************
+** BINSGLM: generalized linear models
+********************************************************************************
+
+* Poisson binscatter with a log link
+gen count=floor(exp(.2+.8*x+.1*w))
+sjlog using output/binsreg_out19_glm, replace
+binsglm count x w, family(poisson) link(log) line(1 1)
+sjlog close, replace
+
+* Fractional response with a logit link
+gen fraction=(d+x)/2
+sjlog using output/binsreg_out19_frac, replace
+binsglm fraction x w, family(binomial) link(logit) ci(1 1)
+sjlog close, replace
+
+********************************************************************************
 ** BINSTEST
 ********************************************************************************
 

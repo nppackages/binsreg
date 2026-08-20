@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 27-MAY-2026}{...}
+{* *! version 2.2 20-AUG-2026}{...}
 {viewerjumpto "Syntax" "binsregselect##syntax"}{...}
 {viewerjumpto "Description" "binsregselect##description"}{...}
 {viewerjumpto "Options" "binsregselect##options"}{...}

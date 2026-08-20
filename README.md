@@ -4,7 +4,7 @@ The `binsreg` package implements estimation, inference and graphical procedures 
 
 - `binsreg`: least squares binscatter regression with robust inference and plots.
 - `binsqreg`: quantile binscatter regression with robust inference and plots.
-- `binsglm`: generalized linear binscatter regression with robust inference and plots (R and Python).
+- `binsglm`: generalized linear binscatter regression with robust inference and plots.
 - `binslogit`: logit binscatter estimation with robust inference and plots (Stata).
 - `binsprobit`: probit binscatter estimation with robust inference and plots (Stata).
 - `binstest`: binscatter-based tests for parametric specifications and shape restrictions.
@@ -40,7 +40,7 @@ To install/update in Stata type:
 net install binsreg, from(https://raw.githubusercontent.com/nppackages/binsreg/main/stata) replace
 ```
 
-- Help: [binsreg](stata/binsreg.pdf), [binslogit](stata/binslogit.pdf), [binsprobit](stata/binsprobit.pdf), [binsqreg](stata/binsqreg.pdf), [binstest](stata/binstest.pdf), [binspwc](stata/binspwc.pdf), [binsregselect](stata/binsregselect.pdf).
+- Help: [binsreg](stata/binsreg.pdf), [binsglm](stata/binsglm.pdf), [binslogit](stata/binslogit.pdf), [binsprobit](stata/binsprobit.pdf), [binsqreg](stata/binsqreg.pdf), [binstest](stata/binstest.pdf), [binspwc](stata/binspwc.pdf), [binsregselect](stata/binsregselect.pdf).
 
 - Replication files: [do-file](stata/binsreg_illustration.do), [plot illustration](stata/binsreg_illustration_plot.do), [data](stata/binsreg_simdata.dta), [speed test](stata/binsreg_speedcomparison.do).
 

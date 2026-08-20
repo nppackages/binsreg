@@ -1,12 +1,23 @@
 *! version 2.2 20-AUG-2026
 
-capture program drop binsqreg
-program define binsqreg, eclass
-     version 13
+capture program drop binsglm
+program define binsglm, eclass
+     version 16
 
-	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw pw] [, ///
-	        quantile(numlist max=1 >0 <1) deriv(integer 0) at(string asis) ///
-			qregopt(string asis) ///
+	 * link() and nolink share a local macro under Stata's syntax parser.
+	 * Parse link() first and the remaining options in a second pass.
+	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw pw] [, LINK(string asis) *]
+	 local linkfunction `"`link'"'
+	 local first_varlist `"`varlist'"'
+	 local first_if `"`if'"'
+	 local first_in `"`in'"'
+	 local first_weight ""
+	 if ("`weight'"!="") local first_weight "[`weight'`exp']"
+	 local 0 `"`first_varlist' `first_if' `first_in' `first_weight', `options'"'
+
+	 syntax varlist(min=2 numeric fv ts) [if] [in] [fw pw] [, deriv(integer 0) at(string asis) nolink ///
+	        family(string asis) ///
+	        glmopt(string asis) ///
 	        dots(string) dotsgrid(string) dotsplotopt(string asis) ///
 			line(string) linegrid(integer 20) lineplotopt(string asis) ///
 			ci(string) cigrid(string) ciplotopt(string asis) ///
@@ -21,6 +32,60 @@ program define binsqreg, eclass
 			vce(passthru) level(real 95) asyvar(string) precision(string) ///
 			noplot savedata(string) replace ///
 			plotxrange(numlist asc max=2) plotyrange(numlist asc max=2) *]
+
+	 local nolink_requested `"`link'"'
+	 local link `"`nolink_requested'"'
+	 if (`"`family'"'==`""') local family "gaussian"
+	 local glm_report_family `"`family'"'
+	 local glm_report_link `"`linkfunction'"'
+	 if (`"`glm_report_link'"'==`""') local glm_report_link "canonical"
+	 gettoken glm_family_name glm_family_arg : family
+	 local glm_family_name = lower(`"`glm_family_name'"')
+	 if (!inlist(`"`glm_family_name'"', "gaussian", "binomial", "poisson", ///
+	             "gamma", "igaussian", "nbinomial")) {
+	    di as error "family() must specify a built-in glm family supported by binsglm."
+	    exit 198
+	 }
+	 if (`"`glm_family_name'"'=="binomial" & ///
+	     !inlist(strtrim(`"`glm_family_arg'"'), "", "1")) {
+	    di as error "Binomial denominators other than one are not supported by binsglm."
+	    exit 198
+	 }
+	 if (`"`linkfunction'"'!=`""') {
+	    gettoken glm_link_name glm_link_arg : linkfunction
+	    local glm_link_name = lower(`"`glm_link_name'"')
+	    if (!inlist(`"`glm_link_name'"', "identity", "log", "logit", "probit", ///
+	                "cloglog", "loglog", "logc", "reciprocal") & ///
+	        !inlist(`"`glm_link_name'"', "power", "opower")) {
+	       di as error "link() must specify a built-in glm link supported by binsglm."
+	       exit 198
+	    }
+	 }
+	 else if (`"`glm_family_name'"'=="nbinomial") {
+	    di as error "The canonical negative-binomial link is not supported; specify another link()."
+	    exit 198
+	 }
+	 local glmlinkopt ""
+	 local fitlinkopt ""
+	 if (`"`linkfunction'"'!=`""') {
+	    local glmlinkopt `"link(`linkfunction')"'
+	    local fitlinkopt `"linkfunction(`linkfunction')"'
+	 }
+	 local glmspec `"family(`family') `glmlinkopt'"'
+	 local glm_link ""
+	 local glm_linkt ""
+	 local glm_family ""
+	 local glm_power=.
+
+	 local glmopt_lower = lower(`"`glmopt'"')
+	 if (strpos(`"`glmopt_lower'"', "family(") | strpos(`"`glmopt_lower'"', "link(")) {
+	    di as error "Specify the GLM family and link using family() and link(), not glmopt()."
+	    exit 198
+	 }
+	 if (strpos(`"`glmopt_lower'"', "offset(") | strpos(`"`glmopt_lower'"', "exposure(")) {
+	    di as error "offset() and exposure() are not supported by binsglm."
+	    exit 198
+	 }
 
 	 quietly mata: mata mlib index
 
@@ -47,45 +112,24 @@ program define binsqreg, eclass
 	 **********************
 	 ** Extract options ***
 	 **********************
+	 * report the results for the cond. mean model?
+	 if ("`link'"!="") local transform "F"
+	 else              local transform "T"
+
 	 * default vce, clustered?
 	 if ("`vce'"=="") local vce "vce(robust)"
 	 local vcetemp: subinstr local vce "vce(" "", all
      local vcetemp: subinstr local vcetemp ")" "", all
-	 tokenize "`vcetemp'", parse(", ")
+	 tokenize "`vcetemp'"
 	 if ("`1'"=="cl"|"`1'"=="clu"|"`1'"=="clus"|"`1'"=="clust"| ///
 		 "`1'"=="cluste"|"`1'"=="cluster") {
 		local clusterON "T"           /* Mark cluster is specified */
 		local clustervar `2'
-		local vce "vce(robust)"
-		di as text in gr "Warning: vce(cluster) not allowed. vce(robust) used instead."
 	 }
-
-	 * use bootstrap cmd?
-	 if ("`1'"=="boot" | "`1'"=="bootstrap") {
-		local boot "on"
-		local repstemp `3'
-		if ("`repstemp'"=="") local repstemp reps(20)
-		local repstemp: subinstr local repstemp "reps(" "", all
-        local reps: subinstr local repstemp ")" "", all
-		if ("`weight'"!="") {
-		   di as error "Weights not allowed for bootstrapping."
-		   exit
-		}
-	 }
-	 else {
-		local boot "off"
-	 }
+	 if ("`vce'"=="vce(oim)"|"`vce'"=="vce(opg)") local vce_select "vce(ols)"
+	 else                                         local vce_select "`vce'"
 
 	 if ("`asyvar'"=="") local asyvar "off"
-
-	 * vce for bin selection purpose
-	 if ("`vce'"=="vce(iid)") local vce_select "vce(ols)"
-	 else                     local vce_select "vce(robust)"
-
-
-	 * default for quantile()
-	 if ("`quantile'"=="") local quantile=0.5
-
 	 if ("`binsmethod'"=="rot") local binsmethod "ROT"
 	 if ("`binsmethod'"=="dpi") local binsmethod "DPI"
 	 if ("`binsmethod'"=="")    local binsmethod "DPI"
@@ -168,20 +212,21 @@ program define binsqreg, eclass
 		}
 	 }
 
+
 	 * 1st case: select J
 	 if (("`nbins'"=="0"|`len_nbins'>1|"`nbins'"=="")&("`binspos'"=="ES"|"`binspos'"=="QS")) local selection "J"
 	 if ("`selection'"=="J") {
-	 	if (`len_p'>1|`len_s'>1) {
+		if (`len_p'>1|`len_s'>1) {
 		   if ("`nbins'"=="") {
 		      di as error "nbins() must be specified for degree/smoothness selection."
 			  exit
 		   }
 		   else {
-			  di as error "only one p and one s are allowed to select # of bins."
+			  di as error "Only one p and one s are allowed to select # of bins."
 			  exit
 		   }
 		}
-	 	if ("`plist'"=="") local plist=`deriv'
+		if ("`plist'"=="") local plist=`deriv'
 		if ("`slist'"=="") local slist=`plist'
 		if ("`dots'"!=""&"`dots'"!="T"&"`dots'"!="F") {                         /* respect user-specified dots */
 		   local plist: word 1 of `dots'
@@ -204,7 +249,7 @@ program define binsqreg, eclass
 
 	 if ("`pselectOK'"=="T" & `len_nbins'==1 & (`len_p'>1|`len_s'>1)) {
 	    local selection "P"
-	 }                                                                       /* e.g., binsreg y x, pselect(a b) or pselect() dots(T) */
+	 }                                                                         /* e.g., binsreg y x, pselect(a b) or pselect() dots(T) */
 
 	 * 3rd case: completely user-specified J and p
 	 if ((`len_p'<=1&`len_s'<=1) & "`selection'"!="J") {
@@ -234,6 +279,7 @@ program define binsqreg, eclass
 	    di as error "Degree, smoothness, or # of bins are not correctly specified."
         exit
 	 }
+
 
 	 ****** Now, extract from dots, line, etc. ************
 	 * dots
@@ -366,7 +412,7 @@ program define binsqreg, eclass
 		local localcheck "T"
 	 }
 	 else if ("`masspoints'"=="nolocalcheck") {
-	 	local massadj "T"
+		local massadj "T"
 		local localcheck "F"
      }
 	 else if ("`masspoints'"=="veryfew") {
@@ -382,11 +428,9 @@ program define binsqreg, eclass
 	 * evaluate at w from another dataset?
 	 if (`"`at'"'!=`""'&`"`at'"'!=`"mean"'&`"`at'"'!=`"median"'&`"`at'"'!=`"0"') local atwout "user"
 
-
 	 * use gtools commands instead?
 	 if ("`usegtools'"=="off") local usegtools ""
 	 if ("`usegtools'"=="on")  local usegtools usegtools
-
 	 if ("`usegtools'"!="") {
 	    capture which gtools
 		if (_rc) {
@@ -401,14 +445,16 @@ program define binsqreg, eclass
 		* use fasterxtile instead of irecode (within binsreg_irecode)
 		* shut down local checks & do not sort
 	 }
-	 else local sel_gtools "off"
-
 
 	 *************************
 	 **** error checks *******
 	 *************************
 	 if (`deriv'<0) {
-	    di as error "Derivative incorrectly specified."
+	    di as error "derivative incorrectly specified."
+		exit
+	 }
+	 if (`deriv'>1&"`transform'"=="T") {
+	    di as error "deriv cannot be greater than 1 if the conditional mean is requested."
 		exit
 	 }
 	 if (`dotsngrid'<0|`linengrid'<0|`cingrid'<0|`cbngrid'<0|`simsngrid'<0) {
@@ -465,6 +511,7 @@ program define binsqreg, eclass
 		   exit
 		}
 	 }
+
 	 if (`"`savedata'"'!=`""') {
 	    if ("`replace'"=="") {
 		   confirm new file `"`savedata'.dta"'
@@ -485,11 +532,9 @@ program define binsqreg, eclass
 
 	 * Parse varlist into y_var, x_var and w_var
 	 tokenize `varlist'
-
 	 fvrevar `1', tsonly
 	 local y_var "`r(varlist)'"
 	 local y_varname "`1'"
-
 	 fvrevar `2', tsonly
 	 local x_var "`r(varlist)'"
 	 local x_varname "`2'"
@@ -527,7 +572,6 @@ program define binsqreg, eclass
 	    local at "mean"
 	 }
 
-	 * Now, mark sample
 	 marksample touse
 	 markout `touse' `by', strok
 	 qui keep if `touse'
@@ -684,6 +728,7 @@ program define binsqreg, eclass
 		   local eN=min(`eN', `Nclust')   /* effective sample size */
 	    }
 
+
 		* Check effective sample size
 		if ("`dots_p'"==".") local dotspcheck=6
 		else                 local dotspcheck=`dots_p'
@@ -704,12 +749,12 @@ program define binsqreg, eclass
 	       }
 		   if ("`selection'"=="J") {
 		      qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') bins(`dots_p' `dots_s') nbins(`nbins_full') ///
-				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+							    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
 								numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			  if (e(nbinsrot_regul)==.) {
-			      di as error "bin selection fails."
+			      di as error "Bin selection fails."
 				  exit
 			  }
 			  if ("`binsmethod'"=="ROT") {
@@ -723,15 +768,15 @@ program define binsqreg, eclass
 	             mat `mat_imse_bsq_dpi'=J(`bynum',1,e(imse_bsq_dpi))
 				 if (`nbins'==.) {
 				    local nbins=e(nbinsrot_regul)
- 				    mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
+				    mat `mat_imse_var_rot'=J(`bynum',1,e(imse_var_rot))
 	                mat `mat_imse_bsq_rot'=J(`bynum',1,e(imse_bsq_rot))
 					di as text in gr "Warning: DPI selection fails. ROT choice used."
 				 }
 			  }
 		   }
 		   else if ("`selection'"=="P") {
-		   	  qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_full') ///
-				   			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+			  qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_full') ///
+							    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
 								pselect(`plist') sselect(`slist') ///
 								binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								`vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
@@ -832,7 +877,6 @@ program define binsqreg, eclass
 	 * alpha quantile (for two-sided CI)
 	 local alpha=(100-(100-`level')/2)/100
 
-
 	 ***************************************************************************
 	 *************** Preparation before loop************************************
 	 ***************************************************************************
@@ -842,7 +886,7 @@ program define binsqreg, eclass
 	 * plotmat: final output (defined outside);
 	 * plotmatby: output for each group
 	 tempname plotmat plotmatby xsub ysub byindex xcatsub
-	 tempname Xm mata_fit mata_se          /* temp name for mata obj */
+	 tempname Xm Xm0 mata_fit mata_se          /* temp name for mata obj */
 
 	 * count the number of requested columns, record the positions
 	 local builddata ""
@@ -903,7 +947,7 @@ program define binsqreg, eclass
 	 ******************* Now, enter the loop ***********************************
 	 ***************************************************************************
 	 foreach byval in `byvals' `noby' {
-		local conds ""
+	    local conds ""
 		if ("`by'"!="") {
 		    local conds "if `by'==`byval'"     /* with "if" */
 	        if ("`bylabel'"=="") local byvalname=`byval'
@@ -912,7 +956,6 @@ program define binsqreg, eclass
 			}
 			local byvalnamelist `" `byvalnamelist' `"`byvalname'"' "'
 		}
-
 		if (`bynum'>1) {
 		   mata: `byindex'=`byvec':==`byval'
 		   mata: `xsub'=select(`xvec',`byindex'); `ysub'=select(`yvec', `byindex')
@@ -958,7 +1001,7 @@ program define binsqreg, eclass
 	    local Nclust=.
 	    if ("`clusterON'"=="T") {
 		   if (`bynum'==1) {
-		   	  if ("`usegtools'"=="") {
+			  if ("`usegtools'"=="") {
 			     mata: st_local("Nclust", strofreal(rows(uniqrows(`cluvec'))))
 		      }
 			  else {
@@ -996,16 +1039,16 @@ program define binsqreg, eclass
 			  local pos "QS"                /* forced to be QS */
 	       }
 		   else {
-		   	  local randcut1k `randcut'
+			  local randcut1k `randcut'
 		      if ("`randcut'"=="" & `N'>5000) {
 			     local randcut1k=max(5000/`N', 0.01)
-				 di as text in gr "Warning: to speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut(1)."
+				 di as text in gr "Warning: To speed up computation, bin/degree selection uses a subsample of roughly max(5,000, 0.01n) observations if the sample size n>5,000. To use the full sample, set randcut(1)."
 		      }
 		      if ("`selection'"=="J") {
 			     qui binsregselect `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 				                   bins(`dots_p' `dots_s') nbins(`nbins_full') ///
 		                           absorb(`absorb') reghdfeopt(`reghdfeopt') ///
-					   			   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
+								   binsmethod(`binsmethod') binspos(`pos') nbinsrot(`nbinsrot') ///
 							       `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
 							       numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
 			     if (e(nbinsrot_regul)==.) {
@@ -1030,9 +1073,9 @@ program define binsqreg, eclass
 		         }
 			  }
 		      else if ("`selection'"=="P") {
-		   	     qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_full') ///
-				     			    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
-					  			    pselect(`plist') sselect(`slist') ///
+			     qui binsregselect `y_var' `x_var' `w_var' `wt', deriv(`deriv') nbins(`nbins_full') ///
+							    absorb(`absorb') reghdfeopt(`reghdfeopt') ///
+								    pselect(`plist') sselect(`slist') ///
 								    binsmethod(`binsmethod') binspos(`binspos') nbinsrot(`nbinsrot') ///
 								    `vce' masspoints(`masspoints') dfcheck(`dfcheck_n1' `dfcheck_n2') ///
 								    numdist(`Ndist') numclust(`Nclust') randcut(`randcut1k') usegtools(`sel_gtools') precision(`precision')
@@ -1290,7 +1333,7 @@ program define binsqreg, eclass
 			 mata: `mataobj'=.
 			 foreach wpos in `indexlist' {
 			    local wname: word `wpos' of `w_var'
-				if ("`usegtools'"=="") {
+		        if ("`usegtools'"=="") {
 		           if ("`wtype'"!="") qui tabstat `wname' `conds' [aw`exp'], stat(`at') save
 			       else               qui tabstat `wname' `conds', stat(`at') save
 				   mat `wvaltemp'=r(StatTotal)
@@ -1304,7 +1347,7 @@ program define binsqreg, eclass
 			 mata: mata drop `mataobj'
 		   }
 		   else if (`"`at'"'==`"0"') {
-   		     matrix `wval'=J(1,`nwvar',0)
+		     matrix `wval'=J(1,`nwvar',0)
 		   }
 		   else if ("`atwout'"=="user") {
 		     matrix `wval'=`wuser'
@@ -1344,22 +1387,22 @@ program define binsqreg, eclass
 		   }
 
 	       local nseries=`nbins'
-		   if ("`boot'"=="on") {
-		      capture bsqreg `y_var' ibn.`xcat' `w_var' `conds', quantile(`quantile') reps(`reps')
-		   }
-		   else {
-	          capture qreg `y_var' ibn.`xcat' `w_var' `conds' `wt', quantile(`quantile') `vce' `qregopt'
-		   }
+	       capture glm `y_var' ibn.`xcat' `w_var' `conds' `wt', nocon `glmspec' `vce' `glmopt'
 		   tempname fewobs_b fewobs_V
 		   if (_rc==0) {
+		      binsglm_checklink
+			  local glm_link `"`r(link)'"'
+			  local glm_linkt `"`r(linkt)'"'
+			  local glm_family `"`r(family)'"'
+			  local glm_power=r(power)
 		      mat `fewobs_b'=e(b)
 		      mat `fewobs_V'=e(V)
-		      mata: binsreg_checkdrop("`fewobs_b'", "`fewobs_V'", `nseries', "T")
-		      if (`nwvar'>0) {
-			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+(`fewobs_b'[1,`=`nseries'+1'..`=`nseries'+`nwvar'']*`wval''+`fewobs_b'[1,colsof(`fewobs_b')])*J(1,`nseries',1)
+		      mata: binsreg_checkdrop("`fewobs_b'", "`fewobs_V'", `nseries')
+			  if (`nwvar'>0) {
+			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+(`fewobs_b'[1,`=`nseries'+1'..`=`nseries'+`nwvar'']*`wval'')*J(1,`nseries',1)
 		      }
 			  else {
-			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']+J(1,`nseries',1)*`fewobs_b'[1,colsof(`fewobs_b')]
+			     mat `fewobs_b'=`fewobs_b'[1,1..`nseries']
 		      }
 		   }
 		   else {
@@ -1367,7 +1410,12 @@ program define binsqreg, eclass
 		      exit _rc
 		   }
 
-		   mata: `plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]=st_matrix("`fewobs_b'")'
+		   if ("`transform'"=="T") {
+		      mata: `plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]=binsreg_linkinv(st_matrix("`fewobs_b'")', "`glm_link'", `glm_power')
+           }
+		   else {
+		      mata: `plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]=st_matrix("`fewobs_b'")'
+		   }
 
 		   local plotnum=`plotnum'+1
 		   local legendnum `legendnum' `plotnum'
@@ -1394,18 +1442,19 @@ program define binsqreg, eclass
 		   if (`cintot'!=0) {
 		      di as text in gr "Warning: ci(0 0) is used."
 
-			  tempname tempobj
 			  if (`nwvar'>0) {
-			     mata: `tempobj'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"), J(`nseries',1,1))
+			     mata: `mata_se'=(I(`nseries'), J(`nseries',1,1)#st_matrix("`wval'"))
 			  }
 			  else {
-			     mata: `tempobj'=(I(`nseries'), J(`nseries',1,1))
+			     mata: `mata_se'=I(`nseries')
 			  }
-			  mata: `mata_se'=sqrt(rowsum((`tempobj'*st_matrix("`fewobs_V'")):*`tempobj'))
-			  mata: mata drop `tempobj'
 
 		      mata: `plotmatby'[|1,`ci_start'+1 \ `nbins',`ci_start'+2|]=`plotmatby'[|1,`dots_start'+1 \ `nbins',`dots_start'+2|]; ///
-			        `plotmatby'[|1,`ci_start'+3 \ `nbins',`ci_start'+3|]=`plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]-`mata_se'*invnormal(`alpha'); ///
+			        `mata_se'=sqrt(rowsum((`mata_se'*st_matrix("`fewobs_V'")):*`mata_se'))
+			  if ("`transform'"=="T") {
+			     mata: `mata_se'=`mata_se':*binsreg_linkinv1(st_matrix("`fewobs_b'")', "`glm_link'", `glm_power')
+			  }
+			  mata: `plotmatby'[|1,`ci_start'+3 \ `nbins',`ci_start'+3|]=`plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]-`mata_se'*invnormal(`alpha'); ///
 			        `plotmatby'[|1,`ci_start'+4 \ `nbins',`ci_start'+4|]=`plotmatby'[|1,`dots_start'+3 \ `nbins',`dots_start'+3|]+`mata_se'*invnormal(`alpha')
 			  mata: mata drop `mata_se'
 
@@ -1456,39 +1505,42 @@ program define binsqreg, eclass
 		   tempname dots_b dots_V
 		   if (("`dots_p'"=="`ci_p'"&"`dots_s'"=="`ci_s'"&"`ciON'"=="T")| ///
 		       ("`dots_p'"=="`cb_p'"&"`dots_s'"=="`cb_s'"&"`cbON'"=="T")) {
-			  binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
-	                       p(`dots_p') s(`dots_s') type(dots) `vce' ///
-			               xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') ///
-			               xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						   usereg `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
+			  binsglm_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
+	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
+			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') ///
+			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
+						usereg `sorted' `usegtools' family(`family') `fitlinkopt' glmopt(`glmopt') precision(`precision')
 		   }
 		   else {
-		      binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
-	                       p(`dots_p') s(`dots_s') type(dots) `vce' ///
-			               xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') ///
-			               xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						   `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
+		      binsglm_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
+	                    p(`dots_p') s(`dots_s') type(dots) `vce' ///
+			            xcat(`xcat') kmat(`kmat') dotsmean(`dotsngrid_mean') ///
+			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
+						`sorted' `usegtools' family(`family') `fitlinkopt' glmopt(`glmopt') precision(`precision')
 		   }
 
+		   local glm_link `"`e(link)'"'
+		   local glm_linkt `"`e(linkt)'"'
+		   local glm_family `"`e(family)'"'
+		   local glm_power=e(power)
 		   mat `dots_b'=e(bmat)
 		   mat `dots_V'=e(Vmat)
 		   if (`dotsngrid_mean'!=0) mat `xmean'=e(xmat)
 
-
 		   * prediction
 		   if (`dotsngrid_mean'==0) {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
-			                  binsqreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
+			                  binsglm_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                       `nbins', `dots_p', `dots_s', `deriv', ///
 							                   "dots", `dotsngrid', "`wval'", `nwvar', ///
-											   "`=e(spmethod)'", "`asyvar'")
+											   "`transform'", "`asyvar'", "`glm_link'", `glm_power')
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`dots_start' \ `dots_nr',`dots_end'|] = ///
-			                  binsqreg_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
+			                  binsglm_plotmat("`dots_b'", "`dots_V'", ., "`kmat'", ///
 		                                        `nbins', `dots_p', `dots_s', `deriv', ///
 							                    "dots", `dotsngrid', "`wval'", `nwvar', ///
-												"`=e(spmethod)'", "`asyvar'", "`xmean'")
+												"`transform'", "`asyvar'", "`glm_link'", `glm_power', "`xmean'")
 		   }
 
 		   * dots
@@ -1535,28 +1587,32 @@ program define binsqreg, eclass
 		   else {
 		      if (("`line_p'"=="`ci_p'"&"`line_s'"=="`ci_s'"&"`ciON'"=="T")| ///
 		          ("`line_p'"=="`cb_p'"&"`line_s'"=="`cb_s'"&"`cbON'"=="T")) {
-				 binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
+				 binsglm_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) ///
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  usereg `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
+						  usereg `sorted' `usegtools' family(`family') `fitlinkopt' glmopt(`glmopt') precision(`precision')
 			  }
 			  else {
-		         binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
+		         binsglm_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                      p(`line_p') s(`line_s') type(line) `vce' ///
 			              xcat(`xcat') kmat(`kmat') dotsmean(0) ///
 			              xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						  `sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
-			  }
+						  `sorted' `usegtools' family(`family') `fitlinkopt' glmopt(`glmopt') precision(`precision')
+		      }
+		      local glm_link `"`e(link)'"'
+		      local glm_linkt `"`e(linkt)'"'
+		      local glm_family `"`e(family)'"'
+		      local glm_power=e(power)
 		      mat `line_b'=e(bmat)
 		      mat `line_V'=e(Vmat)
 		   }
 
 		   * prediction
 		   mata: `plotmatby'[|1,`line_start' \ `line_nr',`line_end'|] = ///
-			              binsqreg_plotmat("`line_b'", "`line_V'", ., "`kmat'", ///
+			              binsglm_plotmat("`line_b'", "`line_V'", ., "`kmat'", ///
 		                      `nbins', `line_p', `line_s', `deriv', ///
-							  "line", `linengrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'")
+							  "line", `linengrid', "`wval'", `nwvar', "`transform'", "`asyvar'", "`glm_link'", `glm_power')
 
 		   * line
 		   local plotnum=`plotnum'+1
@@ -1596,53 +1652,60 @@ program define binsqreg, eclass
 	       mata:`plotmatby'[|1,`poly_start' \ `poly_nr',`poly_start'+2|]=binsreg_grids("`kmat'",`polyregngrid')
 
 	       local poly_series ""
-	       forval i=1/`polyreg' {
+	       forval i=0/`polyreg' {
 		      tempvar x_var_`i'
 			  qui gen `precision_type' `x_var_`i''=`x_var'^`i' `conds'
 	          local poly_series `poly_series' `x_var_`i''
 		   }
 
-		   if ("`boot'"=="on") {
-		      capture bsqreg `y_var' `poly_series' `w_var' `conds', quantile(`quantile') reps(`reps')
-		   }
-		   else {
-		      capture qreg `y_var' `poly_series' `w_var' `conds' `wt', quantile(`quantile') `vce' `qregopt'
-		   }
+		   capture glm `y_var' `poly_series' `w_var' `conds' `wt', nocon `glmspec' `vce' `glmopt'
 		   * store results
 		   tempname poly_b poly_V poly_adjw
 	       if (_rc==0) {
-	 	      matrix `poly_b'=e(b)
-
-			  if (`nwvar'>0&`deriv'==0) {
-			     matrix `poly_adjw'=`wval'*`poly_b'[1, `=`polyreg'+1'..`=`polyreg'+`nwvar'']'
-			  }
-			  else {
-			     matrix `poly_adjw'=0
-			  }
-
-			  if (`deriv'==0) {
-			     if (`polyreg'>0) matrix `poly_b'=(`poly_b'[1, `=`polyreg'+`nwvar'+1'], `poly_b'[1,1..`polyreg'])
-				 else             matrix `poly_b'=`poly_b'[1, `=`polyreg'+`nwvar'+1']
-			  }
-			  else matrix `poly_b'=`poly_b'[1, `deriv'..`polyreg']
-
+		      binsglm_checklink
+			  local glm_link `"`r(link)'"'
+			  local glm_linkt `"`r(linkt)'"'
+			  local glm_family `"`r(family)'"'
+			  local glm_power=r(power)
+		      matrix `poly_b'=e(b)
 			  matrix `poly_V'=e(V)
 	       }
 	       else {
 	          error  _rc
-	   	      exit _rc
+		      exit _rc
            }
 
 		   * Data for derivative
-		   mata: `Xm'=J(`poly_nr',0,.)
+		   mata: `Xm'=J(`poly_nr',0,.); `Xm0'=J(`poly_nr',0,.)
 	       forval i=`deriv'/`polyreg' {
 		      mata: `Xm'=(`Xm', ///
 				      `plotmatby'[|1,`poly_start' \ `poly_nr',`poly_start'|]:^(`i'-`deriv')* ///
 					  factorial(`i')/factorial(`i'-`deriv'))
 	       }
-		   mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
+		   mata: `Xm'=(J(`poly_nr', `deriv',0), `Xm')
+		   if (`nwvar'>0) {
+		      if (`deriv'==0) mata: `Xm'=(`Xm', J(`poly_nr',1,1)#st_matrix("`wval'"))
+			  else            mata: `Xm'=(`Xm', J(`poly_nr',`nwvar',0))
+		   }
 
-		   mata: mata drop `Xm'
+		   if ("`transform'"=="T") {
+		      if (`deriv'==0) {
+			     mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=binsreg_linkinv(`Xm'*st_matrix("`poly_b'")', "`glm_link'", `glm_power')
+			  }
+			  else if (`deriv'==1) {
+			     forval i=0/`polyreg' {
+		            mata: `Xm0'=(`Xm0', `plotmatby'[|1,`poly_start' \ `poly_nr',`poly_start'|]:^`i')
+	             }
+				 if (`nwvar'>0) mata: `Xm0'=(`Xm0', J(`poly_nr',1,1)#st_matrix("`wval'"))
+			     mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=binsreg_linkinv1(`Xm0'*st_matrix("`poly_b'")', "`glm_link'", `glm_power'):* ///
+				                                                                 (`Xm'*st_matrix("`poly_b'")')
+			  }
+		   }
+		   else {
+		      mata:`plotmatby'[|1,`poly_start'+3 \ `poly_nr',`poly_start'+3|]=`Xm'*st_matrix("`poly_b'")'
+		   }
+
+		   mata: mata drop `Xm' `Xm0'
 
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
@@ -1672,35 +1735,50 @@ program define binsqreg, eclass
 
 	          mata: `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'+2|]=binsreg_grids("`kmat'", `polyregcingrid')
 
-		      mata: `Xm'=J(`polyci_nr',0,.)
+		      mata: `Xm'=J(`polyci_nr',0,.); `Xm0'=J(`polyci_nr',0,.)
 	          forval i=`deriv'/`polyreg' {
 		         mata:`Xm'=(`Xm', ///
 				      `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'|]:^(`i'-`deriv')* ///
 					  factorial(`i')/factorial(`i'-`deriv'))
 	          }
-			  mata:`mata_fit'=(`Xm'*st_matrix("`poly_b'")'):+st_matrix("`poly_adjw'")
-			  if (`deriv'==0) {
-			  	 if (`polyreg'>0) {
-			        if (`nwvar'>0) mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], J(`polyci_nr',1,1)#st_matrix("`wval'"),`Xm'[.,1])
-				    else           mata: `Xm'=(`Xm'[|1,2 \ ., cols(`Xm')|], `Xm'[.,1])
-			     }
-				 else {
-				 	if (`nwvar'>0) mata: `Xm'=(J(`polyci_nr',1,1)#st_matrix("`wval'"),`Xm'[.,1])
-				    else           mata: `Xm'=`Xm'[.,1]
+		      mata: `Xm'=(J(`polyci_nr', `deriv',0), `Xm')
+		      if (`nwvar'>0) {
+		         if (`deriv'==0) mata: `Xm'=(`Xm', J(`polyci_nr',1,1)#st_matrix("`wval'"))
+			     else            mata: `Xm'=(`Xm', J(`polyci_nr',`nwvar',0))
+		      }
 
+			  if ("`transform'"=="T") {
+		         if (`deriv'==0) {
+				    mata: `mata_fit'=binsreg_linkinv(`Xm'*st_matrix("`poly_b'")', "`glm_link'", `glm_power')
+					mata: `mata_se'=binsreg_linkinv1(`Xm'*st_matrix("`poly_b'")', "`glm_link'", `glm_power'):* ///
+					                sqrt(rowsum((`Xm'*st_matrix("`poly_V'")):*`Xm'))
+				 }
+				 else if (`deriv'==1) {
+				    forval i=0/`polyreg' {
+		               mata: `Xm0'=(`Xm0', `plotmatby'[|1,`polyci_start' \ `polyci_nr',`polyci_start'|]:^`i')
+	                }
+					if (`nwvar'>0) mata: `Xm0'=(`Xm0', J(`polyci_nr',1,1)#st_matrix("`wval'"))
+			        mata:`mata_fit'=binsreg_linkinv1(`Xm0'*st_matrix("`poly_b'")', "`glm_link'", `glm_power'):* ///
+				                    (`Xm'*st_matrix("`poly_b'")')
+
+					tempname tempobj
+					mata: `tempobj'=`Xm0'*st_matrix("`poly_b'")'; ///
+					      `tempobj'=binsreg_linkinv2(`tempobj', "`glm_link'", `glm_power'):*(`Xm'*st_matrix("`poly_b'")'):*`Xm0' + ///
+					                binsreg_linkinv1(`tempobj', "`glm_link'", `glm_power'):*`Xm'; ///
+						  `mata_se'=sqrt(rowsum((`tempobj'*st_matrix("`poly_V'")):*`tempobj'))
+					mata: mata drop `tempobj'
 				 }
 			  }
 			  else {
-			     matrix `poly_V'=`poly_V'[`deriv'..`polyreg',`deriv'..`polyreg']
+		         mata: `mata_fit'=`Xm'*st_matrix("`poly_b'")';	///
+			           `mata_se'=sqrt(rowsum((`Xm'*st_matrix("`poly_V'")):*`Xm'))
 			  }
 
-			  mata: `mata_se'=sqrt(rowsum((`Xm':*(st_matrix("`poly_V'")*`Xm'')')))
+			  mata:`plotmatby'[|1,`polyci_start'+3 \ `polyci_nr',`polyci_start'+3|]=`mata_fit'-`mata_se'*invnormal(`alpha'); ///
+				   `plotmatby'[|1,`polyci_start'+4 \ `polyci_nr',`polyci_start'+4|]=`mata_fit'+`mata_se'*invnormal(`alpha'); ///
+				   `plotmatby'[selectindex(`plotmatby'[,`=`polyci_start'+1']:==1),(`=`polyci_start'+3',`=`polyci_start'+4')]=J(`=`nbins'-1',2,.)
 
-			  mata: `plotmatby'[|1,`polyci_start'+3 \ `polyci_nr',`polyci_start'+3|]=`mata_fit'-`mata_se'*invnormal(`alpha'); ///
-				    `plotmatby'[|1,`polyci_start'+4 \ `polyci_nr',`polyci_start'+4|]=`mata_fit'+`mata_se'*invnormal(`alpha'); ///
-					`plotmatby'[selectindex(`plotmatby'[,`=`polyci_start'+1']:==1),(`=`polyci_start'+3',`=`polyci_start'+4')]=J(`=`nbins'-1',2,.)
-
-		      mata: mata drop `Xm' `mata_fit' `mata_se'
+		      mata: mata drop `Xm' `Xm0' `mata_fit' `mata_se'
 
 		      * poly ci
 			  local plotnum=`plotnum'+1
@@ -1749,38 +1827,43 @@ program define binsqreg, eclass
 
 		   capture confirm matrix `ci_b' `ci_V' `xmean'
 		   if (_rc!=0) {
-			    binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
+			    binsglm_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                    p(`ci_p') s(`ci_s') type(ci) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(`cingrid_mean') ///
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
+						`sorted' `usegtools' family(`family') `fitlinkopt' glmopt(`glmopt') precision(`precision')
 
 		        mat `ci_b'=e(bmat)
 		        mat `ci_V'=e(Vmat)
 		        mat `xmean'=e(xmat)
+				local glm_link `"`e(link)'"'
+				local glm_linkt `"`e(linkt)'"'
+				local glm_family `"`e(family)'"'
+				local glm_power=e(power)
 		   }
 
 		   * prediction
 		   if (`cingrid_mean'==0) {
 		      mata: `plotmatby'[|1,`ci_start' \ `ci_nr',`ci_end'|] = ///
-			            binsqreg_plotmat("`ci_b'", "`ci_V'", ///
+			            binsglm_plotmat("`ci_b'", "`ci_V'", ///
 						      `=invnormal(`alpha')', "`kmat'", ///
 		                      `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-							  `cingrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'")
+							  `cingrid', "`wval'", `nwvar', "`transform'", "`asyvar'", "`glm_link'", `glm_power')
 		   }
 		   else {
 		      mata: `plotmatby'[|1,`ci_start' \ `ci_nr',`ci_end'|] = ///
-			            binsqreg_plotmat("`ci_b'", "`ci_V'", ///
+			            binsglm_plotmat("`ci_b'", "`ci_V'", ///
 						   `=invnormal(`alpha')', "`kmat'", ///
 		                   `nbins', `ci_p', `ci_s', `deriv', "ci", ///
-						   `cingrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'", "`xmean'")
+							   `cingrid', "`wval'", `nwvar', ///
+							   "`transform'", "`asyvar'", "`glm_link'", `glm_power', "`xmean'")
 		   }
 
 		   * ci
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
 		   local lty: word `counter_by' of `bylpatterns'
-		   local plotcond ""
+	       local plotcond ""
 		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
 		      local plotcond if
 		      if ("`plotxrange'"!="") {
@@ -1794,7 +1877,7 @@ program define binsqreg, eclass
 		      }
 		   }
 
-	       local plotcmdby `plotcmdby' (rcap CI_l CI_r CI_x ///
+		   local plotcmdby `plotcmdby' (rcap CI_l CI_r CI_x ///
 		                   `plotcond' in `ci_first'/`ci_last', ///
 						   sort lcolor(`col') lpattern(`lty') `ciplotopt')
 
@@ -1833,13 +1916,17 @@ program define binsqreg, eclass
 		            matrix `cb_V'=`dots_V'
 		         }
 				 else {
-				    binsqreg_fit `y_var' `x_var' `w_var' `conds' `wt', quantile(`quantile') deriv(`deriv') ///
+				    binsglm_fit `y_var' `x_var' `w_var' `conds' `wt', deriv(`deriv') ///
 	                    p(`cb_p') s(`cb_s') type(cb) `vce' ///
 			            xcat(`xcat') kmat(`kmat') dotsmean(0) ///
 			            xname(`xsub') yname(`ysub') catname(`xcatsub') edge(`binedges') ///
-						`sorted' boot(`boot') reps(`reps') `usegtools' qregopt(`qregopt') precision(`precision')
+						`sorted' `usegtools' family(`family') `fitlinkopt' glmopt(`glmopt') precision(`precision')
 					mat `cb_b'=e(bmat)
 		            mat `cb_V'=e(Vmat)
+					local glm_link `"`e(link)'"'
+					local glm_linkt `"`e(linkt)'"'
+					local glm_family `"`e(family)'"'
+					local glm_power=e(power)
 				 }
 			  }
 		   }
@@ -1849,30 +1936,26 @@ program define binsqreg, eclass
 		   local uni_last=`simsngrid'*`nbins'+`nbins'-1
 		   local nseries=(`cb_p'-`cb_s'+1)*(`nbins'-1)+`cb_p'+1
 
-		   tempname cb_basis coeff vcov vcovtemp
+		   tempname cb_basis
 		   mata: `cb_basis'=binsreg_grids("`kmat'", `simsngrid'); ///
 		         `cb_basis'=binsreg_spdes(`cb_basis'[,1], "`kmat'", `cb_basis'[,3], `cb_p', `deriv', `cb_s'); ///
-				 `cb_basis'=(`cb_basis', J(rows(`cb_basis'),1,1)); ///
-				 `coeff'=st_matrix("`cb_b'"); `coeff'=(`coeff'[|1 \ `nseries'|], `coeff'[cols(`coeff')])'; ///
-		         `vcov'=st_matrix("`cb_V'"); ///
-				 `vcov'= (`vcov'[|1,1 \ `nseries', `nseries'|], `vcov'[|1,cols(`vcov') \ `nseries', cols(`vcov')|] \ ///
-				          `vcov'[|cols(`vcov'), 1 \ cols(`vcov'), `nseries'|], `vcov'[cols(`vcov'), cols(`vcov')]); ///
-				 `Xm'=binsreg_pred(`cb_basis', `coeff', `vcov', "all"); ///
-				  st_matrix("`vcovtemp'", `vcov'); ///
-			      binsreg_pval(`cb_basis', `Xm'[,2], "`vcovtemp'", ".", `nsims', `=`nseries'+1', "two", `=`level'/100', ".", "`cval'", "inf")
-		   mata: mata drop `cb_basis' `Xm' `coeff' `vcov'
+		         `Xm'=binsreg_pred(`cb_basis', st_matrix("`cb_b'")[|1 \ `nseries'|]', ///
+			                       st_matrix("`cb_V'")[|1,1 \ `nseries',`nseries'|], "all"); ///
+			      binsreg_pval(`cb_basis', `Xm'[,2], "`cb_V'", ".", `nsims', `nseries', "two", `=`level'/100', ".", "`cval'", "inf")
+		   mata: mata drop `cb_basis' `Xm'
 
 	       * prediction
 		   mata: `plotmatby'[|1,`cb_start' \ `cb_nr',`cb_end'|] =   ///
-			                binsqreg_plotmat("`cb_b'", "`cb_V'",      ///
-						                     `=`cval'', "`kmat'",       ///
-		                                     `nbins', `cb_p', `cb_s', `deriv', ///
-							                 "cb", `cbngrid', "`wval'", `nwvar', "`=e(spmethod)'", "`asyvar'")
+			                binsglm_plotmat("`cb_b'", "`cb_V'",      ///
+						                      `=`cval'', "`kmat'",       ///
+		                                      `nbins', `cb_p', `cb_s', `deriv', ///
+							                  "cb", `cbngrid', "`wval'", `nwvar', ///
+												  "`transform'", "`asyvar'", "`glm_link'", `glm_power')
 
 		   * cb
 		   local plotnum=`plotnum'+1
 		   local col: word `counter_by' of `bycolors'
-		   local plotcond ""
+	       local plotcond ""
 		   if ("`plotxrange'"!=""|"`plotyrange'"!="") {
 		      local plotcond if
 		      if ("`plotxrange'"!="") {
@@ -1886,7 +1969,7 @@ program define binsqreg, eclass
 		      }
 		   }
 
-	       local plotcmdby (rarea CB_l CB_r CB_x ///
+		   local plotcmdby (rarea CB_l CB_r CB_x ///
 		                   `plotcond' in `cb_first'/`cb_last', sort cmissing(n) ///
 		                   lcolor(none%0) fcolor(`col'%50) fintensity(50) `cbplotopt') `plotcmdby'
 	    }
@@ -1925,7 +2008,9 @@ program define binsqreg, eclass
 	    * Plotting
 	    if ("`plot'"=="") {
 		   if (`counter_by'==1) {
-		      di in smcl in gr "Binscatter plot, quantile"
+		      di in smcl in gr "Binscatter plot, generalized linear model"
+			  di in smcl in gr "Family: `glm_family'"
+			  di in smcl in gr "Link: `glm_linkt'"
 	          di in smcl in gr "Bin selection method: `binselectmethod'"
 	          di in smcl in gr "Placement: `placement'"
 	          di in smcl in gr "Derivative: `deriv'"
@@ -1951,6 +2036,7 @@ program define binsqreg, eclass
 	       di in smcl in gr "{ralign 29:Degree of polynomial}"         _col(30) " {c |} " _col(32) as result %7.0f `dots_p'
 	       di in smcl in gr "{ralign 29:# of smoothness constraints}"  _col(30) " {c |} " _col(32) as result %7.0f `dots_s'
 		   }
+
 		   di in smcl in gr "{ralign 29:# of bins}"                       _col(30) " {c |} " _col(32) as result %7.0f `nbins'
 	       if ("`binselectmethod'"!="User-specified") {
 		      if ("`binsmethod'"=="ROT") {
@@ -1999,6 +2085,7 @@ program define binsqreg, eclass
 	 capture mata: mata drop `xcatsub'
 	 ****************** END loop ****************************************
 	 ********************************************************************
+
 
 
 	 *******************************************
@@ -2207,7 +2294,7 @@ program define binsqreg, eclass
 	 * by group:
 	 *ereturn matrix knot=`kmat'
 	 ereturn matrix cval_by=`cvallist'
-     ereturn matrix nbins_by=`nbinslist'
+	 ereturn matrix nbins_by=`nbinslist'
 	 ereturn matrix Nclust_by=`Nclustlist'
 	 ereturn matrix Ndist_by=`Ndistlist'
 	 ereturn matrix N_by=`Nlist'
@@ -2216,18 +2303,25 @@ program define binsqreg, eclass
 	 ereturn matrix imse_bsq_rot=`mat_imse_bsq_rot'
 	 ereturn matrix	imse_var_dpi=`mat_imse_var_dpi'
 	 ereturn matrix imse_bsq_dpi=`mat_imse_bsq_dpi'
+	 ereturn local family `"`glm_report_family'"'
+	 ereturn local link `"`glm_report_link'"'
+	 ereturn local cmd "binsglm"
 end
 
 * Helper commands
 * Estimation
-program define binsqreg_fit, eclass
+program define binsglm_fit, eclass
      version 16
-     syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, quantile(numlist min=1 max=1 >=0 <=1) ///
-	        deriv(integer 0) p(integer 0) s(integer 0) type(string) vce(passthru)  ///
+     syntax varlist(min=2 numeric ts fv) [if] [in] [fw aw pw] [, deriv(integer 0) ///
+	        p(integer 0) s(integer 0) type(string) vce(passthru)  ///
 			xcat(varname numeric) kmat(name) dotsmean(integer 0) ///        /* xmean: report x-mean? */
 			xname(name) yname(name) catname(name) edge(name) ///
-			usereg sorted boot(string) reps(string) usegtools qregopt(string asis) ///
-			precision(string)]                                             /* usereg: force the command to use reg; sored: sorted data? */
+			usereg sorted usegtools family(string asis) linkfunction(string asis) ///
+			glmopt(string asis) precision(string)] /* usereg: force the command to use reg; sorted: sorted data? */
+
+	 if (`"`family'"'==`""') local family "gaussian"
+	 local glmlinkopt ""
+	 if (`"`linkfunction'"'!=`""') local glmlinkopt `"link(`linkfunction')"'
 
 	 local precision = lower("`precision'")
 	 if ("`precision'"=="") local precision "double"
@@ -2249,223 +2343,275 @@ program define binsqreg_fit, eclass
 	 local x_var `2'
 	 macro shift 2
 	 local w_var "`*'"
-
-	 if ("`w_var'"==""&`p'==0&("`type'"=="dots"|"`type'"=="line")&"`usereg'"=="") {
-	    local ymeanON "T"
-	 }
-	 else {
-	    local ymeanON "F"
-	 }
 	 local nbins=rowsof(`kmat')-1
 
 	 tempname matxmean temp_b temp_V
+	 local glm_link ""
+	 local glm_linkt ""
+	 local glm_family ""
+	 local glm_m ""
+	 local glm_power=.
 	 mat `matxmean'=.
 	 mat `temp_b'=.
 	 mat `temp_V'=.
-	 if (`dotsmean'!=0|"`ymeanON'"=="T") {
-	    if ("`sorted'"==""|"`weight'"!=""|"`usegtools'"!="") {
-		   local stat="p"+"`=round(`quantile'*100)'"
 
-		   if ("`usegtools'"=="") {
+	 if (`dotsmean'!=0) {
+	    if ("`sorted'"==""|"`weight'"!=""|"`usegtools'"!="") {
+	       if ("`usegtools'"=="") {
 		      tempname workframe
 		      local curframe "`c(frame)'"
 		      frame copy `curframe' `workframe'
 
 		      frame `workframe' {
-			     if (`dotsmean'!=0&"`ymeanON'"=="T") {
-	                collapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
-		            mkmat `xcat' `x_var', matrix(`matxmean')
-		            mkmat `y_var', matrix(`temp_b')
-				    mat `temp_b'=`temp_b''               /* row vector */
-		         }
-		         else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		            collapse (mean) `x_var' `wt', by(`xcat') fast
-		            mkmat `xcat' `x_var', matrix(`matxmean')
-		         }
-		         else {
-		            collapse (`stat') `y_var' `wt', by(`xcat') fast
-		            mkmat `y_var', matrix(`temp_b')
-		            mat `temp_b'=`temp_b''
-		         }
+		         collapse (mean) `x_var' `wt', by(`xcat') fast
+		         mkmat `xcat' `x_var', matrix(`matxmean')
 		      }
+
 		      frame drop `workframe'
 		   }
 		   else {
-		   	  tempname obj
-		      if (`dotsmean'!=0&"`ymeanON'"=="T") {
-			     tempname workframe
-		         local curframe "`c(frame)'"
-		         frame copy `curframe' `workframe'
-
-		         frame `workframe' {
-				    gcollapse (`stat') `y_var' (mean) `x_var' `wt', by(`xcat') fast
-		            mkmat `xcat' `x_var', matrix(`matxmean')
-		            mkmat `y_var', matrix(`temp_b')
-				    mat `temp_b'=`temp_b''               /* row vector */
-				 }
-
-				 frame drop `workframe'
-		      }
-		      else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		         qui gstats tabstat `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
-				 mata: st_matrix("`matxmean'", (`obj'.getnum(.,1), `obj'.getOutputVar("`x_var'")))
-		         mata: mata drop `obj'
-			  }
-		      else {
-		         qui gstats tabstat `y_var' `wt', stats(`stat') by(`xcat') matasave("`obj'")
-		         mata: st_matrix("`temp_b'", `obj'.getOutputVar("`y_var'")')
-		         mata: mata drop `obj'
-			  }
+		      tempname obj
+		      qui gstats tabstat `x_var' `wt', stats(mean) by(`xcat') matasave("`obj'")
+			  mata: st_matrix("`matxmean'", (`obj'.getnum(.,1), `obj'.getOutputVar("`x_var'")))
+		      mata: mata drop `obj'
 		   }
 		}
 		else {
 		   tempname output
-		   if (`dotsmean'!=0&"`ymeanON'"=="T") {
-		      mata: `output'=binsreg_stat(`yname', `catname', `nbins', `edge', "quantile", `quantile'); ///
-			        st_matrix("`temp_b'", `output'[.,2]'); ///
-					`output'=binsreg_stat(`xname', `catname', `nbins', `edge', "mean", -1); ///
-					st_matrix("`matxmean'", `output'[.,1..2])
-		   }
-		   else if (`dotsmean'!=0&"`ymeanON'"!="T") {
-		      mata: `output'=binsreg_stat(`xname', `catname', `nbins', `edge', "mean", -1); ///
-					st_matrix("`matxmean'", `output')
-		   }
-		   else {
-		      mata: `output'=binsreg_stat(`yname', `catname', `nbins', `edge', "quantile", `quantile'); ///
-			        st_matrix("`temp_b'", `output'[.,2]')
-		   }
+		   mata: `output'=binsreg_stat(`xname', `catname', `nbins', `edge', "mean", -1); ///
+				 st_matrix("`matxmean'", `output')
 		   mata: mata drop `output'
 		}
 	 }
 
 	 * Regression?
-	 if ("`ymeanON'"!="T") {
-	    if (`p'==0) {
-		   if ("`boot'"=="on") {
-		      capture bsqreg `y_var' ibn.`xcat' `w_var', quantile(`quantile') reps(`reps')
-		   }
-		   else {
-		      capture qreg `y_var' ibn.`xcat' `w_var' `wt', quantile(`quantile') `vce' `qregopt'
-		   }
-		   if (_rc==0) {
-		      matrix `temp_b'=e(b)
-		      matrix `temp_V'=e(V)
-			  mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nbins', "T")
-		   }
-		   else {
-		      error _rc
-			  exit _rc
-		   }
-		}
-		else {
-	       local nseries=(`p'-`s'+1)*(`nbins'-1)+`p'+1
-	       local series ""
-	       forvalues i=1/`nseries' {
-	          tempvar sp`i'
-	          local series `series' `sp`i''
-		      qui gen `precision_type' `sp`i''=. in 1
-	       }
-
-		   mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
-
-		   if ("`boot'"=="on") {
-		      capture bsqreg `y_var' `series' `w_var', quantile(`quantile') reps(`reps')
-		   }
-		   else {
-		      capture qreg `y_var' `series' `w_var' `wt', quantile(`quantile') `vce' `qregopt'
-	       }
-		   * store results
-	       if (_rc==0) {
-		      matrix `temp_b'=e(b)
-		      matrix `temp_V'=e(V)
-			  mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nseries', "T")
-	       }
-	       else {
-	          error  _rc
-	   	      exit _rc
-           }
-	    }
+	 if (`p'==0) {
+		 capture glm `y_var' ibn.`xcat' `w_var' `wt', nocon family(`family') `glmlinkopt' `vce' `glmopt'
+		 if (_rc==0) {
+		    binsglm_checklink
+			local glm_link `"`r(link)'"'
+			local glm_linkt `"`r(linkt)'"'
+			local glm_family `"`r(family)'"'
+			local glm_m `"`r(m)'"'
+			local glm_power=r(power)
+		    matrix `temp_b'=e(b)
+		    matrix `temp_V'=e(V)
+		 }
+		 else {
+		    error _rc
+			exit _rc
+		 }
 	 }
+	 else {
+	     local nseries=(`p'-`s'+1)*(`nbins'-1)+`p'+1
+	     local series ""
+	     forvalues i=1/`nseries' {
+	        tempvar sp`i'
+	        local series `series' `sp`i''
+		    qui gen `precision_type' `sp`i''=. in 1
+	     }
+
+		 mata: binsreg_st_spdes(`xname', "`series'", "`kmat'", `catname', `p', 0, `s')
+
+		 capture glm `y_var' `series' `w_var' `wt', nocon family(`family') `glmlinkopt' `vce' `glmopt'
+	     * store results
+	     if (_rc==0) {
+		    binsglm_checklink
+			local glm_link `"`r(link)'"'
+			local glm_linkt `"`r(linkt)'"'
+			local glm_family `"`r(family)'"'
+			local glm_m `"`r(m)'"'
+			local glm_power=r(power)
+		    matrix `temp_b'=e(b)
+		    matrix `temp_V'=e(V)
+			mata: binsreg_checkdrop("`temp_b'", "`temp_V'", `nseries')
+	     }
+	     else {
+	        error  _rc
+		    exit _rc
+         }
+	 }
+
 
 	 ereturn clear
 	 ereturn matrix bmat=`temp_b'
 	 ereturn matrix Vmat=`temp_V'
 	 ereturn matrix xmat=`matxmean'         /* xcat, xbar */
-	 ereturn local  spmethod "`ymeanON'"
+	 ereturn local link `"`glm_link'"'
+	 ereturn local linkt `"`glm_linkt'"'
+	 ereturn local family `"`glm_family'"'
+	 ereturn local m `"`glm_m'"'
+	 ereturn scalar power=`glm_power'
+end
+
+program define binsglm_checklink, rclass
+     version 16
+	 local glm_link `"`e(link)'"'
+	 if (!inlist(`"`glm_link'"', "glim_l01", "glim_l02", "glim_l03", "glim_l05", "glim_l06", "glim_l07", "glim_l08", "glim_l09", "glim_l10") & ///
+	     !inlist(`"`glm_link'"', "glim_l11", "glim_l12")) {
+	    di as error "The GLM link selected by glm is not supported by binsglm."
+		exit 198
+	 }
+	 if (`"`e(m)'"'!=`"1"') {
+	    di as error "Binomial denominators other than one are not supported by binsglm."
+		exit 198
+	 }
+	 return local link `"`glm_link'"'
+	 return local linkt `"`e(linkt)'"'
+	 return local family `"`e(varfunct)'"'
+	 return local m `"`e(m)'"'
+	 local glm_power `"`e(power)'"'
+	 if (`"`glm_power'"'==`""') local glm_power=.
+	 return scalar power=`glm_power'
 end
 
 mata:
 
   // Prediction for plotting
-  real matrix binsqreg_plotmat(string scalar eb, string scalar eV, real scalar cval, ///
-                               string scalar knotname, real scalar J, ///
-                               real scalar p, real scalar s, real scalar deriv, ///
-                               string scalar type, real scalar ngrid, string scalar muwmat, ///
-                               real scalar nw, string scalar spmethod, string scalar avar, | string scalar muxmat)
+  real matrix binsglm_plotmat(string scalar eb, string scalar eV, real scalar cval, ///
+                                string scalar knotname, real scalar J, ///
+                                real scalar p, real scalar s, real scalar deriv, ///
+                                string scalar type, real scalar ngrid, string scalar muwmat, ///
+							    real scalar nw, string scalar transform, string scalar avar, ///
+								string scalar link, real scalar power, | string scalar muxmat)
   {
-    real matrix bmat, vmat, knot, xmean, wvec, eval, out, fit, se, Xm, result
+    real matrix coef, bmat, rmat, vmat, knot, xmean, wval, eval, out, fit, fit0, se, semat, Xm, Xm0, result
 	real scalar nseries
 
 	nseries=(p-s+1)*(J-1)+p+1
-	bmat=st_matrix(eb)'
+	coef=st_matrix(eb)'
+	bmat=coef[|1\nseries|]
+	if (nw>0) rmat=coef[|(nseries+1)\rows(coef)|]
 
-	if (type=="ci"|type=="cb") vmat=st_matrix(eV)
+	if (type=="ci"|type=="cb") {
+	   vfull=st_matrix(eV)
+	   vmat=vfull[|1,1\nseries,nseries|]
+	}
 
     // Prepare evaluation points
     eval=J(0,3,.)
-    if (args()==15) {
+    if (args()==17) {
 	   xmean=st_matrix(muxmat)
        eval=(eval \ (xmean[,2], J(J, 1, 0), xmean[,1]))
     }
-    if (ngrid!=0) eval=(eval \ binsreg_grids(knotname, ngrid))
+    if (ngrid!=0) {
+	   eval=(eval \ binsreg_grids(knotname, ngrid))
+    }
 
-	// import w variables and the CONSTANT!!!
-	if (nw>0) wvec=(st_matrix(muwmat), 1)
-	else      wvec=1
+	// adjust w variables
+	if (nw>0) {
+	   wvec=st_matrix(muwmat)
+       wval=wvec*rmat
+	}
+	else wval=0
 
 	fit=J(0,1,.)
 	se=J(0,1,.)
-	if (spmethod=="T") {
-	   if (args()==15) fit=(fit \ bmat)
+	if (p==0) {
+	   if (args()==17) fit=(fit \ bmat)
 	   if (ngrid!=0) {
-	      fit=(fit \ (bmat#(J(ngrid,1,1)\.)))
-		  fit=fit[|1 \ (rows(fit)-1)|]
+	     fit=(fit \ (bmat#(J(ngrid,1,1)\.)))
+		 fit=fit[|1 \ (rows(fit)-1)|]
 	   }
-	   out=(eval, fit)
+	   if (type=="ci"|type=="cb") {
+	      if (avar=="on") semat=sqrt(diagonal(vmat))
+		  else {
+		     if (nw>0) {
+			    Xm=(I(nseries), J(nseries,1,1)#wvec)
+				semat=sqrt(rowsum((Xm*vfull):*Xm))
+			 }
+			 else semat=sqrt(diagonal(vmat))
+		  }
+		  if (args()==17) se=(se \ semat)
+		  if (ngrid!=0) {
+		     se=(se \ (semat#(J(ngrid,1,1)\.)))
+		     se=se[|1 \ (rows(se)-1)|]
+		  }
+	   }
+	   if (type=="dots"|type=="line") {
+	      if (transform=="T") out=(eval, binsreg_linkinv(fit:+wval, link, power))
+		  else                out=(eval, fit:+wval)
+	   }
+	   else {
+	      if (transform=="T") out=(eval, binsreg_linkinv(fit:+wval, link, power)-(binsreg_linkinv1(fit:+wval, link, power):*se)*cval, ///
+		                                 binsreg_linkinv(fit:+wval, link, power)+(binsreg_linkinv1(fit:+wval, link, power):*se)*cval)
+		  else                out=(eval, (fit:+wval)-se*cval, (fit:+wval)+se*cval)
+	   }
 	}
 	else {
 	   Xm=binsreg_spdes(eval[,1], knotname, eval[,3], p, deriv, s)
-
 	   if (type=="dots"|type=="line") {
-	      if (deriv==0) {
-		     Xm=(Xm, J(rows(Xm), 1, 1)#wvec)
+	      if (transform=="T") {
 		     fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
+		     if (deriv==0) {
+			    fit=binsreg_linkinv(fit:+wval, link, power)
+			 }
+			 if (deriv==1) {
+			    Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
+			    fit0=binsreg_pred(Xm0, bmat, ., "xb")[,1]
+			    fit=binsreg_linkinv1(fit0:+wval, link, power):*fit
+			 }
+			 out=(eval, fit)
 		  }
 		  else {
-		     fit=binsreg_pred(Xm, bmat[|1 \ nseries|], ., "xb")[,1]
-	      }
-		  out=(eval, fit)
+	         fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
+			 if (deriv==0) out=(eval, fit:+wval)
+			 else          out=(eval, fit)
+		  }
 	   }
 	   else {
-	      if (deriv==0) {
-		     if (avar=="on") {
-		        vmat=(vmat[|1,1 \ nseries, nseries|], vmat[|1,cols(vmat) \ nseries, cols(vmat)|] \ ///
-			          vmat[|rows(vmat),1 \ rows(vmat), nseries|], vmat[rows(vmat), cols(vmat)])
-		        se=binsreg_pred((Xm, J(rows(Xm),1,1)), ., vmat, "se")[,2]
-		        Xm=(Xm, J(rows(Xm), 1, 1)#wvec)
-		        fit=binsreg_pred(Xm, bmat, ., "xb")[,1]
-			    out=(eval, fit-cval*se, fit+cval*se)
+	      if (avar=="on") {
+		     result=binsreg_pred(Xm, bmat, vmat, "all")
+	         if (transform=="T") {
+			    Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
+			    fit0=binsreg_pred(Xm0, bmat, ., "xb")[,1]
+		        result[,2]=binsreg_linkinv1(fit0:+wval, link, power):*result[,2]
+
+		        if (deriv==0) {
+			       result[,1]=binsreg_linkinv(result[,1]:+wval, link, power)
+			    }
+			    else if (deriv==1) {
+			       result[,1]=binsreg_linkinv1(fit0:+wval, link, power):*result[,1]
+			    }
+
+			    out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+		     }
+		     else {
+		        if (deriv==0) out=(eval, (result[,1]:+wval)-cval*result[,2], (result[,1]:+wval)+cval*result[,2])
+			    else          out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
+	         }
+		  }
+		  else {
+		     result=binsreg_pred(Xm, bmat, vmat, "all")
+		     if (transform=="T") {
+				if (deriv==0) {
+				   if (nw>0) Xm=(Xm, J(rows(Xm),1,1)#wvec)
+				   result[,2]=binsreg_linkinv1(result[,1]:+wval, link, power):*sqrt(rowsum((Xm*vfull):*Xm))
+				   result[,1]=binsreg_linkinv(result[,1]:+wval, link, power)
+				}
+				if (deriv==1) {
+				   Xm0=binsreg_spdes(eval[,1], knotname, eval[,3], p, 0, s)
+				   if (nw>0) {
+				      Xm0=(Xm0, J(rows(Xm0),1,1)#wvec)
+					  Xm=(Xm, J(rows(Xm),nw,0))
+				   }
+			       fit0=binsreg_pred(Xm0, coef, ., "xb")[,1]
+				   Xm=binsreg_linkinv2(fit0, link, power):*result[,1]:*Xm0 + ///
+				      binsreg_linkinv1(fit0, link, power):*Xm
+				   result[,2]=sqrt(rowsum((Xm*vfull):*Xm))
+				   result[,1]=binsreg_linkinv1(fit0, link, power):*result[,1]
+				}
+				out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
 			 }
 			 else {
-			    Xm=(Xm, J(rows(Xm), 1, 1)#wvec)
-		        result=binsreg_pred(Xm, bmat, vmat, "all")
+			    if (nw>0) {
+				   if (deriv==0) Xm=(Xm, J(rows(Xm),1,1)#wvec)
+				   else          Xm=(Xm, J(rows(Xm),nw,0))
+				}
+				result=binsreg_pred(Xm, coef, vfull, "all")
 				out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
 			 }
 		  }
-		  else {
-		     result=binsreg_pred(Xm, bmat[|1 \ nseries|], vmat[|1,1 \ nseries, nseries|], "all")
-			 out=(eval, result[,1]-cval*result[,2], result[,1]+cval*result[,2])
-	      }
 	   }
 	}
 
@@ -2480,7 +2626,4 @@ mata:
   }
 
 
-
-
 end
-

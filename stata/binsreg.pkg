@@ -6,8 +6,8 @@ d          Richard K. Crump, richard.crump@gmail.com
 d          Max H. Farrell, mhfarrell@gmail.com
 d          Yingjie Feng, fengyingjiepku@gmail.com
 d
-d Date: 27-MAY-2026
-d Distribution-Date: 20260527
+d Date: 20-AUG-2026
+d Distribution-Date: 20260820
 d
 f binsreg.ado
 f binsreg.sthlp
@@ -17,6 +17,8 @@ f binslogit.ado
 f binslogit.sthlp
 f binsprobit.ado
 f binsprobit.sthlp
+f binsglm.ado
+f binsglm.sthlp
 f binsregselect.ado
 f binsregselect.sthlp
 f binstest.ado

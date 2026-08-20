@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 27-MAY-2026}{...}
+{* *! version 2.2 20-AUG-2026}{...}
 {viewerjumpto "Syntax" "binsprobit##syntax"}{...}
 {viewerjumpto "Description" "binsprobit##description"}{...}
 {viewerjumpto "Options" "binsprobit##options"}{...}
@@ -53,6 +53,9 @@ If the binning scheme is not set by the user, the companion command {help binsre
 Hypothesis testing for parametric specifications of and shape restrictions on the regression function can be conducted via the
 companion command {help binstest:binstest}. Hypothesis testing for pairwise group comparisons can be conducted via the
 companion command {help binspwc: binspwc}. Binscatter estimation based on the least squares method can be conducted via the command {help binsreg: binsreg}.
+{p_end}
+
+{p 4 8} The generalized interface {help binsglm:binsglm} with {cmd:family(binomial)} and {cmd:link(probit)} fits the same binscatter model and also supports other GLM families and links.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1 27-MAY-2026}{...}
+{* *! version 2.2 20-AUG-2026}{...}
 {viewerjumpto "Syntax" "binspwc##syntax"}{...}
 {viewerjumpto "Description" "binspwc##description"}{...}
 {viewerjumpto "Options" "binspwc##options"}{...}
@@ -18,8 +18,8 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 12} {cmdab:binspwc} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} {cmd:,} {opt by(varname)} [{p_end}2024
-{p 12 12} {opt estmethod(cmdname)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
+{p 4 12} {cmdab:binspwc} {depvar} {it:indvar} [{it:othercovs}] {ifin} {weight} {cmd:,} {opt by(varname)} [{p_end}
+{p 12 12} {opt estmethod(cmdname)} {opt family(family)} {opt link(link)} {opt deriv(v)} {opt at(position)} {opt nolink}{p_end}
 {p 12 12} {opt absorb(absvars)} {opt reghdfeopt(reghdfe_option)}{p_end}
 {p 12 12} {opt pwc(pwcopt)} {opt testtype(type)} {opt lp(metric)}{p_end}
 {p 12 12} {opt bins(p s)} {opt bynbins(bynbinsopt)} {opt binspos(position)} {opt binsmethod(method)} {opt nbinsrot(#)} {opt samebinsby} {opt randcut(#)}{p_end}
@@ -44,7 +44,7 @@ satisfying 0 <= s,v <= p, which can take different values in each case.{p_end}
 If the binning scheme is not set by the user, the companion command {help binsregselect:binsregselect} is used to implement binscatter
 in a data-driven (optimal) way and inference procedures are based on robust bias correction.
 Binned scatter plots based on different models can be constructed using the companion commands {help binsreg:binsreg},
-{help binsqreg: binsqreg}, {help binslogit:binslogit} and {help binsprobit:binsprobit}.
+{help binsqreg: binsqreg}, {help binslogit:binslogit}, {help binsprobit:binsprobit}, and {help binsglm:binsglm}.
 {p_end}
 
 {p 4 8} A detailed introduction to this command is given in
@@ -55,7 +55,8 @@ Companion R and Python packages with the same capabilities are available (see we
 {p 4 8} Companion commands: {help binsreg:binsreg} for binscatter least squares regression with robust inference procedures and plots,
 {help binsqreg:binsqreg} for binscatter quantile regression with robust inference procedures and plots,
 {help binslogit:binslogit} for binscatter logit estimation with robust inference procedures and plots,
-{help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots, and
+{help binsprobit:binsprobit} for binscatter probit estimation with robust inference procedures and plots,
+{help binsglm:binsglm} for generalized linear model binscatter estimation with robust inference procedures and plots, and
 {help binsregselect:binsregselect} for data-driven (optimal) binning selection.{p_end}
 
 {p 4 8} Related Stata, R and Python packages are available in the following website:{p_end}
@@ -78,7 +79,13 @@ This option is required.
 {p 4 8} {opt estmethod(cmdname)} specifies the binscatter model. The default is {cmd:estmethod(reg)},
 which corresponds to the binscatter least squares regression. Other options are:
 {cmd:estmethod(qreg #)} for binscatter quantile regression where # is the quantile to be estimated,
-{cmd:estmethod(logit)} for binscatter logistic regression and {cmd:estmethod(probit)} for binscatter probit regression.
+{cmd:estmethod(logit)} for binscatter logistic regression, {cmd:estmethod(probit)} for binscatter probit regression,
+and {cmd:estmethod(glm)} for a generalized linear model. Specifying {opt family()} or {opt link()} without {opt estmethod()} selects {cmd:estmethod(glm)}.
+{p_end}
+
+{p 4 8} {opt family(family)} and {opt link(link)} specify the built-in {help glm:glm} family and link when
+{cmd:estmethod(glm)} is used. Supported families and links match {help binsglm:binsglm}.
+Only unit-denominator binomial models are supported, including binary or fractional outcomes on [0,1], and the canonical negative-binomial link is not supported.
 {p_end}
 
 {p 4 8} {opt deriv(v)} specifies the derivative order of the regression function for estimation, testing and plotting.
@@ -94,8 +101,8 @@ median of {it:othercovs}, {cmd:at(0)} for zeros, and {cmd:at(filename)} for part
 are excluded from the evaluation (set as zero).
 {p_end}
 
-{p 4 8}{opt nolink} specifies that the function within the inverse link (logistic) function be reported instead of
-the conditional probability function. This option is used only if logit or probit model is specified in {cmd:estmethod()}.
+{p 4 8}{opt nolink} specifies that pairwise comparisons use the linear-index scale instead of applying the inverse link.
+This option is available for logit, probit, and GLM models.
 {p_end}
 
 {dlgtab:Reghdfe}
@@ -237,7 +244,7 @@ In other words, forces the command to proceed as if the mass point and degrees o
 
 {p 4 8} {cmd:vce(}{it:{help vcetype}}{cmd:)} specifies the {it:vcetype} for variance estimation used by
 the commands {help regress##options:regress},
-{help logit##options:logit}, {help probit##options:probit}, {help qreg##qreg_options:qreg} or {cmd:reghdfe}.
+{help logit##options:logit}, {help probit##options:probit}, {help glm##options:glm}, {help qreg##qreg_options:qreg} or {cmd:reghdfe}.
 The default is {cmd:vce(robust)}.
 {p_end}
 
@@ -249,6 +256,8 @@ Default is {cmd:asyvar(off)}, that is, the uncertainty related to {it:othercovs}
 
 {p 4 8} {opt estmethodopt(cmd_option)} options to be passed on to the estimation command specified in {cmd:estmethod()}.
 For example, options that control for the optimization process can be added here.
+When {cmd:estmethod(glm)} is used, specify the family and link through {opt family()} and {opt link()}.
+The GLM {cmd:offset()} and {cmd:exposure()} options are not supported.
 {p_end}
 
 {p 4 8}{opt usegtools(on/off)} forces the use of several commands in the community-distributed Stata package
@@ -277,6 +286,9 @@ Stata matrix and Mata computations remain double precision in either case.
 {p 4 8} Test for the difference between two groups{p_end}
 {p 8 8} . {stata binspwc mpg weight foreign, by(group)}{p_end}
 
+{p 4 8} Compare binomial-logit conditional means across groups{p_end}
+{p 8 8} . {stata binspwc foreign weight mpg, by(group) family(binomial) link(logit)}{p_end}
+
 
 {marker stored_results}{...}
 {title:Stored results}
@@ -287,6 +299,9 @@ Stata matrix and Mata computations remain double precision in either case.
 {synopt:{cmd:e(p)}}degree of polynomial for bin selection{p_end}
 {synopt:{cmd:e(s)}}smoothness of polynomial for bin selection{p_end}
 {p2col 5 17 21 2: Macros}{p_end}
+{synopt:{cmd:e(estmethod)}}estimation method{p_end}
+{synopt:{cmd:e(family)}}GLM family, when applicable{p_end}
+{synopt:{cmd:e(link)}}link, when applicable{p_end}
 {synopt:{cmd:e(byvalue)}}name of groups found in {cmd:by()}{p_end}
 {p2col 5 17 21 2: Matrices}{p_end}
 {synopt:{cmd:e(N_by)}}number of observations for each group{p_end}
