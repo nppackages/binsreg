@@ -1002,7 +1002,17 @@ binstest <- function(y, x, w=NULL, data=NULL, estmethod="reg", family=gaussian()
       for (j in deriv:testmodelpoly) {
           poly.fit <- poly.fit + x.grid^(j-deriv)*beta.poly[j+1]*factorial(j)/factorial(j-deriv)
       }
-      if (!is.null(eval.w) & deriv==0) poly.fit <- poly.fit + sum(eval.w * beta.poly[-(1:(testmodelpoly+1))])
+      if (deriv==0) {
+        if (!is.null(eval.w)) poly.fit <- poly.fit + sum(eval.w * beta.poly[-(1:(testmodelpoly+1))])
+        if (estmethod=="glm" & (!nolink)) poly.fit <- linkinv(poly.fit)
+      } else if (deriv==1 & estmethod=="glm" & (!nolink)) {
+        poly.fit.0 <- 0
+        for (j in 0:testmodelpoly) {
+          poly.fit.0 <- poly.fit.0 + x.grid^j*beta.poly[j+1]
+        }
+        if (!is.null(eval.w)) poly.fit.0 <- poly.fit.0 + sum(eval.w * beta.poly[-(1:(testmodelpoly+1))])
+        poly.fit <- linkinv.1(poly.fit.0) * poly.fit
+      }
 
       stat.poly[1,2] <- 3
       if (is.infinite(lp)) stat.poly[1,1] <- max(abs((fit.mod - poly.fit) / se.mod))

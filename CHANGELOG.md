@@ -2,6 +2,11 @@
 
 Notable project changes are listed from newest to oldest.
 
+## 2026-08-20 - Nonlinear Specification-Test Corrections
+
+- Fixed R and Python `binstest` polynomial specification tests for generalized linear models so response-scale tests transform the polynomial null fit through the inverse link, including the chain-rule adjustment for first derivatives. Index-scale tests requested with `nolink=TRUE` are unchanged, and the corrected behavior now matches the nonlinear binscatter methodology and the Stata implementation.
+- Added fixed-seed R and Python regression tests covering response-level, index-level, and response-scale first-derivative polynomial tests with covariate adjustment.
+
 ## 2026-05-22 - Nonlinear Performance Follow-up
 
 - Added a narrow R fast covariance path for internal fixed-dispersion GLM fits with `vce="HC1"` and one-way or no clustering, matching `sandwich::vcovCL()` to numerical precision while reducing `binsglm` logit/probit runtime.

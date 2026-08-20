@@ -954,8 +954,18 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             poly_fit = 0
             for j in range(deriv,testmodelpoly+1):
                 poly_fit += x_grid**(j-deriv)*beta_poly[j]*factorial(j)/factorial(j-deriv)
-            if eval_w is not None and deriv==0:
-                 poly_fit += np.sum(eval_w * beta_poly[testmodelpoly+1:])
+            if deriv == 0:
+                if eval_w is not None:
+                    poly_fit += np.sum(eval_w * beta_poly[testmodelpoly+1:])
+                if estmethod == "glm" and not nolink:
+                    poly_fit = linkinv(poly_fit)
+            elif deriv == 1 and estmethod == "glm" and not nolink:
+                poly_fit_0 = 0
+                for j in range(testmodelpoly+1):
+                    poly_fit_0 += x_grid**j * beta_poly[j]
+                if eval_w is not None:
+                    poly_fit_0 += np.sum(eval_w * beta_poly[testmodelpoly+1:])
+                poly_fit = linkinv_1(poly_fit_0) * poly_fit
 
             stat_poly[0,1] = 3
             if np.isfinite(lp): stat_poly[0,0] = np.mean(np.abs((fit_mod - poly_fit) / se_mod)**lp)**(1/lp)
