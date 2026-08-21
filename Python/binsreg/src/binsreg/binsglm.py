@@ -1149,7 +1149,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 elif at=="median":
                     eval_w = colWeightedMedians(x=w_sub, w=weights_sub)
                 elif at=="zero": eval_w = np.zeros(nwvar)
-            else: eval_w = np.array(at).reshape(-1,1)
+            else: eval_w = np.asarray(at).reshape(-1)
         else: eval_w = None
 
         ##################################
@@ -1171,7 +1171,9 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 dots_x = (knot[1:]+knot[:-1])/2
                 xcat_few  = FindInterval(x_sub,knot)
 
-            design = binsreg_spdes(x=x_sub, p=0, s=0, deriv=0, knot=xcat_few)
+            design = binsreg_spdes(
+                x=x_sub, p=0, s=0, deriv=0, knot=knot, bin_ind=xcat_few
+            )
             if w_sub is not None: design = np.column_stack((design,w_sub))
             model = binsreg_fit(y=y, x=design, family=family, weights = weights_sub,
                                 cov_type = vce, cluster = cluster_sub, **optimize)
@@ -1184,7 +1186,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             if eval_w is not None:
                 coeff_w = model.params[k:]
                 coeff_w[np.isnan(coeff_w)] = 0
-                dots_fit += dots_fit + np.sum(eval_w * coeff_w)
+                dots_fit = dots_fit + np.dot(eval_w, coeff_w)
                 dots_fit_0  = dots_fit.copy()
             
             if not nolink: dots_fit = linkinv(dots_fit)
@@ -1199,7 +1201,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 basis_all = np.identity(len(dots_x))
                 if eval_w is not None:
                     basis_all = np.column_stack((basis_all, np.outer(np.repeat(1, len(dots_x)), eval_w)))
-                dots_se  = np.sqrt(np.sum(np.matmul(basis_all,vcv) * basis_all,0))
+                dots_se  = np.sqrt(np.sum(np.matmul(basis_all,vcv) * basis_all,1))
                 if not nolink: dots_se = linkinv_1(dots_fit_0) * dots_se
                 ci_arm = norm.ppf(alpha)*dots_se
                 ci_l = dots_fit - ci_arm
@@ -1279,7 +1281,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
 
             line_reg_ON = True
             if dotsON:
-                if line_p==dots_p & line_s==dots_s:
+                if line_p == dots_p and line_s == dots_s:
                     model_line = model_dots
                     line_reg_ON = False
             if line_reg_ON:
@@ -1343,7 +1345,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                 if deriv == 1:
                     poly_fit_0 = 0
                     for j in range(polyreg+1):
-                        poly_fit_0 += poly_x**j * beta_poly[j+1]
+                        poly_fit_0 += poly_x**j * beta_poly[j]
                     if eval_w is not None:
                         poly_fit_0 +=  np.sum(beta_poly[polyreg+1:]*eval_w)
                     poly_fit  = linkinv_1(poly_fit_0) * poly_fit
@@ -1388,12 +1390,16 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
                         basis_polyci_0[:,j] = polyci_x**j
                     if eval_w is not None:
                         basis_polyci_0 = np.column_stack((basis_polyci_0, np.outer(np.ones(npolyci_x), eval_w)))
-                    polyci_fit_0 = linkinv_1(np.matmul(basis_polyci_0,beta.poly))
+                    polyci_fit_0 = linkinv_1(np.matmul(basis_polyci_0,beta_poly))
                     if deriv == 0:
-                        polyci_fit = linkinv(polyci_fit[0])
+                        polyci_fit = linkinv(polyci_fit)
                         polyci_se  = polyci_fit_0 * polyci_se
                     if deriv == 1:
-                        basis_all = linkinv_2(np.matmul(basis_polyci_0,beta_poly))*polyci_fit*basis_polyci_0 + polyci_fit_0*basis_polyci
+                        basis_all = (
+                            (linkinv_2(np.matmul(basis_polyci_0, beta_poly)) * polyci_fit)[:, None]
+                            * basis_polyci_0
+                            + polyci_fit_0[:, None] * basis_polyci
+                        )
                         polyci_fit = polyci_fit_0 * polyci_fit
                         polyci_se  = binsreg_pred(basis_all, model=model_poly, type="se",
                                                   avar=True, vcv=vcv_poly)[1]
@@ -1511,18 +1517,18 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             cb_reg_ON = True
             vcv_cb = None
             if ciON:
-                if cb_p==ci_p & cb_s==ci_s:
+                if cb_p == ci_p and cb_s == ci_s:
                     model_cb = model_ci
                     cb_reg_ON = False
                     vcv_cb = vcv_ci
             if cb_reg_ON:
                 if lineON:
-                    if cb_p==line_p & cb_s==line_s:
+                    if cb_p == line_p and cb_s == line_s:
                         model_cb = model_line
                         cb_reg_ON = False
             if cb_reg_ON:
                 if dotsON:
-                    if cb_p==dots_p & cb_s==dots_s:
+                    if cb_p == dots_p and cb_s == dots_s:
                         model_cb = model_dots
                         cb_reg_ON = False
             if cb_reg_ON:
@@ -1577,7 +1583,7 @@ def binsglm(y, x, w=None, data=None, at=None, dist = 'Gaussian', link = None, de
             cb_arm = cval*cb_pred_se
             cb_l = cb_pred_fit - cb_arm
             cb_r = cb_pred_fit + cb_arm
-            if (cb_s == 0 | cb_s - deriv <=0):
+            if cb_s == 0 or cb_s - deriv <= 0:
                 cb_l[cb_isknot==1] = np.nan
                 cb_r[cb_isknot==1] = np.nan
             data_cb = binsreg_output_frame(byvals[i], {'x': cb_x,

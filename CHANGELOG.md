@@ -2,6 +2,14 @@
 
 Notable project changes are listed from newest to oldest.
 
+## 2026-08-21 - Python 3.2.1 Evaluation and Prediction Corrections
+
+- Fixed Python numeric `at` evaluation with multiple controls in `binsglm`, `binsqreg`, `binstest`, and `binspwc` by treating the supplied values as a vector and computing the intended control contribution as a dot product. Added defensive dimension checking in the shared prediction helper.
+- Fixed the Python small-effective-sample plotting path in `binsreg`, `binsglm`, and `binsqreg`: category indicators are now passed as bin assignments, control-adjusted standard errors are computed rowwise, and NumPy-backed fitted coefficients are handled consistently.
+- Fixed additional Python `binsglm` response-scale defects affecting small-sample dots, first-derivative global-polynomial fits, and global-polynomial confidence intervals.
+- Replaced ambiguous scalar bitwise conditions with Boolean conditions in Python degree/smoothness handling, fitted-model reuse, and confidence-band knot masking.
+- Added regression tests covering multiple-control numeric evaluation across the four affected commands, response-level and first-derivative GLM output, small-sample confidence intervals, and nonsmooth confidence-band knots; revalidated the corrected GLM output against Stata 16.
+
 ## 2026-08-20 - Nonlinear Corrections and Stata GLM Support
 
 - Bumped release metadata to R `2.2`, Python `3.2.0`, and Stata `2.2`.

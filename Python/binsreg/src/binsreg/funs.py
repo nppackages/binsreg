@@ -1350,12 +1350,17 @@ def check_drop(beta, k):
 # Internal pred function (model is long regression, NA handled inside)
 def binsreg_pred(X, model, type="xb", deriv=0, wvec=None, avar=False, vcv=None):
     k = ncol(X)
+    if wvec is not None:
+        wvec = np.asarray(wvec).reshape(-1)
+        nwvar = len(model.params) - k
+        if len(wvec) != nwvar:
+            raise ValueError("Length of at not equal to # of w variables.")
     fit = np.nan
     if type == "xb" or type == "all":
         coef = model.params
         coef[np.isnan(coef)] = 0
         if wvec is not None and deriv==0:
-            fit = np.matmul(X,coef[:k]) + np.sum(wvec*coef[k:])
+            fit = np.matmul(X,coef[:k]) + np.dot(wvec,coef[k:])
         else:
             fit = np.matmul(X,coef[:k])
     se = np.nan

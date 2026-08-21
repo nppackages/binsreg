@@ -1150,11 +1150,13 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
                 dots_x = (knot[1:]+knot[:-1])/2
                 xcat_few  = FindInterval(x_sub,knot)
 
-            design = binsreg_spdes(x=x_sub, p=0, s=0, deriv=0, knot=xcat_few)
+            design = binsreg_spdes(
+                x=x_sub, p=0, s=0, deriv=0, knot=knot, bin_ind=xcat_few
+            )
             if w_sub is not None: design = np.column_stack((design,w_sub))
             model = binsreg_fit(y=y, x=design, weights = weights_sub, 
                                 cov_type = vce, cluster = cluster_sub)
-            beta = model.params[:k].values
+            beta = np.asarray(model.params[:k]).copy()
             beta[np.isnan(beta)] = 0
             vcv = model.cov_params()
 
@@ -1173,7 +1175,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
                 basis_all = np.identity(len(dots_x))
                 if eval_w is not None:
                     basis_all = np.column_stack((basis_all, np.outer(np.repeat(1, len(dots_x)), eval_w)))
-                dots_se  = np.sqrt(np.sum(np.matmul(basis_all,vcv) * basis_all,0))
+                dots_se  = np.sqrt(np.sum(np.matmul(basis_all,vcv) * basis_all,1))
                 ci_arm = norm.ppf(alpha)*dots_se
                 ci_l = dots_fit - ci_arm
                 ci_r = dots_fit + ci_arm
@@ -1241,7 +1243,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
 
             line_reg_ON = True
             if dotsON:
-                if line_p==dots_p & line_s==dots_s:
+                if line_p == dots_p and line_s == dots_s:
                     model_line = model_dots
                     line_reg_ON = False
             if line_reg_ON:
@@ -1408,18 +1410,18 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
             cb_reg_ON = True
             vcv_cb = None
             if ciON:
-                if cb_p==ci_p & cb_s==ci_s:
+                if cb_p == ci_p and cb_s == ci_s:
                     model_cb = model_ci
                     cb_reg_ON = False
                     vcv_cb = vcv_ci
             if cb_reg_ON:
                 if lineON:
-                    if cb_p==line_p & cb_s==line_s:
+                    if cb_p == line_p and cb_s == line_s:
                         model_cb = model_line
                         cb_reg_ON = False
             if cb_reg_ON:
                 if dotsON:
-                    if cb_p==dots_p & cb_s==dots_s:
+                    if cb_p == dots_p and cb_s == dots_s:
                         model_cb = model_dots
                         cb_reg_ON = False
             if cb_reg_ON:
@@ -1450,7 +1452,7 @@ def binsreg(y, x, w=None, data=None, at=None, deriv=0,
             cb_arm = cval*cb_se
             cb_l = cb_fit - cb_arm
             cb_r = cb_fit + cb_arm
-            if (cb_s == 0 | cb_s - deriv <=0):
+            if cb_s == 0 or cb_s - deriv <= 0:
                 cb_l[cb_isknot==1] = np.nan
                 cb_r[cb_isknot==1] = np.nan
             data_cb = binsreg_output_frame(byvals[i], {'x': cb_x,

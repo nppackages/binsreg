@@ -766,7 +766,7 @@ def binstest(y, x, w=None, data=None, estmethod="reg", dist= None, link=None,
             elif at=="median":
                 eval_w = colWeightedMedians(x=w, w=weights)
             elif at=="zero": eval_w = np.zeros(nwvar)
-        else: eval_w = np.array(at).reshape(-1,1)
+        else: eval_w = np.asarray(at).reshape(-1)
 
     # seed
     if simsseed is not None: np.random.seed(simsseed)

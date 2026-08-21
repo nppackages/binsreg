@@ -291,10 +291,10 @@ def binsregselect(y, x, w=None, data=None, deriv=0, bins=None, pselect=None, sse
     try: len_s = len(slist)
     except: len_s=0
 
-    if (len_p==1 & len_s==0):
+    if len_p == 1 and len_s == 0:
         slist = plist
         len_s = 1
-    if (len_p==0 & len_s==1):
+    if len_p == 0 and len_s == 1:
         plist = slist
         len_p = 1
 
